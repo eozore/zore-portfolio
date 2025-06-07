@@ -1,0 +1,22 @@
+.header-section {
+  background-color: #282c34; /* Dark background for the entire header */
+  padding: 20px;
+  color: white;
+  text-align: center;
+}
+
+.header-section h1 { /* Targeting h1 within .header-section */
+  margin: 0 0 10px 0;
+  font-size: 2em;
+}
+
+.header-section nav a { /* Targeting nav links within .header-section */
+  color: #61dafb; /* React blue for links */
+  margin: 0 15px;
+  text-decoration: none;
+  font-size: 1.1em;
+}
+
+.header-section nav a:hover {
+  text-decoration: underline;
+}

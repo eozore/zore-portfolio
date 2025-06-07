@@ -1,0 +1,27 @@
+.contact-section {
+  padding: 20px;
+  text-align: center;
+}
+.contact-section__form {
+  display: flex;
+  flex-direction: column;
+  max-width: 400px;
+  margin: auto;
+}
+.contact-section__form input, .contact-section__form textarea {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.contact-section__form button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.contact-section__form button:hover {
+  background-color: #45a049;
+}
