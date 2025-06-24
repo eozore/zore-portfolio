@@ -152,7 +152,7 @@ a {
     flex: 1;
 }
 .hero__text h2 {
-    font-size: 2rem;
+    font-size: 1.7rem;
     font-weight: 400;
     color: var(--text-light);
 }
@@ -191,20 +191,6 @@ a {
     border-radius: 50%;
     border: 10px solid var(--background-color);
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-.hero__image-caption {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: rgba(0,0,0,0.7);
-    color: #fff;
-    padding: 8px 15px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
 }
 
 /* --- SEÇÃO PROJETOS --- */
@@ -455,49 +441,48 @@ a {
 }
 
 /* --- RESPONSIVIDADE --- */
-@media (max-width: 992px) {
+  /* Versão mobile (< 768px) */
+  @media (max-width: 768px) {
+    /* Esconder completamente a foto */
+    .hero__image-wrapper {
+      display: none;
+    }
+  
+    /* Botões empilhados um abaixo do outro */
+    .hero__buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+  
+    /* Manter o restante dos ajustes mobile já existentes */
     h1 { font-size: 2.8rem; }
     h2 { font-size: 2rem; }
-    
-    .header__nav { display: none; } /* Simplificação para tablets */
-
-    .hero__container {
-        flex-direction: column;
-        text-align: center;
+  
+    .projects__grid,
+    .blog__grid {
+      grid-template-columns: 1fr;
     }
-    .hero__text { order: 2; }
-    .hero__image-wrapper { order: 1; margin-bottom: 30px; }
-    .hero__buttons { justify-content: center; }
-    .hero__socials { text-align: center; }
-    
-    .projects__grid, .blog__grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 768px) {
-    .projects__grid, .blog__grid {
-        grid-template-columns: 1fr;
-    }
-
-    /* Ajuste da Linha do Tempo para mobile */
+  
     .timeline::after {
-        left: 31px;
+      left: 31px;
     }
     .timeline__item {
-        width: 100%;
-        padding-left: 70px;
-        padding-right: 15px;
+      width: 100%;
+      padding-left: 70px;
+      padding-right: 15px;
     }
-    .timeline__item--left, .timeline__item--right {
-        left: 0;
+    .timeline__item--left,
+    .timeline__item--right {
+      left: 0;
     }
     .timeline__item::after {
-        left: 21px;
+      left: 21px;
     }
-    
+  
     .footer__container {
-        flex-direction: column;
-        gap: 10px;
+      flex-direction: column;
+      gap: 10px;
     }
 }

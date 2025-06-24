@@ -21,13 +21,11 @@
             <nav class="header__nav">
                 <ul>
                     <li><a href="#home">Home</a></li>
-                    <li><a href="#">Ferramentas</a></li>
                     <li><a href="#projetos">Projetos</a></li>
                     <li><a href="#timeline">Linha do Tempo</a></li>
                     <li><a href="#blog">Blog</a></li>
                 </ul>
             </nav>
-            <a href="#" class="btn btn--primary">Contato</a>
         </div>
     </header>
 
@@ -36,22 +34,21 @@
             <div class="container hero__container">
                 <div class="hero__text">
                     <h1>Prazer, Victor</h1>
-                    <h2>Transformando tecnologia em solução.</h2>
-                    <p>Coordenador, desenvolvedor e entusiasta de machine learning e inteligência artificial. Criador de AINewz, sua newsletter preferida.</p>
+                    <h2>Cientista de negócio</h2>
+                    <p>Junto tecnologia, machine learning e inteligência artificial para criar soluções que resolvem problemas reais. Fundador do AINewz, a newsletter totalmente gerenciada por IA, assine agora!</p>
                     <div class="hero__buttons">
-                        <a href="#projetos" class="btn btn--dark">Ver Projetos <i class="fa-solid fa-arrow-right"></i></a>
-                        <a href="#" class="btn btn--link">Baixar CV</a>
+                        <a href="https://www.ainewz.com.br/" target="_blank" class="btn btn--dark">Conhecer AINewz <i class="fa-solid fa-arrow-right"></i></a>
+                        <a href="#projetos" class="btn btn--dark">Ver projetos</i></a>
+                        <!-- <a href="#" class="btn btn--link">Baixar CV</a> -->
                     </div>
                     <div class="hero__socials">
-                        <a href="#" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
-                        <a href="#" aria-label="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
+                        <a href="https://github.com/Victorzoredev" target="_blank" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+                        <a href="https://www.linkedin.com/in/victor-zor%C3%A9/" target="_blank" aria-label="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
+                        <a href="https://www.youtube.com/@victorzore" target="_blank" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
                     </div>
                 </div>
                 <div class="hero__image-wrapper">
-                    <img src="https://i.imgur.com/gIizG1y.png" alt="Victor em uma foto de astronauta gerada por IA">
-                    <div class="hero__image-caption">
-                        TALVEZ ISSO SEJA CRIADO POR IA
-                    </div>
+                    <img src="image/hero_victor.jpeg" alt="Victor em uma foto de astronauta gerada por IA">
                 </div>
             </div>
         </section>
@@ -60,78 +57,73 @@
             <div class="container">
                 <div class="section-header">
                     <h2>Projetos em Destaque</h2>
-                    <p>Conheça as soluções desenvolvidas durante a minha carreira</p>
-                </div>
-                <div class="filter-buttons">
-                    <button class="filter-btn active" data-filter="todos">Todos</button>
-                    <button class="filter-btn" data-filter="ml">ML</button>
-                    <button class="filter-btn" data-filter="ai">AI</button>
+                    <p>Conheça as principais soluções desenvolvidas durante a minha carreira</p>
                 </div>
                 <div class="projects__grid">
                     <div class="project-card" data-category="ai">
-                        <div class="project-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="project-card__image-placeholder"><img src="image/projeto_ainewz.png" alt="AINewz Projeto" style="width: 100%; height: auto;"></div>  
                         <span class="project-card__tag">AI</span>
-                        <h3>AINewz</h3>
-                        <p>Portal de notícias resumidas por agentes de inteligência artificial.</p>
+                        <h3>AI Newz</h3>
+                        <p>Newsletter escrita por agentes de inteligência artificial e enviada diariamente para o seu email.</p>
                         <div class="project-card__tech">
-                            <span>Flask</span><span>AI</span><span>GCP</span>
+                            <span>Cloud Run (GCP)</span><span>Flask</span><span>SendGrid</span>
                         </div>
-                        <a href="#" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        <a href="https://www.ainewz.com.br/" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
                     <div class="project-card" data-category="ml">
-                        <div class="project-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="project-card__image-placeholder"><img src="image/projeto_churn.png" alt="Churn Projeto" style="width: 100%; height: auto;"></div>
                         <span class="project-card__tag">ML</span>
-                        <h3>Modelo Preditivo de Vendas</h3>
-                        <p>Modelo de regressão para estimar as vendas hora a hora em ecommerce.</p>
+                        <h3>Redução de Churn</h3>
+                        <p>Identificação de usuários com alto risco de churn e recomendação de ações personalizadas de retenção</p>
                         <div class="project-card__tech">
-                            <span>Google Analytics</span><span>Scikit-learn</span><span>Séries Temporais</span>
+                            <span>Scikit-learn</span><span>LTV</span><span>SageMaker(AWS)</span>
                         </div>
                         <a href="#" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
                     <div class="project-card" data-category="ai">
-                        <div class="project-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="project-card__image-placeholder"><img src="image/projeto_aiarticlez.png" alt="AIArticlez Projeto" style="width: 100%; height: auto;"></div>
                         <span class="project-card__tag">AI</span>
-                        <h3>Consultor Literário</h3>
-                        <p>Agente personificado de conversação sobre literatura Brasileira.</p>
+                        <h3>AI Articlez</h3>
+                        <p>Agentes autônomos de inteligência artificial capazes de planejar, redigir e ilustrar conteúdos completos para blogs e redes sociais.</p>
                         <div class="project-card__tech">
-                            <span>AWS</span><span>Python</span><span>RAG</span>
+                            <span>Cloud Run (GCP)</span><span>LLM</span><span>API</span>
                         </div>
                         <a href="#" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
                     <div class="project-card" data-category="ml">
-                        <div class="project-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="project-card__image-placeholder"><img src="image/projeto_mmm.png" alt="MMM Projeto" style="width: 100%; height: auto;"></div>
                         <span class="project-card__tag">ML</span>
                         <h3>Marketing Mix Modelling</h3>
-                        <p>Mix de modelos de regressão e temporal para estimar o share ótimo de investimentos em mídias pagas.</p>
+                        <p>Mix de modelos de regressão e série temporal para estimar os efeitos de investimento no resultado e calcular o share ótimo de investimentos em mídias pagas.</p>
                         <div class="project-card__tech">
-                            <span>R</span><span>Programação linear</span><span>Séries Temporais</span>
+                            <span>Scikit-learn</span><span>Software R</span><span>Google Analytics</span>
                         </div>
                         <a href="#" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
                     <div class="project-card" data-category="ai">
-                        <div class="project-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="project-card__image-placeholder"><img src="image/projeto_aichat.png" alt="AIChatz Projeto" style="width: 100%; height: auto;"></div>
                         <span class="project-card__tag">AI</span>
-                        <h3>Agente imobiliário</h3>
-                        <p>Assistente de atendimento humanizado para plataforma online de vendas de imóveis.</p>
+                        <h3>AI Chatz</h3>
+                        <p>Assistente de atendimento humanizado com fluxo personalizado aplicável a qualquer área de negócios, capaz de responder perguntas baseado em processos internos.</p>
                         <div class="project-card__tech">
-                            <span>Bedrock</span><span>Lambda</span><span>Langgraph</span>
+                            <span>Bedrock (AWS)</span><span>Lambda (AWS)</span><span>RAG</span>
                         </div>
                         <a href="#" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
                     <div class="project-card" data-category="ml">
-                        <div class="project-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="project-card__image-placeholder"><img src="image/projeto_recom.png" alt="Personalize Projeto" style="width: 100%; height: auto;"></div>
                         <span class="project-card__tag">ML</span>
                         <h3>Sistema de Recomendação</h3>
-                        <p>Algoritmo de recomendação personalizada baseado em comportamento do usuário para streaming de música.</p>
+                        <p>Algoritmo de recomendação personalizada baseado em comportamento do usuário e características do item para streaming de música.</p>
                         <div class="project-card__tech">
-                            <span>Personalize</span><span>Python</span><span>Lambda</span>
+                            <span>Personalize (AWS)</span><span>APIGateway (AWS)</span><span>Lambda (AWS)</span>
                         </div>
                         <a href="#" class="project-card__link">Ver Projeto <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
                 </div>
-                <div class="section-footer">
+                <!-- <div class="section-footer">
                     <a href="#" class="btn btn--dark">Ver Todos os Projetos <i class="fa-solid fa-arrow-right"></i></a>
-                </div>
+                </div> -->
             </div>
         </section>
 
@@ -139,49 +131,69 @@
             <div class="container">
                 <div class="section-header">
                     <h2>Linha do Tempo</h2>
-                    <p>Minha jornada profissional e acadêmica na área de estatística e inteligência artificial.</p>
+                    <p>Minha jornada profissional e acadêmica na área de aprendizado de máquina e inteligência artificial.</p>
                 </div>
                 <div class="timeline">
                     <div class="timeline__item timeline__item--right">
                         <div class="timeline__content">
                             <div class="timeline__header">
-                                <span class="timeline__year">2023</span>
+                                <span class="timeline__year">2025</span>
                                 <span class="timeline__tag timeline__tag--carreira">Carreira</span>
                             </div>
-                            <h4>BRLINK - Coordenador</h4>
+                            <h4><a href="https://www.brlink.com.br/" target="_blank" rel="noopener noreferrer">BRLink</a> – Coordenador</h4>
                             <p>Coordenação do time de desenvolvimento de soluções através de Aprendizado de Máquina e Inteligência Artificial.</p>
                         </div>
                     </div>
                     <div class="timeline__item timeline__item--left">
                         <div class="timeline__content">
                             <div class="timeline__header">
-                                <span class="timeline__year">2022</span>
+                                <span class="timeline__year">2023</span>
                                 <span class="timeline__tag timeline__tag--carreira">Carreira</span>
                             </div>
-                            <h4>Youse - Cientista de dados</h4>
-                            <p>Desenvolvimento de soluções para redução do churn.</p>
+                            <h4><a href="https://www.youse.com.br/" target="_blank" rel="noopener noreferrer">Youse</a> – Cientista de dados</h4>
+                            <p>Desenvolvimento de soluções para redução do churn, personalização de ação de retenção e testes A/B.</p>
                         </div>
                     </div>
                     <div class="timeline__item timeline__item--right">
                          <div class="timeline__content">
                             <div class="timeline__header">
-                                <span class="timeline__year">2022</span>
+                                <span class="timeline__year">2021</span>
                                 <span class="timeline__tag timeline__tag--carreira">Carreira</span>
                             </div>
-                            <h4>Meu Tudo - Cientista de dados</h4>
-                            <p>Desenvolvimento de modelos de clusterização e modelos de score de conversão.</p>
+                            <h4><a href="https://meutudo.com.br/" target="_blank" rel="noopener noreferrer">Meu Tudo</a> – Cientista de dados</h4>
+                            <p>Desenvolvimento de modelo de score de conversão e clusterização de clientes.</p>
                         </div>
                     </div>
                     <div class="timeline__item timeline__item--left">
                          <div class="timeline__content">
                             <div class="timeline__header">
-                                <span class="timeline__year">2018</span>
+                                <span class="timeline__year">2020</span>
                                 <span class="timeline__tag timeline__tag--carreira">Carreira</span>
                             </div>
-                            <h4>Raccon - Estágio em ciência de dados</h4>
-                            <p>Desenvolvimento de modelos estatísticos para tomada de decisões na compra de mídias de performance.</p>
+                            <h4>HartB - Cientista de dados</h4>
+                            <p>Desenvolvimento de modelos estatísticos e séries temporais para tomada de decisões na compra de mídias de performance.</p>
                         </div>
                     </div>
+                    <div class="timeline__item timeline__item--right">
+                        <div class="timeline__content">
+                           <div class="timeline__header">
+                               <span class="timeline__year">2019</span>
+                               <span class="timeline__tag timeline__tag--carreira">Carreira</span>
+                           </div>
+                           <h4>BeijaFlore - Cientista de dados</h4>
+                           <p>Desenvolvimento de solução de estimativa de provisão de crédito para grandes bancos (IFRS9) e dashboards interativos para grandes marcas do varejo.</p>
+                       </div>
+                   </div>
+                   <div class="timeline__item timeline__item--left">
+                        <div class="timeline__content">
+                           <div class="timeline__header">
+                               <span class="timeline__year">2018</span>
+                               <span class="timeline__tag timeline__tag--carreira">Carreira</span>
+                           </div>
+                           <h4><a href="https://www.monks.com/" target="_blank" rel="noopener noreferrer">Raccoon</a> – Cientista de dados</h4>
+                           <p>Desenvolvimento de modelos preditivos de vendas em mídias pagas e modelos de atribuição personalizados.</p>
+                       </div>
+                   </div>
                     <div class="timeline__item timeline__item--right">
                         <div class="timeline__content">
                             <div class="timeline__header">
@@ -204,41 +216,41 @@
                 </div>
                 <div class="blog__grid">
                     <div class="blog-card">
-                        <div class="blog-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
-                        <span class="blog-card__tag">Tendências</span>
-                        <h3>O Futuro da IA Generativa em 2024</h3>
+                        <div class="blog-card__image-placeholder"><img src="image/blog_estatisticaemachine.jpg" alt="Blog1" style="width: 100%; height: auto;"></div>
+                        <span class="blog-card__tag">Educação</span>
+                        <h3>Estatística e Machine Learning</h3>
                         <div class="blog-card__meta">
-                            <span><i class="fa-regular fa-calendar"></i> 10 Dez 2023</span>
-                            <span><i class="fa-regular fa-clock"></i> 8 min</span>
+                            <span><i class="fa-regular fa-calendar"></i> 01 Jun 2025</span>
+                            <span><i class="fa-regular fa-clock"></i> 5 min</span>
                         </div>
-                        <p>Uma análise das tendências e avanços esperados para a inteligência artificial generativa no próximo ano.</p>
-                        <a href="#" class="blog-card__link">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+                        <p>A estatística fornece a base matemática para o desenvolvimento de algoritmos de machine learning, permitindo a análise...</p>
+                        <a href="https://estatisticamentefalando.blogspot.com/2025/06/estatistica-e-machine-learning.html" class="blog-card__link">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
                     </div>
                     <div class="blog-card">
-                        <div class="blog-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="blog-card__image-placeholder"><img src="image/blog_pln.jpg" alt="Blog2" style="width: 100%; height: auto;"></div>
                         <span class="blog-card__tag">Educação</span>
-                        <h3>Como a Estatística Impulsiona o Machine Learning</h3>
+                        <h3>Processamento de Linguagem Natural</h3>
                         <div class="blog-card__meta">
-                            <span><i class="fa-regular fa-calendar"></i> 25 Nov 2023</span>
+                            <span><i class="fa-regular fa-calendar"></i> 23 Jun 2025</span>
                             <span><i class="fa-regular fa-clock"></i> 6 min</span>
                         </div>
-                        <p>Entenda a relação fundamental entre estatística e algoritmos de aprendizado de máquina modernos.</p>
-                        <a href="#" class="blog-card__link">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+                        <p>O Processamento de Linguagem Natural (PLN) é uma subárea da inteligência artificial que busca a interação entre computadores e humanos por meio...</p>
+                        <a href="https://estatisticamentefalando.blogspot.com/2025/06/processamento-de-linguagem-natural.html" class="blog-card__link">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
                     </div>
                     <div class="blog-card">
-                        <div class="blog-card__image-placeholder"><i class="fa-solid fa-image"></i></div>
+                        <div class="blog-card__image-placeholder"><img src="image/blog_intromachine.jpg" alt="Blog3" style="width: 100%; height: auto;"></div>
                         <span class="blog-card__tag">Prática</span>
-                        <h3>Implementando MLOps em Empresas Tradicionais</h3>
+                        <h3>Machine Learning para Iniciantes</h3>
                         <div class="blog-card__meta">
-                            <span><i class="fa-regular fa-calendar"></i> 12 Nov 2023</span>
+                            <span><i class="fa-regular fa-calendar"></i> 12 Jun 2025</span>
                             <span><i class="fa-regular fa-clock"></i> 10 min</span>
                         </div>
-                        <p>Guia prático para implementar práticas de MLOps em organizações com infraestrutura tecnológica tradicional.</p>
-                        <a href="#" class="blog-card__link">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+                        <p>Machine Learning, ou aprendizado de máquina, é uma subárea da inteligência artificial que se concentra em desenvolver algoritmos...</p>
+                        <a href="https://estatisticamentefalando.blogspot.com/2025/06/machine-learning-para-iniciantes.html" class="blog-card__link">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
                     </div>
                 </div>
                 <div class="section-footer">
-                    <a href="#" class="btn btn--dark">Ver Todos os Artigos <i class="fa-solid fa-arrow-right"></i></a>
+                    <a href="https://estatisticamentefalando.blogspot.com/" target="_blank" class="btn btn--dark">Ver Todos os Artigos <i class="fa-solid fa-arrow-right"></i></a>
                 </div>
             </div>
         </section>
@@ -248,14 +260,17 @@
     <footer class="footer">
         <div class="container footer__container">
             <p>&copy; 2025 Victor Zoré. Todos os direitos reservados.</p>
-            <a href="#">AINewz</a>
+            <a href="#">Zore.</a>
         </div>
     </footer>
 
-    <a href="#" class="floating-btn" aria-label="Abrir chat">
-        <i class="fa-regular fa-comments"></i>
+    <a class="floating-btn"
+      href="https://api.whatsapp.com/send?phone=551999766003"
+      target="_blank"
+      rel="noopener"
+      aria-label="Chamar no WhatsApp"
+    >
+      <i class="fa-brands fa-whatsapp"></i>
     </a>
-
-    <script src="script.js"></script>
 </body>
 </html>
