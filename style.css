@@ -244,6 +244,15 @@ a {
     color: var(--border-color);
     font-size: 3rem;
 }
+/* Ensure images within placeholders scale correctly */
+.project-card__image-placeholder img,
+.blog-card__image-placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Cover the area, cropping if necessary */
+    border-radius: 8px; /* Match parent border-radius */
+}
+
 .project-card { position: relative; }
 .project-card__tag {
     position: absolute;
@@ -278,6 +287,47 @@ a {
 .project-card__link i {
     margin-left: 5px;
 }
+
+/* --- SEÇÃO PROJETOS (CORES INVERTIDAS) --- */
+/* The HTML uses class="projects" for the section */
+.projects { /* Changed from .projects-section to .projects */
+    background-color: var(--primary-color); /* Fundo preto */
+    color: var(--background-color); /* Texto branco para a seção */
+}
+.projects .section-header h2, /* Changed from .projects-section to .projects */
+.projects .section-header p { /* Changed from .projects-section to .projects */
+    color: var(--background-color); /* Garante que o título e parágrafo do cabeçalho sejam brancos */
+}
+
+.projects .filter-btn { /* Changed from .projects-section to .projects */
+    background: var(--background-color); /* Fundo dos botões de filtro branco */
+    color: var(--primary-color); /* Texto dos botões de filtro preto */
+    border-color: var(--text-light); /* Borda dos botões de filtro */
+}
+.projects .filter-btn.active, /* Changed from .projects-section to .projects */
+.projects .filter-btn:hover { /* Changed from .projects-section to .projects */
+    background: var(--secondary-color); /* Fundo ativo/hover cinza claro */
+    color: var(--primary-color); /* Texto ativo/hover preto */
+    border-color: var(--secondary-color);
+}
+
+.projects .project-card { /* Changed from .projects-section to .projects */
+    background: var(--background-color); /* Fundo do card de projeto branco */
+    border-color: var(--border-color); /* Borda do card de projeto */
+}
+.projects .project-card h3, /* Changed from .projects-section to .projects */
+.projects .project-card p, /* Changed from .projects-section to .projects */
+.projects .project-card__tech span, /* Changed from .projects-section to .projects */
+.projects .project-card__link { /* Changed from .projects-section to .projects */
+    color: var(--primary-color); /* Texto do card de projeto preto */
+}
+.projects .project-card__tech span { /* Changed from .projects-section to .projects */
+    background: var(--secondary-color); /* Fundo das tags de tecnologia cinza claro */
+}
+.projects .project-card__link { /* Changed from .projects-section to .projects */
+    color: var(--primary-color); /* Cor do link no card de projeto */
+}
+
 
 /* --- SEÇÃO LINHA DO TEMPO --- */
 .timeline-section {
@@ -441,48 +491,135 @@ a {
 }
 
 /* --- RESPONSIVIDADE --- */
-  /* Versão mobile (< 768px) */
-  @media (max-width: 768px) {
-    /* Esconder completamente a foto */
-    .hero__image-wrapper {
+/* Versão mobile (< 768px) */
+@media (max-width: 768px) {
+    /* 1 - Remover o menu na versão mobile */
+    .header__nav { /* Correctly targets the navigation menu */
       display: none;
     }
-  
-    /* Botões empilhados um abaixo do outro */
-    .hero__buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      align-items: center;
+
+    /* Adjust main section padding for mobile */
+    section {
+        padding: 40px 0; /* Reduced padding for mobile sections */
+    }
+
+    /* Ensure .hero section specific padding is adjusted */
+    .hero {
+        padding-top: 40px;
+        padding-bottom: 40px;
     }
   
-    /* Manter o restante dos ajustes mobile já existentes */
-    h1 { font-size: 2.8rem; }
-    h2 { font-size: 2rem; }
-  
+    /* Restructure hero section for mobile to place image at top */
+    .hero__container {
+        flex-direction: column; /* Stack elements vertically */
+        align-items: center; /* Center horizontally */
+        gap: 0; /* Remove gap from desktop version */
+    }
+    
+    /* 1 - Na versão mobile, deixe a foto no topo, com 25% do tamanho original. */
+    .hero__image-wrapper {
+        display: block; /* Ensure the image wrapper is visible */
+        order: 1; /* Place the image wrapper first */
+        width: calc(350px * 0.50); /* 25% of original 350px */
+        height: calc(350px * 0.50); /* 25% of original 350px */
+        margin-bottom: 20px; /* Space below the image */
+    }
+
+    .hero__image-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%; /* Keep it circular */
+    }
+
+    .hero__text {
+        order: 2; /* Place the text block after the image */
+        margin-top: 0; /* Remove top margin, as gap is handled by image wrapper's margin-bottom */
+        width: 100%; /* Ensure text block uses full width */
+        text-align: center; /* Center align text content */
+        /* Flexbox for inner elements to handle centering of h1, h2, p, buttons, socials */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* Adjustments for h1 and h2 under the image */
+    h1 {
+        font-size: 2rem; /* Adjusted for mobile readability */
+        margin-bottom: 0.5rem; /* Reduce margin */
+        white-space: nowrap; /* Prevent line breaks */
+        overflow: hidden; /* Hide overflowing text */
+        text-overflow: ellipsis; /* Add ellipsis for overflow */
+    }
+    h2 {
+        font-size: 1.4rem; /* Adjusted for mobile readability */
+        margin-bottom: 1rem; /* Reduce margin */
+        color: var(--text-color); /* Ensure visibility if original h2 was text-light */
+        white-space: nowrap; /* Prevent line breaks */
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* 4 - Centralizar parágrafo, botões e botões de rede social. */
+    .hero__text p {
+        text-align: center;
+        padding: 0 15px; /* Add horizontal padding to prevent text from touching edges */
+        margin-bottom: 20px; /* Space before buttons */
+    }
+
+    .hero__buttons {
+        flex-direction: column; /* Stack buttons vertically */
+        gap: 15px; /* Space between stacked buttons */
+        align-items: center; /* Center buttons horizontally */
+        margin-bottom: 20px; /* Space before social icons */
+    }
+
+    /* 3 - Não mostrar o botão dos projetos. */
+    /* Based on HTML: the second 'a' tag in .hero__buttons is "Ver projetos" */
+    .hero__buttons a:nth-child(2) {
+        display: none;
+    }
+
+    .hero__socials {
+        display: flex;
+        gap: 20px;
+        justify-content: center; /* Center social icons horizontally */
+        margin-bottom: 20px; /* Space below social icons */
+    }
+
+    /* Projects section specific adjustments for mobile layout */
     .projects__grid,
     .blog__grid {
-      grid-template-columns: 1fr;
+        grid-template-columns: 1fr; /* Single column for mobile */
+        gap: 20px; /* Adjust gap for mobile */
     }
-  
+
+    /* Timeline adjustments for mobile */
     .timeline::after {
-      left: 31px;
+        left: 31px; /* Adjust vertical line position */
     }
     .timeline__item {
-      width: 100%;
-      padding-left: 70px;
-      padding-right: 15px;
+        width: 100%; /* Full width for timeline items */
+        padding-left: 70px;
+        padding-right: 15px;
     }
     .timeline__item--left,
     .timeline__item--right {
-      left: 0;
+        left: 0; /* Both items align to the left */
     }
     .timeline__item::after {
-      left: 21px;
+        left: 21px; /* Position circular marker on the left line */
+        right: auto; /* Remove right positioning */
     }
-  
+
+    /* 3 - Na versão mobile, centralize todos os itens do rodapé. */
     .footer__container {
-      flex-direction: column;
-      gap: 10px;
+      flex-direction: column; /* Stack footer items vertically */
+      gap: 10px; /* Space between stacked items */
+      align-items: center; /* Center items horizontally */
+      text-align: center; /* Center text within items */
+    }
+    .footer p, .footer a {
+        text-align: center; /* Ensure individual text and links are centered */
     }
 }
