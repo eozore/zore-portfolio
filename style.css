@@ -1,12 +1,12 @@
 /* --- RESET BÁSICO E VARIÁVEIS GLOBAIS --- */
 :root {
-    --primary-color: #000000;
-    --secondary-color: #F8F9FA;
-    --text-color: #343A40;
+    --primary-color: #db4a2b;
+    --secondary-color: #e4e0d7;
+    --text-color: #2d2d2d;
     --text-light: #6C757D;
-    --background-color: #FFFFFF;
-    --border-color: #DEE2E6;
-    --accent-color: #28a745; /* Verde do botão flutuante */
+    --background-color: #faf9f7;
+    --border-color: #e8e3d8;
+    --accent-color: #f5a962;
     --font-family: 'Inter', sans-serif;
 }
 
@@ -89,12 +89,13 @@ a {
     background-color: #333;
 }
 .btn--dark {
-    background-color: #212529;
+    background-color: var(--primary-color);
     color: var(--background-color);
 }
 .btn--dark:hover {
+    background-color: var(--accent-color);
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 10px rgba(219, 74, 43, 0.2);
 }
 .btn--link {
     background-color: transparent;
@@ -110,7 +111,7 @@ a {
     position: sticky;
     top: 0;
     width: 100%;
-    background-color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(250, 249, 247, 0.95);
     backdrop-filter: blur(10px);
     z-index: 1000;
     border-bottom: 1px solid var(--border-color);
@@ -124,6 +125,7 @@ a {
 .header__logo {
     font-size: 1.5rem;
     font-weight: 700;
+    color: var(--primary-color);
 }
 .header__nav ul {
     display: flex;
@@ -290,48 +292,48 @@ a {
 
 /* --- SEÇÃO PROJETOS (CORES INVERTIDAS) --- */
 /* The HTML uses class="projects" for the section */
-.projects { /* Changed from .projects-section to .projects */
-    background-color: var(--primary-color); /* Fundo preto */
-    color: var(--background-color); /* Texto branco para a seção */
+.projects {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
 }
-.projects .section-header h2, /* Changed from .projects-section to .projects */
-.projects .section-header p { /* Changed from .projects-section to .projects */
-    color: var(--background-color); /* Garante que o título e parágrafo do cabeçalho sejam brancos */
-}
-
-.projects .filter-btn { /* Changed from .projects-section to .projects */
-    background: var(--background-color); /* Fundo dos botões de filtro branco */
-    color: var(--primary-color); /* Texto dos botões de filtro preto */
-    border-color: var(--text-light); /* Borda dos botões de filtro */
-}
-.projects .filter-btn.active, /* Changed from .projects-section to .projects */
-.projects .filter-btn:hover { /* Changed from .projects-section to .projects */
-    background: var(--secondary-color); /* Fundo ativo/hover cinza claro */
-    color: var(--primary-color); /* Texto ativo/hover preto */
-    border-color: var(--secondary-color);
+.projects .section-header h2,
+.projects .section-header p {
+    color: var(--text-color);
 }
 
-.projects .project-card { /* Changed from .projects-section to .projects */
-    background: var(--background-color); /* Fundo do card de projeto branco */
-    border-color: var(--border-color); /* Borda do card de projeto */
+.projects .filter-btn {
+    background: var(--background-color);
+    color: var(--text-color);
+    border-color: var(--border-color);
 }
-.projects .project-card h3, /* Changed from .projects-section to .projects */
-.projects .project-card p, /* Changed from .projects-section to .projects */
-.projects .project-card__tech span, /* Changed from .projects-section to .projects */
-.projects .project-card__link { /* Changed from .projects-section to .projects */
-    color: var(--primary-color); /* Texto do card de projeto preto */
+.projects .filter-btn.active,
+.projects .filter-btn:hover {
+    background: var(--primary-color);
+    color: var(--background-color);
+    border-color: var(--primary-color);
 }
-.projects .project-card__tech span { /* Changed from .projects-section to .projects */
-    background: var(--secondary-color); /* Fundo das tags de tecnologia cinza claro */
+
+.projects .project-card {
+    background: var(--background-color);
+    border-color: var(--border-color);
 }
-.projects .project-card__link { /* Changed from .projects-section to .projects */
-    color: var(--primary-color); /* Cor do link no card de projeto */
+.projects .project-card h3,
+.projects .project-card p,
+.projects .project-card__tech span,
+.projects .project-card__link {
+    color: var(--text-color);
+}
+.projects .project-card__tech span {
+    background: #f0ebe3;
+}
+.projects .project-card__link {
+    color: var(--primary-color);
 }
 
 
 /* --- SEÇÃO LINHA DO TEMPO --- */
 .timeline-section {
-    background-color: var(--secondary-color);
+    background-color: #f5f3f0;
 }
 .timeline {
     position: relative;
@@ -454,7 +456,7 @@ a {
 .footer {
     border-top: 1px solid var(--border-color);
     padding: 30px 0;
-    background-color: var(--secondary-color);
+    background-color: #f5f3f0;
 }
 .footer__container {
     display: flex;
@@ -476,7 +478,7 @@ a {
     right: 30px;
     width: 60px;
     height: 60px;
-    background-color: var(--accent-color);
+    background-color: #28a745;
     color: #fff;
     border-radius: 50%;
     display: flex;
