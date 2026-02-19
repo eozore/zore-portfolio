@@ -1,10 +1,10 @@
 /* --- RESET BÁSICO E VARIÁVEIS GLOBAIS --- */
 :root {
     --primary-color: #db4a2b;
-    --secondary-color: #e4e0d7;
+    --secondary-color: #ffffff;
     --text-color: #2d2d2d;
     --text-light: #6C757D;
-    --background-color: #faf9f7;
+    --background-color: #e4e0d7;
     --border-color: #e8e3d8;
     --accent-color: #f5a962;
     --font-family: 'Inter', sans-serif;
