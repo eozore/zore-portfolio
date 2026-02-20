@@ -141,17 +141,18 @@
         </table>
 
         <h3>Como Calcular Quartis na Prática</h3>
-        <p>O procedimento abaixo é o mesmo usado no script deste artigo:</p>
+        <p>Existem várias convenções para quartis. Aqui vamos usar um método simples e muito comum: <strong>mediana das metades</strong> (também chamado de <em>Tukey's hinges</em> em algumas referências). É o mesmo método implementado no script deste artigo.</p>
         <ol>
             <li>Ordene os dados: \(x_{(1)} \le x_{(2)} \le \dots \le x_{(n)}\).</li>
-            <li>Para cada quartil \(Q_p\), calcule a posição \(pos = (n-1)\cdot p\), com \(p \in \{0.25, 0.50, 0.75\}\).</li>
-            <li>Se \(pos\) não for inteiro, faça interpolação linear entre os dois valores vizinhos.</li>
+            <li>Calcule \(Q_2\) (a mediana) do conjunto todo.</li>
+            <li>Divida o conjunto em duas metades: a metade inferior e a metade superior. Se \(n\) for ímpar, <strong>não</strong> inclua o elemento da mediana em nenhuma metade.</li>
+            <li>\(Q_1\) é a mediana da metade inferior; \(Q_3\) é a mediana da metade superior.</li>
         </ol>
-        <p><strong>Exemplo:</strong> dados ordenados \(\{1,2,3,4,5,6,7,8,9,10\}\), com \(n=10\).</p>
-        $$\text{pos}(Q_1)=9\cdot0.25=2.25 \Rightarrow Q_1 = 3 + 0.25(4-3)=3.25$$
-        $$\text{pos}(Q_2)=9\cdot0.50=4.5 \Rightarrow Q_2 = 5 + 0.5(6-5)=5.5$$
-        $$\text{pos}(Q_3)=9\cdot0.75=6.75 \Rightarrow Q_3 = 7 + 0.75(8-7)=7.75$$
-        <p>Com isso, \(IQR = Q_3 - Q_1 = 7.75 - 3.25 = 4.5\).</p>
+        <p><strong>Exemplo:</strong> dados ordenados \(\{1,2,3,4,5,6,7,8,9,10\}\), com \(n=10\) (par).</p>
+        $$Q_2 = \\frac{5+6}{2} = 5{,}5$$
+        <p>Metade inferior: \(\{1,2,3,4,5\}\) \(\Rightarrow Q_1 = 3\)</p>
+        <p>Metade superior: \(\{6,7,8,9,10\}\) \(\Rightarrow Q_3 = 8\)</p>
+        <p>Com isso, \(IQR = Q_3 - Q_1 = 8 - 3 = 5\).</p>
 
         <p>O <strong>boxplot</strong> resume tudo isso visualmente: caixa do Q1 ao Q3, linha na mediana, bigodes até os limites de Tukey e pontos para outliers.</p>
 
@@ -213,22 +214,34 @@
     ];
 
     // --- Funções auxiliares (quartis, resumo e formatação) ---
-    function quantile(sortedValues, p) {
+    function median(sortedValues) {
         const n = sortedValues.length;
         if (n === 0) return NaN;
-        const position = (n - 1) * p;
-        const lower = Math.floor(position);
-        const upper = Math.ceil(position);
-        const weight = position - lower;
-        if (lower === upper) return sortedValues[lower];
-        return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+        const mid = Math.floor(n / 2);
+        if (n % 2 === 1) return sortedValues[mid];
+        return (sortedValues[mid - 1] + sortedValues[mid]) / 2;
+    }
+
+    // Quartis pelo método "mediana das metades".
+    function quartilesByHalves(sortedValues) {
+        const n = sortedValues.length;
+        if (n === 0) return { q1: NaN, median: NaN, q3: NaN };
+
+        const med = median(sortedValues);
+        const half = Math.floor(n / 2);
+        const lower = sortedValues.slice(0, half);
+        const upper = sortedValues.slice(n % 2 === 0 ? half : half + 1);
+
+        return {
+            q1: median(lower),
+            median: med,
+            q3: median(upper)
+        };
     }
 
     function summarizeBoxplot(values) {
         const sortedValues = [...values].sort((a, b) => a - b);
-        const q1 = quantile(sortedValues, 0.25);
-        const median = quantile(sortedValues, 0.5);
-        const q3 = quantile(sortedValues, 0.75);
+        const { q1, median, q3 } = quartilesByHalves(sortedValues);
         const iqr = q3 - q1;
         const lowerFence = q1 - 1.5 * iqr;
         const upperFence = q3 + 1.5 * iqr;
@@ -530,10 +543,10 @@
             feedback: "Correto! Com n=9, as posições de Q1/Q2/Q3 caem exatamente no 3º, 5º e 7º valores."
         },
         {
-            text: "No método deste artigo, qual é a fórmula da posição usada para calcular quartis?",
-            options: ["pos = n × p", "pos = (n - 1) × p", "pos = (n + 1) ÷ p", "pos = n ÷ p", "pos = p ÷ n"],
+            text: "No método deste artigo, como calculamos Q1 e Q3?",
+            options: ["Usando interpolação em pos = (n - 1) × p.", "Como as medianas das metades inferior e superior (sem incluir a mediana quando n é ímpar).", "Como a média dos 25% menores e 25% maiores valores.", "Como a média dos 3 menores e 3 maiores valores.", "Como o valor mais frequente nas metades."],
             correct: 1,
-            feedback: "Isso! Aqui usamos pos = (n - 1) × p e interpolação linear quando a posição não é inteira."
+            feedback: "Isso! Q1 é a mediana da metade inferior e Q3 é a mediana da metade superior; se n for ímpar, a mediana geral não entra em nenhuma metade."
         },
         {
             text: "Se Q1 = 2.600 e Q3 = 4.800, qual é o IQR e o limite superior de Tukey?",
