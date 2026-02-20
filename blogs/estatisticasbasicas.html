@@ -66,6 +66,7 @@
     <section>
         <h2>Medidas de Tendência Central</h2>
         <p>Tendência central é o conceito de encontrar um valor "representativo" de um conjunto de dados. Existem três formas principais de fazer isso, e cada uma conta uma história diferente.</p>
+        <p>Se no artigo anterior a pergunta era "qual variável aleatória modela o problema?", aqui a pergunta vira: <em>"como resumir os dados observados sem se enganar?"</em></p>
 
         <h3>Média Aritmética</h3>
         <p>A mais conhecida. Soma todos os valores e divide pela quantidade.</p>
@@ -118,7 +119,7 @@
         </div>
 
         <h3>Visualizando a Distribuição de Salários</h3>
-        <p>O gráfico abaixo mostra a distribuição dos salários dos clientes da fintech de Carlos. Note como a média (linha laranja) é puxada para a direita pelos outliers, enquanto a mediana (linha azul) representa melhor a maioria dos clientes.</p>
+        <p>O gráfico abaixo mostra uma amostra da distribuição de salários dos clientes da fintech de Carlos. Nessa amostra, a mediana é R$ 3.500 e a média é aproximadamente R$ 5.522: a média (linha laranja) é puxada para a direita pelos outliers, enquanto a mediana (linha azul) representa melhor a maioria dos clientes.</p>
         <div class="chart-container">
             <canvas id="salaryChart"></canvas>
         </div>
@@ -139,6 +140,19 @@
             </tbody>
         </table>
 
+        <h3>Como Calcular Quartis na Prática</h3>
+        <p>O procedimento abaixo é o mesmo usado no script deste artigo:</p>
+        <ol>
+            <li>Ordene os dados: \(x_{(1)} \le x_{(2)} \le \dots \le x_{(n)}\).</li>
+            <li>Para cada quartil \(Q_p\), calcule a posição \(pos = (n-1)\cdot p\), com \(p \in \{0.25, 0.50, 0.75\}\).</li>
+            <li>Se \(pos\) não for inteiro, faça interpolação linear entre os dois valores vizinhos.</li>
+        </ol>
+        <p><strong>Exemplo:</strong> dados ordenados \(\{1,2,3,4,5,6,7,8,9,10\}\), com \(n=10\).</p>
+        $$\text{pos}(Q_1)=9\cdot0.25=2.25 \Rightarrow Q_1 = 3 + 0.25(4-3)=3.25$$
+        $$\text{pos}(Q_2)=9\cdot0.50=4.5 \Rightarrow Q_2 = 5 + 0.5(6-5)=5.5$$
+        $$\text{pos}(Q_3)=9\cdot0.75=6.75 \Rightarrow Q_3 = 7 + 0.75(8-7)=7.75$$
+        <p>Com isso, \(IQR = Q_3 - Q_1 = 7.75 - 3.25 = 4.5\).</p>
+
         <p>O <strong>boxplot</strong> resume tudo isso visualmente: caixa do Q1 ao Q3, linha na mediana, bigodes até os limites de Tukey e pontos para outliers.</p>
 
         <div class="chart-container" style="height:250px;">
@@ -154,26 +168,6 @@
     </section>
 
     <section>
-        <h2>Assimetria e Curtose: A Forma da Distribuição</h2>
-        <p>Além do centro e da dispersão, a <em>forma</em> da distribuição carrega informação crítica para escolher o modelo certo.</p>
-
-        <h3>Assimetria (Skewness)</h3>
-        <p>Mede se a distribuição é simétrica ou tem uma "cauda" mais longa de um lado.</p>
-        <ul>
-            <li><strong>Assimetria positiva (cauda à direita):</strong> Média &gt; Mediana. Típico de renda, preço de imóveis, tempo de resposta de sistemas.</li>
-            <li><strong>Assimetria negativa (cauda à esquerda):</strong> Média &lt; Mediana. Típico de notas em provas fáceis.</li>
-        </ul>
-
-        <h3>Curtose (Kurtosis)</h3>
-        <p>Mede o "peso" das caudas em relação a uma distribuição normal. Alta curtose (leptocúrtica) significa caudas pesadas — eventos extremos são mais prováveis do que o esperado. Isso é crítico em finanças e detecção de fraudes.</p>
-
-        <div class="highlight-box">
-            <span class="highlight-title">💡 Regra Prática</span>
-            Antes de aplicar qualquer modelo que assume normalidade (regressão linear, LDA, etc.), sempre verifique assimetria e curtose. Se \(|\text{skewness}| > 1\) ou \(\text{kurtosis} > 3\), considere transformações como \(\log(x)\) ou \(\sqrt{x}\).
-        </div>
-    </section>
-
-    <section>
         <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
             <h3>📝 Resumo para Levar na Mochila</h3>
             <ul>
@@ -181,7 +175,7 @@
                 <li><strong>Desvio padrão</strong> quantifica o risco/variabilidade na mesma unidade dos dados.</li>
                 <li><strong>IQR</strong> é a base para detecção de outliers (critério de Tukey).</li>
                 <li><strong>Percentis</strong> permitem segmentar e comparar grupos sem assumir distribuição.</li>
-                <li><strong>Assimetria e curtose</strong> determinam se você pode usar modelos que assumem normalidade.</li>
+                <li><strong>Quartis</strong> exigem dados ordenados, posição e (quando necessário) interpolação.</li>
             </ul>
         </div>
     </section>
@@ -210,74 +204,15 @@
 </div>
 
 <script>
-    // --- Gráfico de Distribuição de Salários ---
-    const salaryPlugin = {
-        id: 'salaryLines',
-        afterDraw(chart) {
-            const ctx = chart.ctx;
-            const xAxis = chart.scales.x;
-            const yAxis = chart.scales.y;
-            // Mediana ~3500 -> índice 15 (labels de 1000 a 9000, step 500)
-            const medX = xAxis.getPixelForValue(15);
-            // Média ~8400 -> índice 29
-            const meanX = xAxis.getPixelForValue(29);
+    const salarySample = [
+        1200, 1500, 1700, 1800, 1900, 2000, 2100, 2200, 2300, 2400,
+        2500, 2600, 2700, 2800, 2900, 3000, 3100, 3200, 3300, 3400,
+        3450, 3480, 3500, 3520, 3550, 3600, 3700, 3800, 3900, 4000,
+        4200, 4400, 4600, 4800, 5100, 5400, 5800, 6300, 7000, 7800,
+        9000, 12000, 17000, 25000, 45000
+    ];
 
-            function drawLine(x, color) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(x, yAxis.top);
-                ctx.lineTo(x, yAxis.bottom);
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = color;
-                ctx.setLineDash([5, 5]);
-                ctx.stroke();
-                ctx.restore();
-            }
-            drawLine(medX, '#2563eb');
-            drawLine(meanX, '#f59e0b');
-        }
-    };
-    Chart.register(salaryPlugin);
-
-    // Distribuição log-normal aproximada para salários
-    const salaryLabels = [];
-    const salaryData = [];
-    for (let i = 0; i <= 40; i++) {
-        const val = 1000 + i * 500;
-        salaryLabels.push('R$' + (val/1000).toFixed(1) + 'k');
-        const mu = 8.1, sigma = 0.5;
-        const x = val;
-        const y = (1 / (x * sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((Math.log(x) - mu) / sigma, 2));
-        salaryData.push(y * 1e5);
-    }
-
-    new Chart(document.getElementById('salaryChart').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: salaryLabels,
-            datasets: [{
-                label: 'Frequência de Clientes',
-                data: salaryData,
-                backgroundColor: 'rgba(219, 74, 43, 0.5)',
-                borderColor: '#db4a2b',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { display: false },
-                x: {
-                    title: { display: true, text: 'Faixa Salarial' },
-                    ticks: { maxTicksLimit: 8, autoSkip: true, maxRotation: 0, minRotation: 0 }
-                }
-            }
-        }
-    });
-
-    // --- Boxplot correto (quartis + Tukey) ---
+    // --- Funções auxiliares (quartis, resumo e formatação) ---
     function quantile(sortedValues, p) {
         const n = sortedValues.length;
         if (n === 0) return NaN;
@@ -311,6 +246,10 @@
         };
     }
 
+    function mean(values) {
+        return values.reduce((acc, value) => acc + value, 0) / values.length;
+    }
+
     function formatCurrency(value) {
         return `R$${Math.round(value).toLocaleString('pt-BR')}`;
     }
@@ -324,6 +263,116 @@
         return `R$${Math.round(numeric).toLocaleString('pt-BR')}`;
     }
 
+    const salarySummary = summarizeBoxplot(salarySample);
+    const salaryMean = mean(salarySample);
+
+    // --- Gráfico de Distribuição de Salários (com média/mediana corretas) ---
+    const histogramBinSize = 2500;
+    const histogramMin = Math.floor(Math.min(...salarySample) / histogramBinSize) * histogramBinSize;
+    const histogramMax = Math.ceil(Math.max(...salarySample) / histogramBinSize) * histogramBinSize;
+    const histogramBucketCount = Math.max(1, Math.ceil((histogramMax - histogramMin) / histogramBinSize));
+    const histogramBuckets = Array.from({ length: histogramBucketCount }, (_, index) => ({
+        start: histogramMin + index * histogramBinSize,
+        count: 0
+    }));
+
+    for (const value of salarySample) {
+        const rawIndex = Math.floor((value - histogramMin) / histogramBinSize);
+        const safeIndex = Math.min(Math.max(rawIndex, 0), histogramBuckets.length - 1);
+        histogramBuckets[safeIndex].count += 1;
+    }
+
+    const salaryHistogramData = histogramBuckets.map(bucket => ({
+        x: bucket.start + histogramBinSize / 2,
+        y: bucket.count
+    }));
+
+    const salaryLinesPlugin = {
+        id: 'salaryLines',
+        afterDatasetsDraw(chart, _args, opts) {
+            if (!opts) return;
+
+            const ctx = chart.ctx;
+            const xAxis = chart.scales.x;
+            const yAxis = chart.scales.y;
+            const markers = [
+                { value: opts.medianValue, color: '#2563eb', label: `Mediana: ${formatCurrencyCompact(opts.medianValue)}`, offsetY: 16 },
+                { value: opts.meanValue, color: '#f59e0b', label: `Média: ${formatCurrencyCompact(opts.meanValue)}`, offsetY: 32 }
+            ];
+
+            markers.forEach(marker => {
+                const x = xAxis.getPixelForValue(marker.value);
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, yAxis.top);
+                ctx.lineTo(x, yAxis.bottom);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = marker.color;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = marker.color;
+                ctx.font = '12px Segoe UI';
+                ctx.fillText(marker.label, x + 6, yAxis.top + marker.offsetY);
+                ctx.restore();
+            });
+        }
+    };
+    Chart.register(salaryLinesPlugin);
+
+    new Chart(document.getElementById('salaryChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            datasets: [{
+                label: 'Frequência de Clientes',
+                data: salaryHistogramData,
+                backgroundColor: 'rgba(219, 74, 43, 0.5)',
+                borderColor: '#db4a2b',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            parsing: false,
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => {
+                            const center = items[0].parsed.x;
+                            const start = center - histogramBinSize / 2;
+                            const end = center + histogramBinSize / 2;
+                            return `Faixa: ${formatCurrencyCompact(start)} a ${formatCurrencyCompact(end)}`;
+                        },
+                        label: ctx => `Clientes: ${ctx.parsed.y}`
+                    }
+                },
+                salaryLines: {
+                    medianValue: salarySummary.median,
+                    meanValue: salaryMean
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Frequência' }
+                },
+                x: {
+                    type: 'linear',
+                    min: histogramMin,
+                    max: histogramMax,
+                    title: { display: true, text: 'Salário (R$)' },
+                    ticks: {
+                        maxTicksLimit: 8,
+                        callback: value => formatCurrencyCompact(Number(value))
+                    }
+                }
+            }
+        }
+    });
+
+    // --- Boxplot correto (quartis + Tukey) ---
     const boxplotPlugin = {
         id: 'boxplotPlugin',
         afterDatasetsDraw(chart, _args, opts) {
@@ -373,16 +422,6 @@
         }
     };
     Chart.register(boxplotPlugin);
-
-    const salarySample = [
-        1200, 1500, 1700, 1800, 1900, 2000, 2100, 2200, 2300, 2400,
-        2500, 2600, 2700, 2800, 2900, 3000, 3100, 3200, 3300, 3400,
-        3450, 3480, 3500, 3520, 3550, 3600, 3700, 3800, 3900, 4000,
-        4200, 4400, 4600, 4800, 5100, 5400, 5800, 6300, 7000, 7800,
-        9000, 12000, 17000, 25000, 45000
-    ];
-
-    const salarySummary = summarizeBoxplot(salarySample);
     const salaryOutliers = salarySummary.outliers.map(value => ({ x: value, y: 0 }));
     const salaryScaleMax = Math.max(
         salarySummary.whiskerMax,
@@ -485,22 +524,22 @@
             feedback: "Exato! Com n-1 graus de liberdade, a variância amostral é um estimador não-viesado da variância da população."
         },
         {
-            text: "Uma distribuição com assimetria positiva (skewness > 0) tem:",
-            options: ["Média menor que a mediana.", "Cauda mais longa à esquerda.", "Média maior que a mediana, com cauda à direita.", "Distribuição perfeitamente simétrica.", "Curtose negativa."],
-            correct: 2,
-            feedback: "Correto! Assimetria positiva = cauda à direita = média puxada para cima pelos valores extremos altos."
+            text: "Considere os dados ordenados: 2, 3, 5, 7, 8, 9, 12, 13, 20. Quais são Q1, Q2 e Q3?",
+            options: ["Q1=3, Q2=7, Q3=13", "Q1=5, Q2=8, Q3=12", "Q1=2, Q2=8, Q3=20", "Q1=4, Q2=8, Q3=14", "Q1=5, Q2=9, Q3=13"],
+            correct: 1,
+            feedback: "Correto! Com n=9, as posições de Q1/Q2/Q3 caem exatamente no 3º, 5º e 7º valores."
         },
         {
-            text: "Qual transformação é comumente usada para reduzir assimetria positiva em dados de renda?",
-            options: ["Elevar ao quadrado.", "Multiplicar por -1.", "Aplicar logaritmo: log(x).", "Subtrair a média.", "Dividir pelo desvio padrão."],
-            correct: 2,
-            feedback: "Isso! O log comprime os valores altos e expande os baixos, aproximando a distribuição da normalidade."
+            text: "No método deste artigo, qual é a fórmula da posição usada para calcular quartis?",
+            options: ["pos = n × p", "pos = (n - 1) × p", "pos = (n + 1) ÷ p", "pos = n ÷ p", "pos = p ÷ n"],
+            correct: 1,
+            feedback: "Isso! Aqui usamos pos = (n - 1) × p e interpolação linear quando a posição não é inteira."
         },
         {
-            text: "O que a curtose (kurtosis) mede?",
-            options: ["A posição da média.", "O número de outliers.", "O peso das caudas da distribuição em relação à normal.", "A diferença entre Q1 e Q3.", "A frequência da moda."],
-            correct: 2,
-            feedback: "Correto! Alta curtose (leptocúrtica) indica caudas pesadas — eventos extremos mais frequentes que o esperado pela normal."
+            text: "Se Q1 = 2.600 e Q3 = 4.800, qual é o IQR e o limite superior de Tukey?",
+            options: ["IQR=2.200 e limite superior=8.100", "IQR=2.200 e limite superior=7.000", "IQR=7.400 e limite superior=11.100", "IQR=1.100 e limite superior=6.450", "IQR=2.200 e limite superior=9.300"],
+            correct: 0,
+            feedback: "Correto! IQR = 4.800 - 2.600 = 2.200 e o limite superior é Q3 + 1.5×IQR = 8.100."
         },
         {
             text: "Em qual situação a moda é a métrica mais adequada?",

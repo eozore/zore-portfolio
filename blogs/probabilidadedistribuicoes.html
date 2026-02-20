@@ -165,6 +165,26 @@
     </section>
 
     <section>
+        <h2>Assimetria e Curtose: A Forma das Distribuições</h2>
+        <p>Além de média e variância, a <em>forma</em> da distribuição ajuda a decidir se o modelo probabilístico escolhido faz sentido para os dados.</p>
+
+        <h3>Assimetria (Skewness)</h3>
+        <p>Mede se a distribuição é simétrica ou se tem uma cauda mais longa em um dos lados.</p>
+        <ul>
+            <li><strong>Assimetria positiva (cauda à direita):</strong> média &gt; mediana. Comum em renda, preço de imóveis e tempos de resposta.</li>
+            <li><strong>Assimetria negativa (cauda à esquerda):</strong> média &lt; mediana. Pode ocorrer em provas muito fáceis, com notas concentradas no topo.</li>
+        </ul>
+
+        <h3>Curtose (Kurtosis)</h3>
+        <p>Mede o peso das caudas em relação à Normal. Curtose alta indica maior chance de eventos extremos, mesmo que a média pareça estável.</p>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 Regra Prática</span>
+            Antes de assumir Normalidade em um modelo, verifique assimetria e curtose. Se \(|\text{skewness}| > 1\) ou \(\text{kurtosis} > 3\), considere transformações como \(\log(x)\) ou \(\sqrt{x}\).
+        </div>
+    </section>
+
+    <section>
         <h2>Teorema Central do Limite</h2>
         <p>Um dos resultados mais poderosos da estatística: independentemente da distribuição original dos dados, a <strong>média amostral</strong> de amostras suficientemente grandes converge para uma distribuição Normal.</p>
         $$\bar{X} \xrightarrow{d} \mathcal{N}\left(\mu, \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
@@ -183,6 +203,7 @@
                 <li><strong>Teorema de Bayes</strong> inverte a condicional: de P(efeito|causa) para P(causa|efeito).</li>
                 <li><strong>Bernoulli/Binomial</strong> para eventos binários; <strong>Poisson</strong> para eventos raros em intervalos.</li>
                 <li><strong>Normal</strong> para erros e médias; <strong>Exponencial</strong> para tempos entre eventos.</li>
+                <li><strong>Assimetria e curtose</strong> ajudam a validar se a distribuição escolhida representa bem os extremos.</li>
                 <li>A distribuição que você assume define a função de perda do seu modelo.</li>
                 <li><strong>TCL</strong> garante que médias amostrais são normais — base dos testes estatísticos.</li>
             </ul>
