@@ -136,10 +136,6 @@
             <li>\(X\) — a VA em si (o fenômeno, ainda incerto)</li>
             <li>\(x_1 = 24\) — a primeira entrega demorou 24 minutos</li>
             <li>\(x_i = 22\) — a i-ésima entrega demorou 22 minutos</li>
-            <li>\(P(X = 28)\) — probabilidade de uma entrega levar exatamente 28 min (PMF)</li>
-            <li>\(P(X \leq 30)\) — probabilidade de entregar em até 30 min (FDA — Função de Distribuição Acumulada)</li>
-            <li>\(X \sim \mathcal{N}(28,\, 5^2)\) — "\(X\) segue uma Normal com média 28 e variância 25"</li>
-            <li>\(E[X] = 28\) e \(Var(X) = 25\) — valor esperado e variância de \(X\)</li>
         </ul>
         <p>Essa notação aparece em todo paper, livro e código de ML — dominar a leitura dela é essencial para não se perder na literatura.</p>
     </section>
@@ -175,19 +171,6 @@
         <div class="highlight-box" style="background-color:#f0f9ff; border-color:#bae6fd;">
             <strong>Métrica:</strong> A probabilidade de um valor <em>exato</em> é zero. Usamos a <strong>Função Densidade de Probabilidade (PDF)</strong> para calcular a chance de o valor cair em um <em>intervalo</em> (área sob a curva).
         </div>
-
-        <h3>Fórmulas Essenciais</h3>
-        <ul>
-            <li>
-                <strong>Valor Esperado \(E[X]\):</strong> O "centro de gravidade" dos dados.
-                $$E[X] = \sum x \cdot P(X=x)$$
-                <small>(Para discretas. Para contínuas, usa-se integral.)</small>
-            </li>
-            <li>
-                <strong>Variância \(Var(X)\):</strong> O quão espalhados os dados estão em torno da média.
-                $$Var(X) = E\left[(X - \mu)^2\right]$$
-            </li>
-        </ul>
 
         <h3>Visualizando o Problema da Ana</h3>
         <p>Ana coletou 1.000 entregas. Veja uma amostra dos dados:</p>
