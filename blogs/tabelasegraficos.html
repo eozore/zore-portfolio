@@ -82,7 +82,7 @@
                 <tr><td>Como comparar categorias?</td><td>Barras / Colunas</td><td>Inadimplência por faixa de renda</td></tr>
                 <tr><td>Como evoluiu no tempo?</td><td>Linha</td><td>Taxa de inadimplência mensal</td></tr>
                 <tr><td>Existe relação entre variáveis?</td><td>Dispersão (Scatter)</td><td>Salário vs. probabilidade de default</td></tr>
-                <tr><td>Qual a proporção do todo?</td><td>Pizza / Barras empilhadas</td><td>Composição da carteira por segmento</td></tr>
+                <tr><td>Qual a proporção do todo?</td><td> Barras empilhadas </td><td>Composição da carteira por segmento</td></tr>
             </tbody>
         </table>
     </section>
@@ -96,11 +96,11 @@
         <div class="chart-container">
             <canvas id="histChart"></canvas>
         </div>
-        <p><em>A linha vermelha é a média (R$ 8.4k). A linha azul é a mediana (R$ 3.5k). A cauda à direita — os clientes de alta renda — é o que inflou a média e mascarou o risco real da carteira.</em></p>
+        <p><em>A linha laranja é a média (R$ 8.4k), a linha azul é a mediana (R$ 3.5k). A cauda à direita — os clientes de alta renda — é o que inflou a média e mascarou o risco real da carteira.</em></p>
 
         <div class="highlight-box">
             <span class="highlight-title">⚠️ Cuidado com o número de bins</span>
-            Poucos bins escondem a forma real da distribuição. Muitos bins criam ruído. Uma regra prática é usar a <strong>Regra de Sturges</strong>: \(k = 1 + \log_2(n)\), onde \(n\) é o número de observações.
+            Poucos bins escondem a forma real da distribuição, muitos bins criam ruído. Uma regra prática é usar a <strong>Regra de Sturges</strong>: \(k = 1 + \log_2(n)\), onde \(n\) é o número de observações.
         </div>
     </section>
 
@@ -117,7 +117,7 @@
                 <canvas id="boxInadimChart"></canvas>
             </div>
         </div>
-        <p><em>Esquerda: clientes adimplentes (mediana R$ 4.2k, distribuição mais concentrada). Direita: inadimplentes (mediana R$ 2.1k, maior dispersão e mais outliers). Os boxplots abaixo usam amostras sintéticas com n=37 por grupo para estabilizar quartis e limites de Tukey.</em></p>
+        <p><em>Esquerda: clientes adimplentes (mediana R$ 4.2k). <br> Direita: inadimplentes (mediana R$ 2.1k).</em></p>
 
         <div class="complexity-box">
             <span class="complexity-title">🔬 Boxplot em Feature Engineering</span>
@@ -136,7 +136,7 @@
 
         <div class="highlight-box">
             <span class="highlight-title">💡 Barras vs. Pizza</span>
-            Evite gráficos de pizza para comparar mais de 3 categorias — o olho humano é ruim em comparar ângulos. Barras horizontais são sempre mais legíveis para muitas categorias e permitem rótulos longos.
+            Evite gráficos de pizza — o olho humano é ruim em comparar ângulos. Barras horizontais são sempre mais legíveis para muitas categorias e permitem rótulos longos.
         </div>
     </section>
 
@@ -190,7 +190,7 @@
             <ul>
                 <li><strong>Histograma</strong> para ver a forma da distribuição (assimetria, caudas, outliers).</li>
                 <li><strong>Boxplot</strong> para comparar grupos e identificar outliers com o critério de Tukey.</li>
-                <li><strong>Barras</strong> para comparar categorias; evite pizza com mais de 3 categorias.</li>
+                <li><strong>Barras</strong> para comparar categorias; evite pizza sempre.</li>
                 <li><strong>Linha</strong> para evolução temporal — torna causa-efeito visualmente óbvia.</li>
                 <li><strong>Scatter</strong> para explorar relação entre duas variáveis numéricas.</li>
                 <li><strong>Tabela</strong> quando o leitor precisa de valores exatos para decidir.</li>
@@ -228,7 +228,7 @@
         afterDraw(chart) {
             const ctx = chart.ctx, xAxis = chart.scales.x, yAxis = chart.scales.y;
             // média índice 14 (R$8.4k ~ bin 8-9k), mediana índice 4 (R$3.5k ~ bin 3-4k)
-            [[4, '#2563eb'], [14, '#f59e0b']].forEach(([idx, color]) => {
+            [[3, '#2563eb'], [8, '#f59e0b']].forEach(([idx, color]) => {
                 const x = xAxis.getPixelForValue(idx);
                 ctx.save();
                 ctx.beginPath(); ctx.moveTo(x, yAxis.top); ctx.lineTo(x, yAxis.bottom);
@@ -514,7 +514,7 @@
             text: "Carlos quer comparar a taxa de inadimplência entre 4 faixas de renda. Qual gráfico usar?",
             options: ["Gráfico de pizza.", "Histograma.", "Scatter plot.", "Gráfico de barras.", "Gráfico de linha."],
             correct: 3,
-            feedback: "Correto! Barras são ideais para comparar valores entre categorias discretas. Pizza seria inadequado para 4 categorias."
+            feedback: "Correto! Barras são ideais para comparar valores entre categorias discretas."
         },
         {
             text: "Para mostrar que a inadimplência começou a subir em março após uma campanha de aquisição, qual gráfico é mais eficaz?",
