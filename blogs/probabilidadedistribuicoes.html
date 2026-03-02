@@ -49,57 +49,85 @@
 <div class="container">
     <header>
         <h1>Probabilidade e Distribuições</h1>
-        <p class="subtitle">Da intuição de chance às distribuições que alimentam modelos de ML</p>
+        <p class="subtitle">Da intuição de chance às distribuições que explicam dados reais</p>
         <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 4 de 7 — Bloco: Fundação Estatística &nbsp;|  <a href="tabelasegraficos.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 3: Tabelas e Gráficos</a></p>
         <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">Ver no YouTube</a></p>
     </header>
 
     <section>
         <div class="story-box">
-            <h3>🎯 O Sistema de Detecção de Fraudes</h3>
-            <p>Beatriz era cientista de dados em um banco digital. Seu modelo de detecção de fraudes estava com 98% de acurácia — e o diretor estava comemorando. Mas Beatriz sabia que havia algo errado: das 10.000 transações diárias, apenas 50 eram fraudes (0,5%). Um modelo que simplesmente classificasse <em>tudo</em> como legítimo já teria 99,5% de acurácia.</p>
-            <p>O problema real era probabilístico: dado que uma transação tem certas características suspeitas, <em>qual a probabilidade de ser fraude?</em> Para responder isso corretamente, Beatriz precisava dominar probabilidade condicional, o Teorema de Bayes e as distribuições que descrevem eventos raros.</p>
+            <h3>🎯 O Alerta de Trânsito que Não Significava Atraso</h3>
+            <p>Na <strong>FlashLog</strong> (a mesma do Artigo 1), o time de operações usava um sistema que emitia um <strong>alerta</strong> quando detectava trânsito pesado na rota. A ideia era simples: se houver alerta, talvez valha <em>redistribuir entregas</em> ou <em>avisar o cliente</em>.</p>
+            <p>O problema: o alerta aparecia com frequência, mas nem sempre havia atraso. A pergunta que mudou a reunião foi direta: <em>quando aparece um alerta, qual é a chance real de a entrega atrasar?</em> Isso é probabilidade condicional e <strong>Teorema de Bayes</strong> na prática, sem precisar falar de modelos.</p>
         </div>
     </section>
 
     <section>
         <h2>Fundamentos de Probabilidade</h2>
 
+        <h3>Experimento, Espaço Amostral e Evento</h3>
+        <p>Um <strong>experimento aleatório</strong> é algo cujo resultado não sabemos antecipadamente (mesmo que possamos prever tendências). O <strong>espaço amostral</strong> (\(\Omega\)) é o conjunto de todos os resultados possíveis. Um <strong>evento</strong> (\(A\)) é um subconjunto de \(\Omega\).</p>
+        <p><strong>Exemplo:</strong> lançar um dado. \(\Omega=\{1,2,3,4,5,6\}\). O evento \(A=\{\text{"sair par"}\}=\{2,4,6\}\).</p>
+
         <h3>Probabilidade Clássica</h3>
         <p>A probabilidade de um evento \(A\) é a razão entre os casos favoráveis e o total de casos igualmente prováveis:</p>
         $$P(A) = \frac{\text{casos favoráveis}}{\text{total de casos}}$$
+        <p>Isso funciona muito bem para jogos e situações com simetria (moeda, dado). Para problemas reais, a intuição mais útil é: <strong>probabilidade é frequência no longo prazo</strong> (se repetíssemos o processo muitas vezes).</p>
 
         <h3>Probabilidade Condicional</h3>
-        <p>A probabilidade de \(A\) ocorrer <em>dado que</em> \(B\) já ocorreu. Essa é a base do raciocínio bayesiano:</p>
+        <p>A probabilidade de \(A\) ocorrer <em>dado que</em> \(B\) já ocorreu. Pense como "reduzir o universo" para os casos onde \(B\) é verdade:</p>
         $$P(A \mid B) = \frac{P(A \cap B)}{P(B)}$$
+        <p><strong>Exemplo no mesmo dado:</strong> Defina \(A=\{\text{sair par}\}\) e \(B=\{\text{sair maior que 3}\}=\{4,5,6\}\).</p>
+        <p>Sem informação extra: \(P(A)=3/6=1/2\). Mas se você já sabe que saiu \(B\), o espaço amostral vira \(\{4,5,6\}\). Dentro dele, os pares são \(\{4,6\}\). Então:</p>
+        $$P(A \mid B) = \frac{2}{3}$$
+        <p>Esse é o "pulo" da condicional: <strong>o denominador muda</strong>, porque você não está mais considerando todos os resultados possíveis, apenas os compatíveis com \(B\).</p>
 
         <div class="highlight-box">
-            <span class="highlight-title">💡 No contexto de Beatriz</span>
-            \(P(\text{Fraude} \mid \text{Transação Suspeita})\) é muito diferente de \(P(\text{Fraude})\). A probabilidade condicional atualiza nossa crença com base em evidências — exatamente o que um modelo de ML faz.
+            <span class="highlight-title">💡 No contexto da FlashLog</span>
+            \(P(\text{Atraso} \mid \text{Alerta})\) pode ser <strong>muito</strong> diferente de \(P(\text{Atraso})\). Um alerta é uma evidência, não uma sentença.
         </div>
 
         <h3>Teorema de Bayes</h3>
-        <p>Permite inverter a probabilidade condicional — calcular \(P(\text{causa} \mid \text{efeito})\) a partir de \(P(\text{efeito} \mid \text{causa})\):</p>
+        <p>Permite inverter a condicional — calcular \(P(\text{causa} \mid \text{evidência})\) a partir de \(P(\text{evidência} \mid \text{causa})\):</p>
         $$P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B)}$$
 
         <table>
             <thead>
-                <tr><th>Termo</th><th>Nome</th><th>Significado no problema de Beatriz</th></tr>
+                <tr><th>Termo</th><th>Nome</th><th>Significado no problema da FlashLog</th></tr>
             </thead>
             <tbody>
-                <tr><td>\(P(A)\)</td><td>Prior</td><td>P(Fraude) = 0,5% — frequência base de fraudes</td></tr>
-                <tr><td>\(P(B \mid A)\)</td><td>Verossimilhança</td><td>P(Suspeita | Fraude) — quão suspeitas são as fraudes</td></tr>
-                <tr><td>\(P(A \mid B)\)</td><td>Posterior</td><td>P(Fraude | Suspeita) — o que queremos calcular</td></tr>
-                <tr><td>\(P(B)\)</td><td>Evidência</td><td>P(Suspeita) — frequência total de transações suspeitas</td></tr>
+                <tr><td>\(P(A)\)</td><td>Prior</td><td>P(Atraso) — taxa base de entregas atrasadas</td></tr>
+                <tr><td>\(P(B \mid A)\)</td><td>Verossimilhança</td><td>P(Alerta | Atraso) — com que frequência atrasos geram alerta</td></tr>
+                <tr><td>\(P(A \mid B)\)</td><td>Posterior</td><td>P(Atraso | Alerta) — o que queremos calcular</td></tr>
+                <tr><td>\(P(B)\)</td><td>Evidência</td><td>P(Alerta) — frequência total de alertas</td></tr>
             </tbody>
         </table>
 
         <div class="complexity-box">
-            <span class="complexity-title">🔬 Bayes na Prática: O Paradoxo da Acurácia</span>
-            <p>Suponha: P(Fraude) = 0,5%, P(Suspeita | Fraude) = 90%, P(Suspeita | Legítima) = 5%.</p>
-            <p>Calculando P(Fraude | Suspeita) pelo Teorema de Bayes:</p>
-            $$P(\text{Fraude} \mid \text{Suspeita}) = \frac{0{,}90 \times 0{,}005}{0{,}90 \times 0{,}005 + 0{,}05 \times 0{,}995} \approx 8{,}3\%$$
-            <p>Mesmo com um alerta suspeito, a probabilidade de fraude é apenas 8,3%! Isso explica por que sistemas de fraude geram muitos falsos positivos — e por que métricas como <strong>Precision e Recall</strong> são mais relevantes que acurácia nesse contexto.</p>
+            <span class="complexity-title">🔬 Bayes na Prática: Taxa Base e Falsos Alarmes</span>
+            <p>Vamos usar números <strong>fictícios</strong> para entender o mecanismo:</p>
+            <ul>
+                <li>\(P(\text{Atraso}) = 10\%\): taxa base (em dados reais, isso vem do histórico: atrasos/total).</li>
+                <li>\(P(\text{Alerta} \mid \text{Atraso}) = 70\%\): sensibilidade do alerta (em dados reais: alertas em atrasos / total de atrasos).</li>
+                <li>\(P(\text{Alerta} \mid \text{No Prazo}) = 20\%\): falso alarme (em dados reais: alertas em no prazo / total no prazo).</li>
+            </ul>
+            <p>Com essas probabilidades de entrada, a gente <strong>calcula</strong> o que falta. Primeiro, \(P(\text{No Prazo}) = 1 - P(\text{Atraso}) = 90\%\).</p>
+            <p>Depois, usamos a Lei da Probabilidade Total para achar \(P(\text{Alerta})\):</p>
+            $$P(\text{Alerta}) = P(\text{Alerta} \mid \text{Atraso})P(\text{Atraso}) + P(\text{Alerta} \mid \text{No Prazo})P(\text{No Prazo})$$
+            $$P(\text{Alerta}) = 0{,}70 \cdot 0{,}10 + 0{,}20 \cdot 0{,}90 = 0{,}25$$
+            <p>Agora sim aplicamos Bayes para calcular \(P(\text{Atraso} \mid \text{Alerta})\):</p>
+            $$P(\text{Atraso} \mid \text{Alerta}) = \frac{0{,}70 \times 0{,}10}{0{,}70 \times 0{,}10 + 0{,}20 \times 0{,}90} = 0{,}28 = 28\%$$
+            <p>Repare como o alerta <strong>aumenta</strong> a chance de atraso (de 10% para 28%), mas não transforma tudo em atraso. Esse é exatamente o tipo de conta que ajuda a decidir <strong>quando</strong> agir (avisar cliente, trocar rota, ou só monitorar).</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>De Eventos a Distribuições</h2>
+        <p>No Artigo 1, você viu que uma <strong>variável aleatória</strong> transforma resultados incertos em números. Agora vem o passo seguinte: uma <strong>distribuição</strong> descreve <em>como</em> esses números se espalham, isto é, qual a chance de cada valor acontecer.</p>
+        <div class="highlight-box" style="background-color:#f0f9ff; border-color:#bae6fd;">
+            <span class="highlight-title">💡 Discreta vs Contínua (o detalhe que confunde todo mundo)</span>
+            <p>Se \(X\) é <strong>discreta</strong> (contagens), faz sentido falar \(P(X=k)\) e as probabilidades somam 1.</p>
+            <p>Se \(X\) é <strong>contínua</strong> (medidas), a probabilidade de um valor exato é zero: \(P(X=x)=0\). O que importa é a chance de cair em um <strong>intervalo</strong> (área sob a curva).</p>
         </div>
     </section>
 
@@ -107,43 +135,67 @@
         <h2>Distribuições Discretas</h2>
 
         <h3>Distribuição de Bernoulli</h3>
-        <p>O caso mais simples: um único experimento com dois resultados possíveis (sucesso/fracasso). É o átomo de todas as distribuições discretas.</p>
+        <p>O caso mais simples: um experimento com dois resultados possíveis (0/1). É o "átomo" das distribuições discretas.</p>
         $$P(X = k) = p^k (1-p)^{1-k}, \quad k \in \{0, 1\}$$
-        <p><strong>Exemplo:</strong> Uma transação é fraude (1) ou não (0), com \(p = 0{,}005\).</p>
+        <p><strong>Exemplo:</strong> Uma entrega atrasou (1) ou não (0), com \(p = 0{,}10\).</p>
         <p>\(E[X] = p\) &nbsp;&nbsp; \(Var(X) = p(1-p)\)</p>
 
         <h3>Distribuição Binomial</h3>
-        <p>Generaliza Bernoulli para \(n\) experimentos independentes. Conta o número de sucessos em \(n\) tentativas.</p>
+        <p>Generaliza a Bernoulli para \(n\) tentativas independentes. Conta o número de sucessos em \(n\) tentativas.</p>
         $$P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}$$
-        <p><strong>Exemplo:</strong> Em 1.000 transações, quantas serão fraude? \(X \sim B(1000, 0{,}005)\).</p>
+        <p><strong>Exemplo:</strong> Em 100 entregas, quantas vão atrasar? \(X \sim B(100, 0{,}10)\).</p>
         <p>\(E[X] = np\) &nbsp;&nbsp; \(Var(X) = np(1-p)\)</p>
 
         <h3>Distribuição de Poisson</h3>
-        <p>Modela o número de eventos raros em um intervalo fixo de tempo ou espaço. Ideal quando \(n\) é grande e \(p\) é pequeno.</p>
+        <p>Modela o número de eventos em um intervalo (por hora, por dia, por metro). É muito usada quando os eventos são relativamente raros.</p>
         $$P(X = k) = \frac{e^{-\lambda} \lambda^k}{k!}, \quad \lambda = np$$
-        <p><strong>Exemplo:</strong> Número de fraudes por hora em um sistema com taxa média \(\lambda = 2\) fraudes/hora.</p>
+        <p><strong>Exemplo:</strong> Número de atrasos por hora em uma região com taxa média \(\lambda = 2\) atrasos/hora.</p>
 
         <div class="chart-container">
             <canvas id="discreteChart"></canvas>
         </div>
         <p><em>Comparação entre Binomial(n=20, p=0.1) e Poisson(λ=2). Para n grande e p pequeno, as distribuições convergem.</em></p>
     </section>
+    
+    <section>
+        <h2>Teorema Central do Limite</h2>
+        <p>Um dos resultados mais poderosos da estatística: independentemente da distribuição original dos dados, a <strong>média amostral</strong> de amostras suficientemente grandes converge para uma distribuição Normal.</p>
+        $$\bar{X} \xrightarrow{d} \mathcal{N}\left(\mu, \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 Por que isso importa?</span>
+            O TCL é um dos motivos pelos quais a Normal aparece tanto. Mais importante: ele dá base para <strong>intervalos de confiança</strong> e parte da inferência estatística (tema do artigo de Inferência), mesmo quando os dados originais não são normais.
+        </div>
+    </section>
 
     <section>
         <h2>Distribuições Contínuas</h2>
 
+        <p>Uma variável aleatória <strong>contínua</strong> é aquela que vem de uma <strong>medição</strong> e pode assumir valores em um intervalo (em teoria, com infinitas casas decimais): tempo, peso, temperatura, distância, variação de preço, etc.</p>
+        <p>O ponto-chave é: em contínuas, a gente fala em <strong>densidade</strong> e <strong>intervalos</strong>. Ou seja, o que faz sentido é \(P(a \le X \le b)\), não \(P(X=a)\).</p>
+
+        <div class="highlight-box" style="background-color:#f0f9ff; border-color:#bae6fd;">
+            <span class="highlight-title">💡 Exemplos do cotidiano (e por que parecem “probabilidade”)</span>
+            <ul>
+                <li><strong>Provas:</strong> notas são discretas (0 a 100), mas com muitas possibilidades dá para tratá-las como contínuas e falar da “curva” de notas.</li>
+                <li><strong>Esportes:</strong> tempo do primeiro gol, tempo de corrida, diferença de placar ou pontuação podem ser modelados como variáveis contínuas (ou aproximadas por contínuas).</li>
+                <li><strong>Apostas esportivas e cassinos:</strong> odds e payouts são discretos, mas muitas análises usam variáveis contínuas como <em>retorno</em> (em dinheiro) ou <em>tempo até um evento</em> para entender risco e variabilidade.</li>
+                <li><strong>Sorteios/lotarias (Mega-Sena):</strong> o resultado em si é discreto, mas o que a gente costuma analisar (ex.: <em>ganho esperado</em>, variabilidade do retorno ao longo do tempo) pode ser tratado como variável aleatória numérica.</li>
+            </ul>
+        </div>
+
         <h3>Distribuição Normal (Gaussiana)</h3>
-        <p>A mais importante da estatística. Simétrica, definida por média \(\mu\) e desvio padrão \(\sigma\).</p>
+        <p>Uma das mais importantes da estatística. Simétrica, definida por média \(\mu\) e desvio padrão \(\sigma\). Ela aparece com frequência quando um valor final é a soma de muitos "pequenos efeitos".</p>
         $$f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}$$
         <p>A <strong>Regra Empírica</strong> (68-95-99.7): 68% dos dados estão em \(\mu \pm \sigma\), 95% em \(\mu \pm 2\sigma\), 99.7% em \(\mu \pm 3\sigma\).</p>
 
         <h3>Distribuição Exponencial</h3>
-        <p>Modela o tempo entre eventos em um processo de Poisson. Tem a propriedade de <em>ausência de memória</em>.</p>
+        <p>Modela tempo até um evento (ou tempo entre eventos). Uma propriedade famosa é a <em>ausência de memória</em>.</p>
         $$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
-        <p><strong>Exemplo:</strong> Tempo entre duas fraudes consecutivas, dado que ocorrem a uma taxa \(\lambda\).</p>
+        <p><strong>Exemplo:</strong> Tempo entre dois atrasos consecutivos, dado que eles ocorrem a uma taxa média \(\lambda\).</p>
 
         <h3>Distribuição Uniforme</h3>
-        <p>Todos os valores no intervalo \([a, b]\) têm a mesma probabilidade. Base para geração de números aleatórios e inicialização de pesos em redes neurais.</p>
+        <p>Todos os valores no intervalo \([a, b]\) são igualmente prováveis. É uma referência simples e aparece muito em simulações e sorteios.</p>
         $$f(x) = \frac{1}{b-a}, \quad a \leq x \leq b$$
 
         <div class="chart-container">
@@ -152,21 +204,22 @@
         <p><em>Normal(μ=0, σ=1), Exponencial(λ=1) e Uniforme(0,1) — três formas completamente diferentes de distribuir probabilidade.</em></p>
 
         <div class="complexity-box">
-            <span class="complexity-title">🔬 Distribuições em Algoritmos de ML</span>
-            <p>A escolha da distribuição não é apenas teórica — ela define a função de perda do seu modelo:</p>
+            <span class="complexity-title">🔬 Como Escolher uma Distribuição (sem decorar dezenas)</span>
+            <p>Um atalho prático é começar pelo tipo de variável aleatória:</p>
             <ul>
-                <li><strong>Normal → Regressão Linear:</strong> Assume que os erros seguem \(\mathcal{N}(0, \sigma^2)\), o que leva ao método dos mínimos quadrados.</li>
-                <li><strong>Bernoulli/Binomial → Regressão Logística:</strong> Modela a probabilidade de classes binárias via função sigmoide.</li>
-                <li><strong>Poisson → Regressão de Poisson:</strong> Para modelar contagens (número de cliques, vendas por dia, fraudes por hora).</li>
-                <li><strong>Exponencial → Modelos de Sobrevivência:</strong> Para modelar tempo até um evento (churn, falha de equipamento).</li>
+                <li><strong>Sim/Não (0/1):</strong> Bernoulli.</li>
+                <li><strong>Número de sucessos em n tentativas:</strong> Binomial.</li>
+                <li><strong>Contagem por intervalo (por hora, por dia):</strong> Poisson.</li>
+                <li><strong>Tempo até acontecer algo:</strong> Exponencial (em alguns contextos).</li>
+                <li><strong>Erros de medição e médias:</strong> Normal (muitas vezes como aproximação).</li>
             </ul>
-            <p>Quando você escolhe uma função de perda, está implicitamente assumindo uma distribuição para os seus dados. Entender isso é o que separa quem usa ML de quem entende ML.</p>
+            <p>Depois, confirme com um histograma/boxplot (Artigo 3): a forma e as caudas dizem se a hipótese faz sentido.</p>
         </div>
     </section>
 
     <section>
         <h2>Assimetria e Curtose: A Forma das Distribuições</h2>
-        <p>Além de média e variância, a <em>forma</em> da distribuição ajuda a decidir se o modelo probabilístico escolhido faz sentido para os dados.</p>
+        <p>Além de média e variância, a <em>forma</em> da distribuição ajuda a decidir se a suposição probabilística escolhida faz sentido para os dados.</p>
 
         <h3>Assimetria (Skewness)</h3>
         <p>Mede se a distribuição é simétrica ou se tem uma cauda mais longa em um dos lados.</p>
@@ -180,18 +233,7 @@
 
         <div class="highlight-box">
             <span class="highlight-title">💡 Regra Prática</span>
-            Antes de assumir Normalidade em um modelo, verifique assimetria e curtose. Se \(|\text{skewness}| > 1\) ou \(\text{kurtosis} > 3\), considere transformações como \(\log(x)\) ou \(\sqrt{x}\).
-        </div>
-    </section>
-
-    <section>
-        <h2>Teorema Central do Limite</h2>
-        <p>Um dos resultados mais poderosos da estatística: independentemente da distribuição original dos dados, a <strong>média amostral</strong> de amostras suficientemente grandes converge para uma distribuição Normal.</p>
-        $$\bar{X} \xrightarrow{d} \mathcal{N}\left(\mu, \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
-
-        <div class="highlight-box">
-            <span class="highlight-title">💡 Por que isso importa para ML?</span>
-            O TCL justifica o uso de testes de hipótese e intervalos de confiança mesmo quando os dados originais não são normais. É também a base teórica para técnicas como bootstrap e validação cruzada — você está estimando a distribuição da performance do modelo via reamostragem.
+            Antes de tratar seus dados como "aproximadamente Normais", verifique assimetria e caudas no histograma/boxplot. Se houver muita assimetria ou muitos extremos, considere transformações simples como \(\log(x)\) (quando faz sentido) para estabilizar a variabilidade.
         </div>
     </section>
 
@@ -199,13 +241,13 @@
         <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
             <h3>📝 Resumo para Levar na Mochila</h3>
             <ul>
-                <li><strong>Probabilidade condicional</strong> é a base do raciocínio com evidências — e de todo modelo supervisionado.</li>
-                <li><strong>Teorema de Bayes</strong> inverte a condicional: de P(efeito|causa) para P(causa|efeito).</li>
-                <li><strong>Bernoulli/Binomial</strong> para eventos binários; <strong>Poisson</strong> para eventos raros em intervalos.</li>
-                <li><strong>Normal</strong> para erros e médias; <strong>Exponencial</strong> para tempos entre eventos.</li>
-                <li><strong>Assimetria e curtose</strong> ajudam a validar se a distribuição escolhida representa bem os extremos.</li>
-                <li>A distribuição que você assume define a função de perda do seu modelo.</li>
-                <li><strong>TCL</strong> garante que médias amostrais são normais — base dos testes estatísticos.</li>
+                <li><strong>Evento</strong> é um conjunto de resultados; probabilidade mede o "quão comum" ele é no longo prazo.</li>
+                <li><strong>Probabilidade condicional</strong> muda o universo: \(P(A|B)\) não é o mesmo que \(P(A)\).</li>
+                <li><strong>Bayes</strong> ajuda a responder "qual a chance da causa dado um sinal?" e mostra o peso da <strong>taxa base</strong>.</li>
+                <li><strong>Bernoulli/Binomial</strong> para 0/1 e sucessos em \(n\) tentativas; <strong>Poisson</strong> para contagens por intervalo.</li>
+                <li><strong>Normal</strong> aparece muito com médias e soma de efeitos; <strong>Exponencial</strong> modela tempos até eventos.</li>
+                <li><strong>Assimetria e caudas</strong> (como você viu nos gráficos) importam tanto quanto a média.</li>
+                <li><strong>TCL</strong>: médias amostrais tendem à Normal quando \(n\) cresce.</li>
             </ul>
         </div>
     </section>
@@ -213,16 +255,17 @@
     <section>
         <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
             <span class="complexity-title">➡️ O Que Vem a Seguir</span>
-            <p>Você agora entende como a probabilidade se distribui e como isso conecta com os modelos de ML. O próximo passo é entender <strong>como coletar dados de forma válida</strong> para que essas distribuições representem a realidade. No Artigo 5 — Amostragem e Inferência, vamos ver por que uma pesquisa eleitoral pode errar mesmo com 10.000 respostas.</p>
+            <p>Você agora entende probabilidade condicional, Bayes e como distribuições descrevem variáveis aleatórias. O próximo passo é entender <strong>como coletar dados de forma válida</strong> para que essas distribuições representem a realidade. No Artigo 5 — Amostragem, vamos ver por que uma pesquisa eleitoral pode errar mesmo com 10.000 respostas.</p>
+            <p><strong>Nota:</strong> eu vou tratar <strong>inferência</strong> como um tema separado (em um artigo próprio), para não misturar "como coletar" com "como concluir".</p>
         </div>
     </section>
 
     <section class="references">
         <h3>📚 Para Se Aprofundar</h3>
         <ul>
-            <li><strong>"Probabilidade: Um Curso Moderno com Aplicações"</strong> — Sheldon Ross.</li>
-            <li><strong>"Pattern Recognition and Machine Learning"</strong> — Bishop. (Capítulo 1 e 2: fundamentos probabilísticos de ML.)</li>
-            <li><strong>"Bayesian Data Analysis"</strong> — Gelman et al. (A referência em inferência bayesiana.)</li>
+            <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. (Muito didático, com exercícios.)</li>
+            <li><strong>"Probabilidade: Um Curso Moderno com Aplicações"</strong> — Sheldon Ross. (Mais formal, ótimo como referência.)</li>
+            <li><strong>"The Art of Statistics"</strong> — David Spiegelhalter. (Intuição forte para pensar incerteza.)</li>
         </ul>
     </section>
 
@@ -299,24 +342,30 @@
         }
     });
 
-    // --- Quiz ---
-    const questions = [
-        {
-            text: "Por que a acurácia de 98% do modelo de Beatriz era enganosa?",
-            options: ["Porque o modelo estava com bug.", "Porque 98% é um número baixo.", "Porque com apenas 0,5% de fraudes, um modelo que classifica tudo como legítimo já teria 99,5% de acurácia.", "Porque o banco não tinha dados suficientes.", "Porque a acurácia só funciona para regressão."],
-            correct: 2,
-            feedback: "Exato! Em dados desbalanceados, acurácia é uma métrica enganosa. Precision e Recall são mais adequados."
-        },
-        {
-            text: "O que o Teorema de Bayes permite calcular?",
-            options: ["A média de uma distribuição.", "P(causa | efeito) a partir de P(efeito | causa) e probabilidades prévias.", "O desvio padrão de uma amostra.", "A variância de uma distribuição binomial.", "O número de eventos em um intervalo."],
-            correct: 1,
-            feedback: "Correto! Bayes inverte a condicional — de P(sintoma|doença) para P(doença|sintoma), por exemplo."
-        },
-        {
-            text: "Qual distribuição modela o número de sucessos em n experimentos independentes com probabilidade p?",
-            options: ["Poisson.", "Normal.", "Exponencial.", "Binomial.", "Uniforme."],
-            correct: 3,
+	    // --- Quiz ---
+	    const questions = [
+	        {
+	            text: "Qual é a diferença entre P(Atraso | Alerta) e P(Alerta | Atraso)?",
+	            options: ["Não existe diferença; são a mesma coisa.", "A primeira é a chance de atraso dado um alerta; a segunda é a chance de o sistema gerar alerta quando há atraso.", "A primeira sempre é maior que a segunda.", "A segunda depende apenas da taxa base.", "As duas só fazem sentido para variáveis contínuas."],
+	            correct: 1,
+	            feedback: "Isso! Trocar a ordem da condicional muda completamente a pergunta."
+	        },
+	        {
+	            text: "O que o Teorema de Bayes permite calcular?",
+	            options: ["A média de uma distribuição.", "P(causa | evidência) a partir de P(evidência | causa) e da taxa base.", "O desvio padrão de uma amostra.", "A curtose de uma distribuição.", "A mediana de um histograma."],
+	            correct: 1,
+	            feedback: "Correto! Bayes é a ferramenta para inverter perguntas do tipo P(sinal|causa) para P(causa|sinal)."
+	        },
+	        {
+	            text: "Se X é uma variável aleatória contínua, qual é a afirmação correta?",
+	            options: ["P(X = 2.0) geralmente é maior que P(X = 2.1).", "P(X = x) pode ser calculada diretamente pela altura da curva.", "P(X = x) é zero; probabilidades são calculadas por intervalos (área).", "A soma de P(X = x) em todos os x é 1.", "Toda variável contínua segue uma Normal."],
+	            correct: 2,
+	            feedback: "Isso! Em contínuas, a densidade não é probabilidade; a probabilidade é a área em um intervalo."
+	        },
+	        {
+	            text: "Qual distribuição modela o número de sucessos em n experimentos independentes com probabilidade p?",
+	            options: ["Poisson.", "Normal.", "Exponencial.", "Binomial.", "Uniforme."],
+	            correct: 3,
             feedback: "Isso! Binomial(n, p) conta sucessos em n tentativas. Bernoulli é o caso especial com n=1."
         },
         {
@@ -325,43 +374,37 @@
             correct: 1,
             feedback: "Correto! Poisson é o limite da Binomial quando n→∞ e p→0, mantendo λ=np constante."
         },
-        {
-            text: "Qual propriedade única a distribuição Exponencial possui?",
-            options: ["Simetria em torno da média.", "Ausência de memória: P(X > s+t | X > s) = P(X > t).", "Variância sempre igual à média.", "Suporte apenas em inteiros.", "Curtose sempre igual a 3."],
-            correct: 1,
-            feedback: "Exato! Ausência de memória significa que o tempo já esperado não influencia o tempo restante — útil para modelar falhas de equipamentos."
-        },
-        {
-            text: "Na Regressão Logística, qual distribuição está sendo modelada implicitamente?",
-            options: ["Normal.", "Poisson.", "Exponencial.", "Bernoulli/Binomial.", "Uniforme."],
+	        {
+	            text: "Qual propriedade única a distribuição Exponencial possui?",
+	            options: ["Simetria em torno da média.", "Ausência de memória: P(X > s+t | X > s) = P(X > t).", "Variância sempre igual à média.", "Suporte apenas em inteiros.", "Curtose sempre igual a 3."],
+	            correct: 1,
+	            feedback: "Exato! Ausência de memória significa que o tempo já esperado não influencia o tempo restante — útil para modelar falhas de equipamentos."
+	        },
+	        {
+	            text: "Dois eventos A e B são independentes quando:",
+	            options: ["P(A ∩ B) = P(A) + P(B).", "P(A | B) = P(A).", "P(A | B) = 0.", "P(A) = P(B).", "A e B não podem ocorrer ao mesmo tempo."],
+	            correct: 1,
+	            feedback: "Correto! Independência significa que saber B não muda a chance de A."
+	        },
+	        {
+	            text: "O que o Teorema Central do Limite afirma?",
+	            options: ["Que todos os dados seguem distribuição normal.", "Que a média amostral converge para uma distribuição normal, independente da distribuição original.", "Que a variância amostral é sempre igual à variância populacional.", "Que amostras grandes têm média zero.", "Que a mediana converge para a média."],
+	            correct: 1,
+	            feedback: "Isso! O TCL é uma das bases para inferência: ele explica por que a média amostral tem comportamento 'quase normal' com n grande."
+	        },
+	        {
+	            text: "Qual distribuição é mais adequada para modelar o número de cliques por hora em um anúncio?",
+	            options: ["Normal.", "Bernoulli.", "Uniforme.", "Poisson.", "Exponencial."],
             correct: 3,
-            feedback: "Correto! A regressão logística modela P(Y=1|X) assumindo que Y segue uma distribuição de Bernoulli."
-        },
-        {
-            text: "O que o Teorema Central do Limite afirma?",
-            options: ["Que todos os dados seguem distribuição normal.", "Que a média amostral converge para uma distribuição normal, independente da distribuição original.", "Que a variância amostral é sempre igual à variância populacional.", "Que amostras grandes têm média zero.", "Que a mediana converge para a média."],
-            correct: 1,
-            feedback: "Isso! O TCL é a base teórica para testes de hipótese e intervalos de confiança mesmo com dados não-normais."
-        },
-        {
-            text: "Qual distribuição é mais adequada para modelar o número de cliques por hora em um anúncio?",
-            options: ["Normal.", "Bernoulli.", "Uniforme.", "Poisson.", "Exponencial."],
-            correct: 3,
-            feedback: "Correto! Poisson modela contagens de eventos raros em intervalos fixos — perfeito para cliques, acessos, fraudes por hora."
-        },
-        {
-            text: "Se P(Fraude)=0.5% e P(Alerta|Fraude)=90%, P(Alerta|Legítima)=5%, qual é aproximadamente P(Fraude|Alerta)?",
-            options: ["90%", "50%", "0.5%", "8.3%", "95%"],
-            correct: 3,
-            feedback: "Correto! Pelo Teorema de Bayes: (0.9×0.005) / (0.9×0.005 + 0.05×0.995) ≈ 8.3%. A base rate baixa domina o resultado."
-        },
-        {
-            text: "Por que a escolha da distribuição importa ao definir a função de perda de um modelo?",
-            options: ["Não importa, qualquer função de perda funciona igual.", "Porque define a linguagem de programação a usar.", "Porque cada função de perda assume implicitamente uma distribuição para os erros — usar a errada leva a estimativas viesadas.", "Porque distribuições diferentes têm velocidades de treinamento diferentes.", "Porque o hardware exige distribuições específicas."],
-            correct: 2,
-            feedback: "Perfeito! MSE assume erros normais, Cross-Entropy assume Bernoulli/Multinomial. Entender isso é o que separa quem usa ML de quem entende ML."
-        }
-    ];
+	            feedback: "Correto! Poisson modela contagens de eventos em intervalos fixos — por exemplo: atrasos por hora, chamados por dia, cliques por minuto."
+	        },
+	        {
+	            text: "Se P(Atraso)=10% e P(Alerta|Atraso)=70%, P(Alerta|No Prazo)=20%, qual é aproximadamente P(Atraso|Alerta)?",
+	            options: ["10%", "28%", "70%", "90%", "2%"],
+	            correct: 1,
+	            feedback: "Correto! (0.7×0.10) / (0.7×0.10 + 0.2×0.90) = 0.07 / 0.25 = 0.28 = 28%."
+	        }
+	    ];
 
     function renderQuiz() {
         const root = document.getElementById('quiz-root');

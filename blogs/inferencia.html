@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferência Estatística</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary-color: #db4a2b;
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+        }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.8; color: var(--text-color); background-color: var(--bg-color); margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary-color); font-size: 2.5rem; margin-bottom: 10px; line-height: 1.2; }
+        h2 { color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 40px; }
+        h3 { color: #475569; margin-top: 30px; }
+        .subtitle { font-size: 1.2rem; color: #64748b; margin-bottom: 40px; font-weight: 300; }
+        .story-box { background-color: #eff6ff; border-left: 5px solid var(--primary-color); padding: 20px; border-radius: 0 8px 8px 0; margin: 30px 0; font-style: italic; }
+        .highlight-box { background-color: #fffbeb; border: 1px solid #fcd34d; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .highlight-title { font-weight: bold; color: #92400e; display: block; margin-bottom: 5px; }
+        .complexity-box { background-color: #f0fdf4; border: 1px solid #86efac; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .complexity-title { font-weight: bold; color: #166534; display: block; margin-bottom: 8px; }
+        .references { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
+        @media (max-width: 600px) { .container { padding: 20px; } h1 { font-size: 1.8rem; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Inferência Estatística</h1>
+        <p class="subtitle">Como sair de uma amostra e falar sobre a população com cuidado</p>
+        <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 6 de 7 — Bloco: Fundação Estatística</p>
+        <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">Ver no YouTube</a></p>
+    </header>
+
+    <section>
+        <div class="story-box">
+            <h3>🗳️ O Número que Virou Manchete</h3>
+            <p>Um time de produto rodou uma pesquisa com 500 pessoas e viu 62% de aprovação. A liderança comemorou. No dia seguinte, outra pesquisa apareceu com 55%. Quem estava certo?</p>
+            <p>Essa diferença não é necessariamente erro ou manipulação. Muitas vezes é <strong>variabilidade amostral</strong>: amostras diferentes, respostas diferentes. Inferência é o conjunto de ferramentas para quantificar essa incerteza.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>População vs Amostra</h2>
+        <p><strong>População</strong> é tudo o que você quer entender. <strong>Amostra</strong> é o que você observou. Inferência é a ponte entre os dois.</p>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 Regra de ouro</span>
+            <p>Quanto mais bem desenhada for a amostra (tema do Artigo 5), mais confiável será qualquer conclusão inferencial.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>Estimativa e Incerteza</h2>
+        <p>Quando você calcula uma média ou uma proporção na amostra, você está produzindo uma <strong>estimativa</strong> para um parâmetro desconhecido da população.</p>
+        <p>O ponto que muita gente perde: toda estimativa vem com incerteza.</p>
+
+        <h3>Intervalo de Confiança (ideia)</h3>
+        <p>Um intervalo de confiança é uma forma padronizada de dizer: <em>com este nível de confiança, o valor real provavelmente está aqui dentro</em>.</p>
+
+        <div class="complexity-box">
+            <span class="complexity-title">🔬 O papel do TCL</span>
+            <p>O Teorema Central do Limite (Artigo 4) explica por que médias amostrais tendem a ter comportamento "quase Normal" quando \(n\) cresce, o que viabiliza muitos intervalos de confiança.</p>
+        </div>
+    </section>
+
+    <section>
+        <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
+            <h3>📝 Resumo para Levar na Mochila</h3>
+            <ul>
+                <li><strong>Inferência</strong> é sobre concluir com incerteza, não sobre “certeza com números bonitos”.</li>
+                <li><strong>Amostra</strong> é o observado; <strong>população</strong> é o alvo.</li>
+                <li><strong>Estimativa</strong> sem incerteza é meia análise.</li>
+                <li><strong>Intervalo de confiança</strong> é a forma prática de comunicar incerteza.</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
+            <span class="complexity-title">➡️ O Que Vem a Seguir</span>
+            <p>No Artigo 7 — Teste de Hipóteses e Intervalos de Confiança, vamos transformar essa intuição em decisões: quando uma diferença é “ruído” e quando é evidência.</p>
+        </div>
+    </section>
+
+    <section class="references">
+        <h3>📚 Para Se Aprofundar</h3>
+        <ul>
+            <li><strong>"Practical Statistics for Data Scientists"</strong> — Bruce, Bruce & Gedeck.</li>
+            <li><strong>"The Art of Statistics"</strong> — David Spiegelhalter.</li>
+        </ul>
+    </section>
+</div>
+</body>
+</html>
+
