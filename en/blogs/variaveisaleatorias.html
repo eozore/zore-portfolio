@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Variables</title>
+    <link rel="alternate" href="../../blogs/variaveisaleatorias.html" hreflang="pt-BR">
+    <link rel="alternate" href="variaveisaleatorias.html" hreflang="en">
+    <style>
+        :root { --primary-color: #db4a2b; --bg-color: #f8fafc; --text-color: #1e293b; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.8; color: var(--text-color); background: var(--bg-color); margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1); }
+        h1 { color: var(--primary-color); font-size: 2.4rem; margin-bottom: 10px; line-height: 1.2; }
+        h2 { color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 36px; }
+        .subtitle { font-size: 1.15rem; color: #64748b; margin-bottom: 28px; }
+        .box { background: #eff6ff; border-left: 5px solid var(--primary-color); padding: 16px 18px; border-radius: 0 8px 8px 0; margin: 24px 0; }
+        .links { display: flex; gap: 16px; flex-wrap: wrap; font-size: .95rem; margin-bottom: 12px; }
+        .links a { color: #475569; text-decoration: none; }
+        .links a:hover { color: var(--primary-color); }
+        code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="links">
+        <a href="index.html">← Blog</a>
+        <a href="estatisticasbasicas.html">Next article →</a>
+    </div>
+    <header>
+        <h1>Random Variables</h1>
+        <p class="subtitle">From intuition to risk modeling in production environments</p>
+        <p style="font-size:.85rem;color:#94a3b8;">Article 1 of 7 · Statistical Foundations</p>
+    </header>
+
+    <section>
+        <div class="box">
+            A random variable converts uncertain events into measurable values. It is the bridge between real-world noise and quantitative decision making.
+        </div>
+    </section>
+
+    <section>
+        <h2>What Is a Random Variable?</h2>
+        <p>If delivery time changes due to traffic, weather, and operational constraints, that time can be represented by a random variable <code>X</code>.</p>
+        <p>Uppercase letters represent the variable (<code>X</code>), and lowercase letters represent observed outcomes (<code>x=24</code> minutes, <code>x=31</code> minutes, etc.).</p>
+    </section>
+
+    <section>
+        <h2>Variable Types</h2>
+        <p><strong>Qualitative variables:</strong> categories such as channel, region, or customer segment.</p>
+        <p><strong>Discrete random variables:</strong> countable values like number of complaints per day.</p>
+        <p><strong>Continuous random variables:</strong> measurable values like time, weight, latency, and temperature.</p>
+    </section>
+
+    <section>
+        <h2>Why the Mean Is Not Enough</h2>
+        <p>Two systems can share the same average delivery time and still have very different risk profiles. Variance explains stability. Quantiles explain service-level reliability.</p>
+        <p>In production, replacing “average promise” with percentile-based promises (for example P95) usually improves customer trust and operational alignment.</p>
+    </section>
+
+    <section>
+        <h2>Practical Takeaways</h2>
+        <ul>
+            <li>Model uncertainty explicitly with random variables.</li>
+            <li>Treat categories and numeric variables differently.</li>
+            <li>Use variance and quantiles, not only means, in operational SLAs.</li>
+        </ul>
+    </section>
+</div>
+<div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
+    <a href="../../blogs/variaveisaleatorias.html" style="color:#475569;">🇧🇷 PT</a>
+    <span style="color:#94a3b8;"> | </span>
+    <a href="variaveisaleatorias.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇺🇸 EN</a>
+</div>
+</body>
+</html>

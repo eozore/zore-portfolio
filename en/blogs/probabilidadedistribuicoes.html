@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Probability and Distributions</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="alternate" href="../../blogs/probabilidadedistribuicoes.html" hreflang="pt-BR">
+    <link rel="alternate" href="probabilidadedistribuicoes.html" hreflang="en">
+    <style>
+        :root { --primary-color: #db4a2b; --bg-color: #f8fafc; --text-color: #1e293b; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.8; color: var(--text-color); background: var(--bg-color); margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,.1); }
+        h1 { color: var(--primary-color); font-size: 2.4rem; margin-bottom: 10px; }
+        h2 { color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 36px; }
+        .subtitle { font-size: 1.15rem; color: #64748b; margin-bottom: 28px; }
+        .box { background: #eff6ff; border-left: 5px solid var(--primary-color); padding: 16px 18px; border-radius: 0 8px 8px 0; margin: 24px 0; }
+        .links { display: flex; gap: 16px; flex-wrap: wrap; font-size: .95rem; margin-bottom: 12px; }
+        .links a { color: #475569; text-decoration: none; }
+        .links a:hover { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="links">
+        <a href="index.html">← Blog</a>
+        <a href="tabelasegraficos.html">← Previous</a>
+        <a href="inferencia.html">Next article →</a>
+    </div>
+    <header>
+        <h1>Probability and Distributions</h1>
+        <p class="subtitle">From uncertainty intuition to practical probabilistic modeling</p>
+        <p style="font-size:.85rem;color:#94a3b8;">Article 4 of 7 · Statistical Foundations</p>
+    </header>
+
+    <section>
+        <div class="box">
+            Alerts and signals are evidence, not verdicts. Probability helps quantify how much a signal should change your belief.
+        </div>
+    </section>
+
+    <section>
+        <h2>Core Probability Concepts</h2>
+        <p>An event belongs to a sample space \(\Omega\). Probability measures long-run frequency under repeated conditions.</p>
+        <p>Conditional probability updates the universe of possible outcomes:</p>
+        \[
+        P(A \mid B) = \frac{P(A \cap B)}{P(B)}
+        \]
+    </section>
+
+    <section>
+        <h2>Bayes' Theorem in Decision Systems</h2>
+        <p>Bayes inverts conditional direction, moving from <em>signal given cause</em> to <em>cause given signal</em>:</p>
+        \[
+        P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}
+        \]
+        <p>Example: if delay base rate is 10%, alert sensitivity is 70%, and false-alert rate is 20%, then:</p>
+        \[
+        P(Delay \mid Alert) = \frac{0.70 \times 0.10}{0.70 \times 0.10 + 0.20 \times 0.90} = 0.28
+        \]
+        <p>An alert almost triples delay probability (10% → 28%), but still does not imply certainty.</p>
+    </section>
+
+    <section>
+        <h2>Discrete Distributions</h2>
+        <p><strong>Bernoulli:</strong> binary outcome, success/failure.</p>
+        <p><strong>Binomial:</strong> number of successes in \(n\) independent trials.</p>
+        <p><strong>Poisson:</strong> number of events in a fixed interval, especially for low-frequency counts.</p>
+    </section>
+
+    <section>
+        <h2>Continuous Distributions</h2>
+        <p><strong>Normal:</strong> central in many measurement and averaging contexts.</p>
+        <p><strong>Exponential:</strong> waiting-time model with memoryless property.</p>
+        <p><strong>Uniform:</strong> equal likelihood across an interval.</p>
+        <p>For continuous variables, \(P(X=x)=0\). Meaningful probability is computed over intervals.</p>
+    </section>
+
+    <section>
+        <h2>Central Limit Theorem</h2>
+        <p>Regardless of the original distribution, sample means approach normality as sample size grows:</p>
+        \[
+        \bar{X} \xrightarrow{d} \mathcal{N}\left(\mu, \frac{\sigma^2}{n}\right)
+        \]
+        <p>This is a core foundation for confidence intervals and inferential procedures.</p>
+    </section>
+
+    <section>
+        <h2>Practical Takeaways</h2>
+        <ul>
+            <li>Use conditional probability to reason with evidence.</li>
+            <li>Always account for base rates before taking action.</li>
+            <li>Select distributions based on variable type and generation process.</li>
+            <li>Use CLT-backed reasoning for sample-mean based inference.</li>
+        </ul>
+    </section>
+</div>
+<div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
+    <a href="../../blogs/probabilidadedistribuicoes.html" style="color:#475569;">🇧🇷 PT</a>
+    <span style="color:#94a3b8;"> | </span>
+    <a href="probabilidadedistribuicoes.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇺🇸 EN</a>
+</div>
+</body>
+</html>

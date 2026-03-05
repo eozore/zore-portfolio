@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="alternate" href="../blogs/index.html" hreflang="pt-BR">
+    <link rel="alternate" href="../en/blogs/index.html" hreflang="en">
+    <link rel="alternate" href="../blogs/index.html" hreflang="x-default">
 
     <style>
         :root {
@@ -171,6 +174,25 @@
         }
         footer a { font-weight: 600; }
 
+        .floating-lang-btn {
+            position: fixed;
+            left: 24px;
+            bottom: 24px;
+            z-index: 120;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fff;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            font-size: .85rem;
+            font-weight: 600;
+        }
+        .floating-lang-btn a { color: var(--muted); }
+        .floating-lang-btn a.active { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+
         @media (max-width: 900px) {
             .grid { grid-template-columns: repeat(2,1fr); }
         }
@@ -178,6 +200,7 @@
             .grid { grid-template-columns: 1fr; }
             .hero h1 { font-size: 2rem; }
             .header__nav { display: none; }
+            .floating-lang-btn { left: 16px; bottom: 16px; padding: 9px 12px; }
         }
     </style>
 </head>
@@ -201,7 +224,7 @@
     <div class="hero">
         <span class="hero__label">Conteúdo</span>
         <h1>Blog</h1>
-        <p>Estatística, ML e IA — dos dados à aplicação real em nuvem.
+        <p>Estatística, ML e IA — dos dados à aplicação real em nuvem.</p>
     </div>
 
     <div class="filters">
@@ -478,6 +501,12 @@
 <footer>
     <p>&copy; 2025 Victor Zoré. <a href="../index.html">Voltar ao portfólio</a></p>
 </footer>
+
+<div class="floating-lang-btn" aria-label="Seletor de idioma">
+    <a href="../blogs/index.html" class="active" aria-current="page">🇧🇷 PT</a>
+    <span>|</span>
+    <a href="../en/blogs/index.html">🇺🇸 EN</a>
+</div>
 
 <script>
     function filterCards(bloco, btn) {
