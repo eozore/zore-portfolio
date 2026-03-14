@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política e Dados: Como os Gráficos Enganam</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        .perspective-container {
+            perspective: 1000px;
+        }
+        .tilted-chart {
+            transform: rotateX(45deg);
+            transition: transform 0.3s ease;
+        }
+        .tilted-chart:hover {
+            transform: rotateX(0deg);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans leading-relaxed">
+
+    <!-- Header -->
+    <header class="bg-red-700 text-white py-12 px-6 shadow-lg">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold mb-2 italic">Marketing Político ou Estatística?</h1>
+            <p class="text-red-100 text-lg">Entenda como a percepção de dados eleitorais e governamentais pode ser manipulada visualmente.</p>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto py-12 px-6 space-y-16">
+
+        <!-- Exemplo 1: Eixo Y Truncado -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-8 border-b border-slate-100">
+                <span class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider">Exemplo 1</span>
+                <h2 class="text-2xl font-bold mt-4">Aprovação do Governo (Eixo Y Truncado)</h2>
+                <p class="text-slate-600 mt-2">Um truque comum para fazer um governo parecer muito mais popular do que realmente é, "escondendo" a base do gráfico.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8 p-8">
+                <div>
+                    <h3 class="text-center font-semibold text-slate-500 mb-4 italic">Escala Real (0% a 100%)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartTruncatedHonest"></canvas>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-4 text-center">A variação de 41% para 44% é modesta dentro do cenário total.</p>
+                </div>
+                <div>
+                    <h3 class="text-center font-semibold text-red-600 mb-4 italic text-lg">Versão de "Propaganda" (Eixo em 40%)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartTruncatedLie"></canvas>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-4 text-center">Nesta escala, o crescimento parece ter quadruplicado visualmente.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Exemplo 2: O Gráfico de Pizza 3D -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-8 border-b border-slate-100">
+                <span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider">Exemplo 2</span>
+                <h2 class="text-2xl font-bold mt-4">Intenção de Voto (O Truque do 3D)</h2>
+                <p class="text-slate-600 mt-2">Ao inclinar o gráfico, o candidato posicionado na "frente" ganha uma área visual muito maior, mesmo estando em segundo lugar.</p>
+            </div>
+            <div class="p-8 flex flex-col md:flex-row items-center justify-around gap-12">
+                <div class="w-full max-w-sm">
+                    <h3 class="text-center font-semibold text-slate-500 mb-4 italic">Realidade (Visão Plana)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartPie2D"></canvas>
+                    </div>
+                </div>
+                <div class="w-full max-w-sm perspective-container text-center">
+                    <h3 class="text-center font-semibold text-orange-600 mb-4 italic text-lg uppercase tracking-tight">Perspectiva Manipulada</h3>
+                    <div class="tilted-chart shadow-2xl rounded-full inline-block p-4 bg-slate-50 border border-slate-200">
+                        <div class="chart-container" style="height: 250px; width: 250px;">
+                            <canvas id="chartPie3D"></canvas>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-8 italic">(Passe o mouse para ver a proporção real)</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Exemplo 3: Eixo Invertido -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-8 border-b border-slate-100">
+                <span class="bg-black text-white px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider">Exemplo 3</span>
+                <h2 class="text-2xl font-bold mt-4">Taxa de Criminalidade (O Eixo Invertido)</h2>
+                <p class="text-slate-600 mt-2">Um dos truques mais desonestos: inverter o eixo vertical. O "zero" fica no topo. Quando a linha desce, os números na verdade estão subindo.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-8 p-8">
+                <div>
+                    <h3 class="text-center font-semibold text-slate-500 mb-4 italic">Gráfico Padrão (Aumento Real)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartInvertedHonest"></canvas>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-4 text-center">Fica claro que a criminalidade subiu após a nova lei.</p>
+                </div>
+                <div>
+                    <h3 class="text-center font-semibold text-red-600 mb-4 italic text-lg">Eixo Invertido (Ilusão de Queda)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartInvertedLie"></canvas>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-4 text-center">O cérebro lê "para baixo" como melhora, ignorando os números nos eixos.</p>
+                </div>
+            </div>
+            <div class="bg-amber-50 p-6 text-amber-900 text-sm border-t border-amber-100 italic">
+                <strong>Atenção:</strong> Note que no gráfico da direita, o topo do gráfico é o valor 0. Quando a linha se aproxima do chão, o crime está aumentando!
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-900 text-slate-400 py-12 px-6 text-center">
+        <p class="mb-2">Análise técnica de dados políticos.</p>
+        <p class="text-xs uppercase tracking-widest font-bold text-slate-600">Questione a origem dos dados e a escala dos eixos.</p>
+    </footer>
+
+    <script>
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = "#64748b";
+
+        window.onload = function() {
+            
+            // --- Exemplo 1: Aprovação ---
+            const ctx1H = document.getElementById('chartTruncatedHonest').getContext('2d');
+            new Chart(ctx1H, {
+                type: 'bar',
+                data: {
+                    labels: ['Junho', 'Julho'],
+                    datasets: [{
+                        label: 'Aprovação (%)',
+                        data: [41, 44],
+                        backgroundColor: '#94a3b8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 100 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            const ctx1L = document.getElementById('chartTruncatedLie').getContext('2d');
+            new Chart(ctx1L, {
+                type: 'bar',
+                data: {
+                    labels: ['Junho', 'Julho'],
+                    datasets: [{
+                        label: 'Aprovação (%)',
+                        data: [41, 44],
+                        backgroundColor: '#dc2626'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 40, max: 45 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // --- Exemplo 2: Intenção de Voto ---
+            const voteData = {
+                labels: ['Candidato Opositor (Frente)', 'Candidato Situação', 'Outros'],
+                datasets: [{
+                    data: [32, 45, 23],
+                    backgroundColor: ['#ea580c', '#334155', '#94a3b8'],
+                    borderWidth: 0
+                }]
+            };
+
+            const ctx2H = document.getElementById('chartPie2D').getContext('2d');
+            new Chart(ctx2H, {
+                type: 'pie',
+                data: voteData,
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx2L = document.getElementById('chartPie3D').getContext('2d');
+            new Chart(ctx2L, {
+                type: 'pie',
+                data: voteData,
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // --- Exemplo 3: Eixo Invertido ---
+            const crimeLabels = ['2018', '2019', '2020 (Nova Lei)', '2021', '2022', '2023'];
+            const crimeData = [400, 380, 410, 550, 680, 820];
+
+            const ctx3H = document.getElementById('chartInvertedHonest').getContext('2d');
+            new Chart(ctx3H, {
+                type: 'line',
+                data: {
+                    labels: crimeLabels,
+                    datasets: [{
+                        label: 'Homicídios',
+                        data: crimeData,
+                        borderColor: '#64748b',
+                        tension: 0.1,
+                        fill: true,
+                        backgroundColor: 'rgba(100, 116, 139, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            const ctx3L = document.getElementById('chartInvertedLie').getContext('2d');
+            new Chart(ctx3L, {
+                type: 'line',
+                data: {
+                    labels: crimeLabels,
+                    datasets: [{
+                        label: 'Homicídios (Eixo Invertido)',
+                        data: crimeData,
+                        borderColor: '#dc2626',
+                        tension: 0.1,
+                        fill: true,
+                        backgroundColor: 'rgba(220, 38, 38, 0.2)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            reverse: true, // A MÁGICA ACONTECE AQUI
+                            beginAtZero: true 
+                        } 
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html>

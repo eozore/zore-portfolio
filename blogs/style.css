@@ -1,0 +1,124 @@
+/* ============================================================
+   Blog de Estatística — Estilos Compartilhados
+   Usado por: estatisticabasica.html, graficosetabelas.html,
+              variaveisaleatorias.html
+   ============================================================ */
+
+/* --- Variáveis globais --- */
+:root {
+    --primary-color: #db4a2b;
+    --accent-color: #f59e0b;
+    --bg-color: #f8fafc;
+    --text-color: #1e293b;
+    --success-color: #10b981;
+    --error-color: #ef4444;
+}
+
+/* --- Base --- */
+body {
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.8;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+}
+
+/* --- Tipografia --- */
+h1 { color: var(--primary-color); font-size: 2.5rem; margin-bottom: 10px; line-height: 1.2; }
+h2 { color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 40px; }
+h3 { color: #475569; margin-top: 30px; }
+
+.subtitle { font-size: 1.2rem; color: #64748b; margin-bottom: 40px; font-weight: 300; }
+
+/* --- Caixas de destaque --- */
+.story-box {
+    background-color: #eff6ff;
+    border-left: 5px solid var(--primary-color);
+    padding: 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 30px 0;
+    font-style: italic;
+}
+
+.highlight-box {
+    background-color: #fffbeb;
+    border: 1px solid #fcd34d;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.highlight-title { font-weight: bold; color: #92400e; display: block; margin-bottom: 5px; }
+
+.complexity-box {
+    background-color: #f0fdf4;
+    border: 1px solid #86efac;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.complexity-title { font-weight: bold; color: #166534; display: block; margin-bottom: 8px; }
+
+/* --- Tabelas --- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 25px 0;
+    font-size: 0.9em;
+    box-shadow: 0 0 20px rgba(0,0,0,0.05);
+}
+
+table thead tr { background-color: var(--primary-color); color: #fff; text-align: left; }
+table th, table td { padding: 12px 15px; border: 1px solid #ddd; }
+table tbody tr { border-bottom: 1px solid #ddd; }
+
+/* --- Gráficos --- */
+.chart-container { position: relative; height: 380px; width: 100%; margin: 30px 0; }
+
+/* Layout de dois gráficos lado a lado (usado em graficosetabelas) */
+.chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 30px 0; }
+.chart-row .chart-container { margin: 0; height: 300px; }
+
+/* --- Quiz --- */
+.quiz-container { margin-top: 50px; border-top: 2px dashed #cbd5e1; padding-top: 30px; }
+.question-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+.question-text { font-weight: 600; margin-bottom: 15px; display: block; }
+.options { display: flex; flex-direction: column; gap: 10px; }
+
+.option-btn {
+    padding: 10px 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.option-btn:hover { background-color: #f1f5f9; }
+.option-btn.correct { background-color: #dcfce7; border-color: var(--success-color); color: #064e3b; }
+.option-btn.incorrect { background-color: #fee2e2; border-color: var(--error-color); color: #7f1d1d; }
+
+.feedback { margin-top: 10px; font-size: 0.9em; display: none; padding: 10px; border-radius: 6px; }
+.feedback.show { display: block; }
+
+/* --- Referências --- */
+.references { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
+
+/* --- Responsividade --- */
+@media (max-width: 600px) {
+    .container { padding: 20px; }
+    h1 { font-size: 1.8rem; }
+    .chart-row { grid-template-columns: 1fr; }
+}

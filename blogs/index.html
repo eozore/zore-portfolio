@@ -175,27 +175,17 @@
         footer a { font-weight: 600; }
 
         .floating-lang-btn {
-            position: fixed;
-            left: 24px;
-            bottom: 24px;
-            z-index: 120;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 14px;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: #fff;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            font-size: .85rem;
-            font-weight: 600;
+            position: fixed; left: 24px; bottom: 24px; z-index: 120;
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; border-radius: 999px;
+            border: 1px solid var(--border); background: #fff;
+            box-shadow: 0 8px 20px rgba(0,0,0,.15);
+            font-size: .85rem; font-weight: 600;
         }
         .floating-lang-btn a { color: var(--muted); }
         .floating-lang-btn a.active { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 
-        @media (max-width: 900px) {
-            .grid { grid-template-columns: repeat(2,1fr); }
-        }
+        @media (max-width: 900px) { .grid { grid-template-columns: repeat(2,1fr); } }
         @media (max-width: 600px) {
             .grid { grid-template-columns: 1fr; }
             .hero h1 { font-size: 2rem; }
@@ -231,21 +221,22 @@
         <button class="filter-btn active" onclick="filterCards('all', this)">Todos</button>
         <button class="filter-btn" onclick="filterCards('estatistica', this)">Estatística</button>
         <button class="filter-btn" onclick="filterCards('ml', this)">Machine Learning</button>
-        <button class="filter-btn" onclick="filterCards('cloud', this)">Cloud</button>
-        <button class="filter-btn" onclick="filterCards('genai', this)">IA Generativa</button>
     </div>
 
-    <!-- BLOCO 1 -->
-    <div class="bloco-header"><h2>Bloco 1 — Fundação Estatística</h2></div>
+    <!-- ══════════════════════════════════════════════════════════
+         BLOCO 1 — FUNDAÇÃO
+         ══════════════════════════════════════════════════════════ -->
+    <div class="bloco-header"><h2>Bloco 1 — Fundação</h2></div>
     <div class="grid" id="grid">
 
+        <!-- Artigo 1 -->
         <div class="card" data-bloco="estatistica">
             <div class="card__thumb">
                 <img src="../image/blog_variaveisaleatorias.jpg" alt="Variáveis Aleatórias">
                 <span class="card__bloco">Estatística</span>
             </div>
             <div class="card__body">
-                <span class="card__num">Artigo 1 de 28</span>
+                <span class="card__num">Artigo 1 de 24</span>
                 <h3 class="card__title">Variáveis Aleatórias</h3>
                 <p class="card__desc">O que é uma variável aleatória, tipos, notação científica e como modelar risco em produção com quantis.</p>
                 <div class="card__meta">
@@ -256,246 +247,328 @@
             </div>
         </div>
 
+        <!-- Artigo 2 -->
         <div class="card" data-bloco="estatistica">
             <div class="card__thumb">
                 <img src="../image/blog_estatisticabasica.jpg" alt="Estatísticas Básicas">
                 <span class="card__bloco">Estatística</span>
             </div>
             <div class="card__body">
-                <span class="card__num">Artigo 2 de 28</span>
+                <span class="card__num">Artigo 2 de 24</span>
                 <h3 class="card__title">Estatísticas Básicas</h3>
                 <p class="card__desc">Média, mediana, variância, IQR, assimetria e curtose — e por que o CEO de uma fintech tomou a decisão errada confiando só na média.</p>
                 <div class="card__meta">
                     <span><i class="fa-regular fa-calendar"></i> 08 Jun 2025</span>
                     <span><i class="fa-regular fa-clock"></i> 9 min</span>
                 </div>
-                <a href="estatisticasbasicas.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="estatisticabasica.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
             </div>
         </div>
 
+        <!-- Artigo 3 -->
+        <div class="card" data-bloco="estatistica">
+            <div class="card__thumb">
+                <img src="../image/blog_valoresperado.jpg" alt="Valor Esperado e Variância">
+                <span class="card__bloco">Estatística</span>
+            </div>
+            <div class="card__body">
+                <span class="card__num">Artigo 3 de 24</span>
+                <h3 class="card__title">Valor Esperado e Variância</h3>
+                <p class="card__desc">E[X] e Var(X) — os dois números que resumem qualquer distribuição. A ponte entre variáveis aleatórias e distribuições.</p>
+                <div class="card__meta">
+                    <span><i class="fa-regular fa-calendar"></i> 29 Jun 2025</span>
+                    <span><i class="fa-regular fa-clock"></i> 9 min</span>
+                </div>
+                <a href="valoresperado.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <!-- Artigo 4 -->
         <div class="card" data-bloco="estatistica">
             <div class="card__thumb">
                 <img src="../image/blog_graficosetabelas.jpg" alt="Tabelas e Gráficos">
                 <span class="card__bloco">Estatística</span>
             </div>
             <div class="card__body">
-                <span class="card__num">Artigo 3 de 28</span>
+                <span class="card__num">Artigo 4 de 24</span>
                 <h3 class="card__title">Tabelas e Gráficos — Visualização de Dados</h3>
                 <p class="card__desc">Os principais tipos de visualização, quando usar cada um e como comunicar dados para públicos técnicos e executivos.</p>
                 <div class="card__meta">
                     <span><i class="fa-regular fa-calendar"></i> 12 Jun 2025</span>
                     <span><i class="fa-regular fa-clock"></i> 9 min</span>
                 </div>
-                <a href="tabelasegraficos.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="graficosetabelas.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
             </div>
         </div>
 
+        <!-- Artigo 5 -->
         <div class="card" data-bloco="estatistica">
             <div class="card__thumb">
-                <img src="../image/blog_probabilidadeedistribuicoes.jpg" alt="Probabilidade e Distribuições">
+                <img src="../image/blog_teoriadeprob.jpg" alt="Probabilidade">
                 <span class="card__bloco">Estatística</span>
             </div>
             <div class="card__body">
-                <span class="card__num">Artigo 4 de 28</span>
-                <h3 class="card__title">Probabilidade e Distribuições</h3>
-                <p class="card__desc">Probabilidade condicional, Teorema de Bayes e distribuições discretas e contínuas com exemplos simples do mundo real.</p>
+                <span class="card__num">Artigo 5 de 24</span>
+                <h3 class="card__title">Probabilidade</h3>
+                <p class="card__desc">Experimento aleatório, espaço amostral, probabilidade condicional, independência e Teorema de Bayes — com diagramas de Venn interativos.</p>
                 <div class="card__meta">
                     <span><i class="fa-regular fa-calendar"></i> 22 Jun 2025</span>
-                    <span><i class="fa-regular fa-clock"></i> 11 min</span>
+                    <span><i class="fa-regular fa-clock"></i> 10 min</span>
                 </div>
-                <a href="probabilidadedistribuicoes.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="teoriadeprob.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
             </div>
         </div>
 
-        <div class="card card--locked" data-bloco="estatistica">
+        <!-- Artigo 6 -->
+        <div class="card" data-bloco="estatistica">
             <div class="card__thumb">
-                <img src="../image/blog_indisponivel.jpg" alt="Amostragem">
+                <img src="../image/blog_distribuicaodeprob.jpg" alt="Distribuições de Probabilidade">
                 <span class="card__bloco">Estatística</span>
             </div>
             <div class="card__body">
-                <span class="card__num">Artigo 5 de 28</span>
-                <h3 class="card__title">Amostragem</h3>
-                <p class="card__desc">Por que uma pesquisa eleitoral pode errar mesmo com 10.000 respostas — viés de seleção, representatividade e tamanho amostral.</p>
+                <span class="card__num">Artigo 6 de 24</span>
+                <h3 class="card__title">Distribuições de Probabilidade</h3>
+                <p class="card__desc">Bernoulli, Binomial, Poisson, Normal, Exponencial e Uniforme — com fórmulas, gráficos e guia prático para escolher a distribuição certa.</p>
                 <div class="card__meta">
-                    <span><i class="fa-regular fa-calendar"></i> Em breve</span>
+                    <span><i class="fa-regular fa-calendar"></i> 06 Jul 2025</span>
+                    <span><i class="fa-regular fa-clock"></i> 12 min</span>
                 </div>
+                <a href="distribuicaodeprob.html" class="card__link" target="_blank" rel="noopener">Ler artigo <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         BLOCO 2 — INFERÊNCIA
+         ══════════════════════════════════════════════════════════ -->
+    <div class="bloco-header"><h2>Bloco 2 — Inferência</h2></div>
+    <div class="grid">
+
+        <div class="card card--locked" data-bloco="estatistica">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Amostragem"><span class="card__bloco">Estatística</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 7 de 24</span>
+                <h3 class="card__title">Amostragem e Estimação Pontual</h3>
+                <p class="card__desc">Por que uma pesquisa eleitoral pode errar mesmo com 10.000 respostas — viés de seleção, representatividade e estimadores.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
 
         <div class="card card--locked" data-bloco="estatistica">
-            <div class="card__thumb">
-                <img src="../image/blog_indisponivel.jpg" alt="Inferência">
-                <span class="card__bloco">Estatística</span>
-            </div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Intervalos de Confiança"><span class="card__bloco">Estatística</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 6 de 28</span>
-                <h3 class="card__title">Inferência Estatística</h3>
-                <p class="card__desc">Como sair de uma amostra e falar sobre a população com cuidado: estimativa, incerteza e a ideia de intervalo de confiança.</p>
-                <div class="card__meta">
-                    <span><i class="fa-regular fa-calendar"></i> Em breve</span>
-                </div>
+                <span class="card__num">Artigo 8 de 24</span>
+                <h3 class="card__title">Intervalos de Confiança</h3>
+                <p class="card__desc">Como quantificar a incerteza de uma estimativa e o que "95% de confiança" realmente significa — sem depender de uma única amostra.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
 
         <div class="card card--locked" data-bloco="estatistica">
-            <div class="card__thumb">
-                <img src="../image/blog_indisponivel.jpg" alt="Teste de Hipóteses">
-                <span class="card__bloco">Estatística</span>
-            </div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Testes de Hipótese"><span class="card__bloco">Estatística</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 7 de 28</span>
-                <h3 class="card__title">Teste de Hipóteses e Intervalos de Confiança</h3>
-                <p class="card__desc">p-valor, erro tipo I e II, testes A/B e como validar estatisticamente se um modelo realmente melhorou.</p>
-                <div class="card__meta">
-                    <span><i class="fa-regular fa-calendar"></i> Em breve</span>
-                </div>
+                <span class="card__num">Artigo 9 de 24</span>
+                <h3 class="card__title">Testes de Hipótese</h3>
+                <p class="card__desc">p-valor, erro tipo I e II, testes A/B e como validar estatisticamente se uma mudança de produto realmente melhorou a conversão.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
+                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
+            </div>
+        </div>
+
+        <div class="card card--locked" data-bloco="estatistica">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Testes Não Paramétricos"><span class="card__bloco">Estatística</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 10 de 24</span>
+                <h3 class="card__title">Qui-Quadrado e Testes Não Paramétricos</h3>
+                <p class="card__desc">Quando os dados não seguem Normal: qui-quadrado, Mann-Whitney, Kruskal-Wallis e quando usar cada alternativa.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
 
     </div>
 
-    <!-- BLOCO 2 -->
-    <div class="bloco-header"><h2>Bloco 2 — Modelagem Preditiva</h2></div>
+    <!-- ══════════════════════════════════════════════════════════
+         BLOCO 3 — MODELOS
+         ══════════════════════════════════════════════════════════ -->
+    <div class="bloco-header"><h2>Bloco 3 — Modelos</h2></div>
     <div class="grid">
+
         <div class="card card--locked" data-bloco="ml">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Correlação"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 8 de 28</span>
-                <h3 class="card__title">Correlação, Covariância e Associação</h3>
-                <p class="card__desc">Correlação vs causalidade, Pearson vs Spearman e como essas medidas guiam a análise e a escolha de variáveis em modelos preditivos.</p>
+                <span class="card__num">Artigo 11 de 24</span>
+                <h3 class="card__title">Correlação</h3>
+                <p class="card__desc">Correlação vs causalidade, Pearson vs Spearman e como medir associação antes de ajustar um modelo.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
         <div class="card card--locked" data-bloco="ml">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Regressão Linear Simples"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 9 de 28</span>
-                <h3 class="card__title">Regressão Linear</h3>
-                <p class="card__desc">Mínimos quadrados, interpretação de coeficientes, R² e como usar regressão para precificação e previsão de demanda.</p>
+                <span class="card__num">Artigo 12 de 24</span>
+                <h3 class="card__title">Regressão Linear Simples</h3>
+                <p class="card__desc">Mínimos quadrados, interpretação de coeficientes, R² e resíduos — aplicado a precificação e previsão de demanda.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
         <div class="card card--locked" data-bloco="ml">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Regressão Linear Múltipla"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 10 de 28</span>
+                <span class="card__num">Artigo 13 de 24</span>
+                <h3 class="card__title">Regressão Linear Múltipla</h3>
+                <p class="card__desc">Mais de uma variável preditora, multicolinearidade, seleção de variáveis e diagnóstico de modelos com resíduos.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
+                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
+            </div>
+        </div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Diagnóstico de Modelos"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 14 de 24</span>
+                <h3 class="card__title">Diagnóstico de Modelos</h3>
+                <p class="card__desc">Resíduos, multicolinearidade e outliers — como validar premissas e robustez antes de confiar em previsões.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
+                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
+            </div>
+        </div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Regressão Logística"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 15 de 24</span>
                 <h3 class="card__title">Regressão Logística</h3>
                 <p class="card__desc">Classificação binária, função sigmoide, odds ratio e aplicação em modelos de churn e crédito.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
         <div class="card card--locked" data-bloco="ml">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="GLMs"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 11 de 28</span>
-                <h3 class="card__title">Árvores de Decisão e Florestas Aleatórias</h3>
-                <p class="card__desc">Como árvores aprendem regras, o problema do overfitting e por que Random Forest é o canivete suíço do ML.</p>
+                <span class="card__num">Artigo 16 de 24</span>
+                <h3 class="card__title">Introdução a GLMs</h3>
+                <p class="card__desc">A família que unifica Linear, Logística e Poisson — escolha da função de ligação e interpretação prática.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
     </div>
 
-    <!-- BLOCO 3 -->
-    <div class="bloco-header"><h2>Bloco 3 — ML Avançado e Engenharia</h2></div>
+    <!-- ══════════════════════════════════════════════════════════
+         BLOCO 4 — ANÁLISE MULTIVARIADA
+         ══════════════════════════════════════════════════════════ -->
+    <div class="bloco-header"><h2>Bloco 4 — Análise Multivariada</h2></div>
     <div class="grid">
+
         <div class="card card--locked" data-bloco="ml">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="PCA"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 14 de 28</span>
-                <h3 class="card__title">Pipeline de Dados — Do Raw ao Modelo</h3>
-                <p class="card__desc">Feature engineering, normalização, encoding e como estruturar um pipeline reproduzível para produção.</p>
+                <span class="card__num">Artigo 17 de 24</span>
+                <h3 class="card__title">Análise de Componentes Principais (PCA)</h3>
+                <p class="card__desc">Redução de dimensionalidade, variância explicada e como interpretar componentes principais em dados de alta dimensão.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
         <div class="card card--locked" data-bloco="ml">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Clustering"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 18 de 28</span>
-                <h3 class="card__title">Avaliação de Modelos — Métricas que Importam</h3>
-                <p class="card__desc">Accuracy, Precision, Recall, F1, AUC-ROC — quando usar cada métrica e como evitar armadilhas em dados desbalanceados.</p>
+                <span class="card__num">Artigo 18 de 24</span>
+                <h3 class="card__title">Análise de Agrupamentos (Clustering)</h3>
+                <p class="card__desc">K-means, hierárquico e DBSCAN — como segmentar dados sem rótulos e avaliar a qualidade dos clusters.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Análise Discriminante"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 19 de 24</span>
+                <h3 class="card__title">Análise Discriminante</h3>
+                <p class="card__desc">LDA para classificação supervisionada, fronteiras de decisão e validação em bases com classes desbalanceadas.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
+                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
+            </div>
+        </div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Análise Fatorial"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 20 de 24</span>
+                <h3 class="card__title">Análise Fatorial</h3>
+                <p class="card__desc">Construção de fatores latentes, cargas fatoriais e como interpretar variáveis ocultas em pesquisas e produtos.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
+                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
+            </div>
+        </div>
+
     </div>
 
-    <!-- BLOCO 4 -->
-    <div class="bloco-header"><h2>Bloco 4 — Cloud e Produção (AWS + GCP)</h2></div>
+    <!-- ══════════════════════════════════════════════════════════
+         BLOCO 5 — TÓPICOS AVANÇADOS
+         ══════════════════════════════════════════════════════════ -->
+    <div class="bloco-header"><h2>Bloco 5 — Tópicos Avançados</h2></div>
     <div class="grid">
-        <div class="card card--locked" data-bloco="cloud">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Cloud</span></div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Séries Temporais"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 19 de 28</span>
-                <h3 class="card__title">Data Lake para ML e Dados — S3 vs Cloud Storage</h3>
-                <p class="card__desc">Objetivo de S3 e Cloud Storage em dados/ML, com vantagens e desvantagens em custo, governança e integração de pipelines.</p>
+                <span class="card__num">Artigo 21 de 24</span>
+                <h3 class="card__title">Séries Temporais</h3>
+                <p class="card__desc">Tendência, sazonalidade, autocorrelação, modelos ARIMA e Prophet — aplicados a previsão de demanda e anomalias.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
-        <div class="card card--locked" data-bloco="cloud">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Cloud</span></div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Processos Estocásticos"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 20 de 28</span>
-                <h3 class="card__title">Treinamento e Deploy — SageMaker vs Vertex AI</h3>
-                <p class="card__desc">Quando usar cada plataforma para treinar e servir modelos, comparando experiência, MLOps, custo operacional e lock-in.</p>
+                <span class="card__num">Artigo 22 de 24</span>
+                <h3 class="card__title">Processos Estocásticos / Cadeias de Markov</h3>
+                <p class="card__desc">Cadeias de Markov, estados absorventes e aplicação em filas, recomendação e análise de churn.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
-        <div class="card card--locked" data-bloco="cloud">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">Cloud</span></div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Bootstrap"><span class="card__bloco">Machine Learning</span></div>
             <div class="card__body">
-                <span class="card__num">Artigo 22 de 28</span>
-                <h3 class="card__title">IA Generativa Gerenciada — Bedrock vs Vertex AI</h3>
-                <p class="card__desc">Comparativo prático para GenAI em produção: catálogo de modelos, segurança, latência, custo e riscos de dependência de provedor.</p>
+                <span class="card__num">Artigo 23 de 24</span>
+                <h3 class="card__title">Métodos de Reamostragem</h3>
+                <p class="card__desc">Bootstrap e cross-validation para estimar incerteza, comparar modelos e evitar vazamento de dados.</p>
                 <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
                 <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
             </div>
         </div>
+
+        <div class="card card--locked" data-bloco="ml">
+            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Modelos Bayesianos"><span class="card__bloco">Machine Learning</span></div>
+            <div class="card__body">
+                <span class="card__num">Artigo 24 de 24</span>
+                <h3 class="card__title">Introdução a Modelos Bayesianos</h3>
+                <p class="card__desc">Probabilidade como crença, prioris, verossimilhança e posterior — exemplos em classificação e previsão.</p>
+                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
+                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
+            </div>
+        </div>
+
     </div>
 
-    <!-- BLOCO 5 -->
-    <div class="bloco-header"><h2>Bloco 5 — IA Generativa</h2></div>
-    <div class="grid">
-        <div class="card card--locked" data-bloco="genai">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">IA Generativa</span></div>
-            <div class="card__body">
-                <span class="card__num">Artigo 24 de 28</span>
-                <h3 class="card__title">O que são LLMs — Intuição sem Matemática</h3>
-                <p class="card__desc">Como grandes modelos de linguagem funcionam, o que eles podem e não podem fazer — explicado para executivos e times de negócio.</p>
-                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
-                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
-            </div>
-        </div>
-        <div class="card card--locked" data-bloco="genai">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">IA Generativa</span></div>
-            <div class="card__body">
-                <span class="card__num">Artigo 25 de 28</span>
-                <h3 class="card__title">RAG — Fazendo LLMs Falarem sobre seu Negócio</h3>
-                <p class="card__desc">Retrieval-Augmented Generation na prática: como conectar LLMs a bases de conhecimento internas sem fine-tuning.</p>
-                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
-                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
-            </div>
-        </div>
-        <div class="card card--locked" data-bloco="genai">
-            <div class="card__thumb"><img src="../image/blog_indisponivel.jpg" alt="Artigo em produção"><span class="card__bloco">IA Generativa</span></div>
-            <div class="card__body">
-                <span class="card__num">Artigo 28 de 28</span>
-                <h3 class="card__title">Fine-tuning vs RAG — Quando usar cada um</h3>
-                <p class="card__desc">Guia executivo para decidir entre fine-tuning e RAG: custo, latência, manutenção e casos de uso ideais para cada abordagem.</p>
-                <div class="card__meta"><span><i class="fa-regular fa-calendar"></i> Em breve</span></div>
-                <span class="card__badge"><i class="fa-solid fa-lock"></i> Em produção</span>
-            </div>
-        </div>
-    </div>
 </main>
 
 <footer>
@@ -516,24 +589,18 @@
         const sections = [];
         document.querySelectorAll('.bloco-header').forEach(header => {
             const grid = header.nextElementSibling;
-            if (grid && grid.classList.contains('grid')) {
-                sections.push({ header, grid });
-            }
+            if (grid && grid.classList.contains('grid')) sections.push({ header, grid });
         });
 
         sections.forEach(({ header, grid }) => {
-            let visibleCards = 0;
+            let visible = 0;
             grid.querySelectorAll('.card').forEach(card => {
-                const shouldShow = bloco === 'all' || card.dataset.bloco === bloco;
-                card.style.display = shouldShow ? 'flex' : 'none';
-                if (shouldShow) {
-                    visibleCards += 1;
-                }
+                const show = bloco === 'all' || card.dataset.bloco === bloco;
+                card.style.display = show ? 'flex' : 'none';
+                if (show) visible++;
             });
-
-            const showSection = visibleCards > 0;
-            header.style.display = showSection ? 'block' : 'none';
-            grid.style.display = showSection ? 'grid' : 'none';
+            header.style.display = visible > 0 ? 'block' : 'none';
+            grid.style.display   = visible > 0 ? 'grid'  : 'none';
         });
     }
 </script>

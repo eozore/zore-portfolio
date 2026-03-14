@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Paradoxo do Aniversário</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX para renderização de fórmulas matemáticas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #4f46e5;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .math-card {
+            background: #ffffff;
+            border-left: 4px solid #6366f1;
+            transition: transform 0.2s;
+        }
+        .math-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans leading-relaxed">
+
+    <header class="bg-indigo-700 text-white py-12 px-6 shadow-lg text-center">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold mb-2 uppercase tracking-tighter italic">O Paradoxo do Aniversário</h1>
+            <p class="text-indigo-100 text-lg">A lógica matemática que desafia a intuição humana.</p>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto py-12 px-6 space-y-12">
+
+        <!-- Simulador Principal -->
+        <section class="bg-white rounded-3xl shadow-xl p-8 border border-slate-200">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-slate-800">Quantas pessoas estão no grupo?</h2>
+                <div class="flex items-center justify-center gap-4 mt-6">
+                    <span class="text-6xl font-black text-indigo-600" id="peopleCountDisplay">23</span>
+                    <span class="text-2xl text-slate-400 font-medium italic">pessoas</span>
+                </div>
+                <input type="range" id="peopleSlider" min="1" max="100" value="23" 
+                       class="w-full h-3 bg-indigo-100 rounded-lg appearance-none cursor-pointer mt-8">
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <div class="bg-slate-900 text-white p-10 rounded-2xl text-center shadow-2xl relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
+                    <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 mb-2">Probabilidade de Coincidência</h3>
+                    <div class="text-7xl font-black" id="probDisplay">50.7%</div>
+                </div>
+                <div class="space-y-4">
+                    <div class="p-5 bg-indigo-50 rounded-xl border border-indigo-100">
+                        <p class="text-indigo-900 text-sm leading-relaxed">
+                            <strong>Facto Curioso:</strong> Com <span class="font-bold text-indigo-700">23 pessoas</span>, a chance de coincidência já supera <span class="italic text-indigo-700">50%</span>. Com 70 pessoas, chega a <span class="font-bold text-indigo-700">99.9%</span>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Passo a Passo da Lógica Matemática -->
+        <section class="space-y-6">
+            <h2 class="text-3xl font-bold text-slate-800 text-center mb-8 italic">Como o cálculo é feito?</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Passo 1 -->
+                <div class="math-card p-6 shadow-sm rounded-r-xl">
+                    <h3 class="font-bold text-indigo-600 uppercase text-xs tracking-widest mb-3">1. O Evento Complementar</h3>
+                    <p class="text-slate-600 text-sm mb-4">Calculamos a chance de <strong>ninguém</strong> coincidir e subtraímos de 1.</p>
+                    <div class="bg-slate-50 p-4 rounded text-center text-lg">
+                        $$P(A) = 1 - P(\bar{A})$$
+                    </div>
+                </div>
+
+                <!-- Passo 2: CORRIGIDO -->
+                <div class="math-card p-6 shadow-sm rounded-r-xl">
+                    <h3 class="font-bold text-indigo-600 uppercase text-xs tracking-widest mb-3">2. Probabilidades Individuais</h3>
+                    <p class="text-slate-600 text-sm mb-4">Cada nova pessoa tem menos dias disponíveis para evitar repetição:</p>
+                    <div class="bg-slate-50 p-3 rounded text-sm space-y-2">
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-1">
+                            <span>Pessoa 1:</span>
+                            <span>$$\frac{365}{365}$$</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-1">
+                            <span>Pessoa 2:</span>
+                            <span>$$\frac{364}{365}$$</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>Pessoa $n$:</span>
+                            <span>$$\frac{365 - (n-1)}{365}$$</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Passo 3 -->
+                <div class="math-card p-6 shadow-sm rounded-r-xl">
+                    <h3 class="font-bold text-indigo-600 uppercase text-xs tracking-widest mb-3">3. A Fórmula Geral</h3>
+                    <p class="text-slate-600 text-sm mb-4">Multiplicamos as frações para obter a chance de datas únicas:</p>
+                    <div class="bg-slate-50 p-4 rounded text-center text-xs overflow-x-auto">
+                        $$P(\bar{A}) = \frac{365}{365} \cdot \frac{364}{365} \cdot \dots \cdot \frac{365-n+1}{365}$$
+                    </div>
+                </div>
+
+                <!-- Passo 4 -->
+                <div class="math-card p-6 shadow-sm rounded-r-xl">
+                    <h3 class="font-bold text-indigo-600 uppercase text-xs tracking-widest mb-3">4. O Poder das Combinações</h3>
+                    <p class="text-slate-600 text-sm mb-4">Com 23 pessoas, existem 253 pares comparados entre si:</p>
+                    <div class="bg-slate-50 p-4 rounded text-center text-lg">
+                        $$\binom{n}{2} = \frac{n(n-1)}{2}$$
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualização Gráfica -->
+        <section class="bg-white rounded-3xl shadow-xl p-8 border border-slate-200">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">A Curva de Probabilidade</h2>
+            <div class="chart-container">
+                <canvas id="birthdayChart"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-900 text-slate-500 py-12 px-6 text-center">
+        <div class="max-w-4xl mx-auto border-t border-slate-800 pt-8">
+            <p class="text-xs uppercase tracking-widest font-bold text-slate-400">Ciência de Dados & Estatística</p>
+            <p class="text-[10px] mt-2">Fórmulas renderizadas com KaTeX Engine</p>
+        </div>
+    </footer>
+
+    <script>
+        // Função de renderização segura do KaTeX
+        function initMath() {
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+        }
+
+        function calculateProbability(n) {
+            if (n <= 1) return 0;
+            if (n > 365) return 100;
+            let probNoMatch = 1.0;
+            for (let i = 0; i < n; i++) {
+                probNoMatch *= (365 - i) / 365;
+            }
+            return (1 - probNoMatch) * 100;
+        }
+
+        const slider = document.getElementById('peopleSlider');
+        const countDisplay = document.getElementById('peopleCountDisplay');
+        const probDisplay = document.getElementById('probDisplay');
+        const ctx = document.getElementById('birthdayChart').getContext('2d');
+
+        const labels = [];
+        const data = [];
+        for (let i = 1; i <= 80; i++) {
+            labels.push(i);
+            data.push(calculateProbability(i));
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Chance de Coincidência (%)',
+                    data: data,
+                    borderColor: '#6366f1',
+                    borderWidth: 3,
+                    backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHitRadius: 20
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => v + '%' } },
+                    x: { ticks: { color: '#94a3b8', font: { size: 10 } } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        displayColors: false,
+                        callbacks: { label: (context) => `Probabilidade: ${context.parsed.y.toFixed(2)}%` }
+                    }
+                }
+            }
+        });
+
+        slider.oninput = function() {
+            const val = parseInt(this.value);
+            countDisplay.innerText = val;
+            const prob = calculateProbability(val);
+            probDisplay.innerText = prob.toFixed(1) + '%';
+            chart.update();
+        };
+
+        window.onload = initMath;
+    </script>
+</body>
+</html>
