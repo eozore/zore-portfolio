@@ -162,6 +162,66 @@
             <span class="highlight-title">💡 Disciplina mínima</span>
             <p>Probabilidade não começa na fórmula. Começa em definir corretamente <strong>qual é o universo do problema</strong> e <strong>qual evento você quer medir</strong>.</p>
         </div>
+
+        <h3>Combinando eventos sem se enrolar</h3>
+        <p>Depois de entender evento e condicional, você precisa saber combinar conjuntos. Isso aparece o tempo todo em regra de negócio, segmentação, risco e classificação.</p>
+
+        <div id="venn-section" style="margin: 30px 0;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+                <button class="venn-btn active" onclick="showVenn('intersection')">A ∩ B</button>
+                <button class="venn-btn" onclick="showVenn('union')">A ∪ B</button>
+                <button class="venn-btn" onclick="showVenn('complement')">Aᶜ</button>
+                <button class="venn-btn" onclick="showVenn('conditional')">P(A|B)</button>
+                <button class="venn-btn" onclick="showVenn('exclusive')">Exclusivos</button>
+            </div>
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px; display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
+                <svg id="venn-svg" viewBox="0 0 320 200" width="320" height="200" style="flex-shrink:0;">
+                    <rect x="4" y="4" width="312" height="192" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"></rect>
+                    <text x="292" y="22" font-size="13" fill="#94a3b8" font-family="serif" font-style="italic">Ω</text>
+                    <circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.10"></circle>
+                    <circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.10"></circle>
+                    <g id="venn-fill"></g>
+                    <circle cx="118" cy="100" r="72" fill="none" stroke="#db4a2b" stroke-width="2.2"></circle>
+                    <circle cx="202" cy="100" r="72" fill="none" stroke="#2563eb" stroke-width="2.2"></circle>
+                    <text x="80" y="104" font-size="22" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text>
+                    <text x="228" y="104" font-size="22" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>
+                </svg>
+
+                <div id="venn-desc" style="flex:1; min-width:220px;">
+                    <div id="venn-title" style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;"></div>
+                    <div id="venn-formula" style="font-size:1rem; color:#db4a2b; font-weight:600; margin-bottom:10px; font-family:serif;"></div>
+                    <div id="venn-text" style="font-size:0.93rem; color:#475569; line-height:1.7;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">A</div>
+            <div class="step-content">
+                <strong>União — "A ou B"</strong>
+                \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\). A subtração evita contar a interseção duas vezes. Se os eventos forem mutuamente exclusivos, \(P(A \cap B) = 0\) e a fórmula simplifica para \(P(A) + P(B)\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">B</div>
+            <div class="step-content">
+                <strong>Interseção — "A e B"</strong>
+                Mede os casos em que ambos ocorrem. No exemplo FlashLog, alerta e atraso juntos representam \(700 / 10.000 = 7\%\). Para eventos independentes, \(P(A \cap B) = P(A) \cdot P(B)\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">C</div>
+            <div class="step-content">
+                <strong>Complemento — "não A"</strong>
+                \(P(A^c) = 1 - P(A)\). Se \(P(\text{Atraso}) = 10\%\), então \(P(\text{No Prazo}) = 90\%\). Decorre diretamente de \(P(\Omega) = 1\).
+            </div>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">Exemplo direto</span>
+            <p>Qual a chance de uma entrega ter alerta <em>ou</em> atrasar?</p>
+            $$P(\text{Alerta} \cup \text{Atraso}) = 0{,}25 + 0{,}10 - 0{,}07 = 0{,}28 = 28\%$$
+        </div>
     </section>
 
     <section>
@@ -200,6 +260,76 @@
             </div>
         </div>
 
+        <h3>Os Axiomas de Kolmogorov</h3>
+        <p>Toda a teoria de probabilidade repousa sobre três axiomas formulados por Andrei Kolmogorov em 1933. Eles são o contrato mínimo que qualquer função \(P\) precisa respeitar para ser chamada de probabilidade.</p>
+
+        <div class="step-box">
+            <div class="step-number">I</div>
+            <div class="step-content">
+                <strong>Não-negatividade</strong>
+                Para qualquer evento \(A\), a probabilidade nunca é negativa:
+                $$P(A) \geq 0$$
+                Probabilidade de −20% não existe. O piso é zero.
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">II</div>
+            <div class="step-content">
+                <strong>Normalização (espaço amostral)</strong>
+                A probabilidade do espaço amostral inteiro é 1:
+                $$P(\Omega) = 1$$
+                Algo sempre acontece. A soma de todas as possibilidades é certeza.
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">III</div>
+            <div class="step-content">
+                <strong>Aditividade (eventos mutuamente exclusivos)</strong>
+                Se \(A\) e \(B\) não podem ocorrer juntos (\(A \cap B = \emptyset\)), então:
+                $$P(A \cup B) = P(A) + P(B)$$
+                Isso se generaliza para qualquer coleção enumerável de eventos disjuntos.
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 Por que axiomas importam na prática?</span>
+            <p>Toda fórmula que você vai usar — complemento, condicional, Bayes — é uma consequência direta desses três axiomas. Quando uma conta de probabilidade dá resultado negativo ou maior que 1, o erro está em alguma violação implícita deles.</p>
+        </div>
+
+        <h3>Consequências imediatas dos axiomas</h3>
+        <p>A partir dos três axiomas, derivam-se as propriedades que usamos no dia a dia:</p>
+
+        <div class="term-grid">
+            <div class="term-card">
+                <strong>Intervalo obrigatório</strong>
+                $$0 \leq P(A) \leq 1$$
+                Probabilidade sempre está entre 0 (impossível) e 1 (certo). Valores fora desse intervalo indicam erro de modelagem.
+            </div>
+            <div class="term-card">
+                <strong>Complemento</strong>
+                $$P(A^c) = 1 - P(A)$$
+                Decorre diretamente de \(P(\Omega) = 1\) e da aditividade: \(A\) e \(A^c\) são disjuntos e juntos formam \(\Omega\).
+            </div>
+            <div class="term-card">
+                <strong>Monotonicidade</strong>
+                $$\text{Se } A \subseteq B \text{, então } P(A) \leq P(B)$$
+                Um subconjunto nunca pode ser mais provável que o conjunto que o contém.
+            </div>
+        </div>
+
+        <div class="formula-card">
+            <span class="formula-label">Regra da Adição — caso geral</span>
+            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; font-size:0.95rem;">
+                Quando A e B podem ocorrer juntos (não são mutuamente exclusivos):
+            </div>
+            <div style="margin-top:12px;">
+                $$P(A \cup B) = P(A) + P(B) - P(A \cap B)$$
+            </div>
+            <div style="color:#94a3b8; font-size:0.88rem; margin-top:8px; font-family:'Segoe UI',sans-serif;">
+                A subtração evita contar a interseção duas vezes. Quando \(A \cap B = \emptyset\), o termo some e voltamos ao Axioma III.
+            </div>
+        </div>
+
         <div class="example-block">
             <span class="example-label">Taxa base</span>
             <p>Se 1.000 das 10.000 entregas atrasaram, então:</p>
@@ -207,64 +337,30 @@
             <p>Esse 10% é a <strong>taxa base</strong>. É o ponto de partida honesto. Todo o resto compara contra ele.</p>
         </div>
 
-        <h3>Combinando eventos sem se enrolar</h3>
-        <p>Depois de entender evento e condicional, você precisa saber combinar conjuntos. Isso aparece o tempo todo em regra de negócio, segmentação, risco e classificação.</p>
+        <h3>Independência entre eventos</h3>
+        <p>Dois eventos são <strong>independentes</strong> quando o resultado de um não altera a probabilidade do outro. Formalmente:</p>
 
-        <div id="venn-section" style="margin: 30px 0;">
-            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
-                <button class="venn-btn active" onclick="showVenn('intersection')">A ∩ B</button>
-                <button class="venn-btn" onclick="showVenn('union')">A ∪ B</button>
-                <button class="venn-btn" onclick="showVenn('complement')">Aᶜ</button>
-                <button class="venn-btn" onclick="showVenn('conditional')">P(A|B)</button>
-                <button class="venn-btn" onclick="showVenn('exclusive')">Exclusivos</button>
+        <div class="formula-card">
+            <span class="formula-label">Definição de Independência</span>
+            <div style="margin-top:4px;">
+                $$P(A \cap B) = P(A) \cdot P(B)$$
             </div>
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px; display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
-                <svg id="venn-svg" viewBox="0 0 320 200" width="320" height="200" style="flex-shrink:0;">
-                    <rect x="4" y="4" width="312" height="192" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"></rect>
-                    <text x="292" y="22" font-size="13" fill="#94a3b8" font-family="serif" font-style="italic">Ω</text>
-                    <circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.10"></circle>
-                    <circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.10"></circle>
-                    <g id="venn-fill"></g>
-                    <circle cx="118" cy="100" r="72" fill="none" stroke="#db4a2b" stroke-width="2.2"></circle>
-                    <circle cx="202" cy="100" r="72" fill="none" stroke="#2563eb" stroke-width="2.2"></circle>
-                    <text x="80" y="104" font-size="22" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text>
-                    <text x="228" y="104" font-size="22" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>
-                </svg>
-
-                <div id="venn-desc" style="flex:1; min-width:220px;">
-                    <div id="venn-title" style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;"></div>
-                    <div id="venn-formula" style="font-size:1rem; color:#db4a2b; font-weight:600; margin-bottom:10px; font-family:serif;"></div>
-                    <div id="venn-text" style="font-size:0.93rem; color:#475569; line-height:1.7;"></div>
-                </div>
+            <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                Equivalentemente: \(P(A \mid B) = P(A)\) — saber que B ocorreu não muda a chance de A.
             </div>
         </div>
 
-        <div class="step-box">
-            <div class="step-number">A</div>
-            <div class="step-content">
-                <strong>União</strong>
-                Mede "A ou B". Use \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\) para não contar a interseção duas vezes.
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">B</div>
-            <div class="step-content">
-                <strong>Interseção</strong>
-                Mede "A e B". No exemplo FlashLog, alerta e atraso juntos representam \(700 / 10.000 = 7\%\).
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">C</div>
-            <div class="step-content">
-                <strong>Complemento</strong>
-                Mede "não A". Se \(P(\text{Atraso}) = 10\%\), então \(P(\text{No Prazo}) = 90\%\).
-            </div>
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Independência ≠ Exclusividade mútua</span>
+            <p>São conceitos opostos, não sinônimos. Se \(A\) e \(B\) são mutuamente exclusivos e \(P(A) > 0\), então \(P(A \mid B) = 0 \neq P(A)\) — ou seja, são <em>dependentes</em>. Eventos que não podem ocorrer juntos são os mais dependentes possíveis.</p>
         </div>
 
         <div class="example-block">
-            <span class="example-label">Exemplo direto</span>
-            <p>Qual a chance de uma entrega ter alerta <em>ou</em> atrasar?</p>
-            $$P(\text{Alerta} \cup \text{Atraso}) = 0{,}25 + 0{,}10 - 0{,}07 = 0{,}28 = 28\%$$
+            <span class="example-label">Teste de independência — FlashLog</span>
+            <p>Alerta e Atraso são independentes? Verifique se \(P(\text{Alerta} \cap \text{Atraso}) = P(\text{Alerta}) \cdot P(\text{Atraso})\):</p>
+            $$P(\text{Alerta}) \cdot P(\text{Atraso}) = 0{,}25 \times 0{,}10 = 0{,}025$$
+            $$P(\text{Alerta} \cap \text{Atraso}) = \frac{700}{10.000} = 0{,}07$$
+            <p>\(0{,}07 \neq 0{,}025\) — os eventos <strong>não são independentes</strong>. O alerta carrega informação real sobre o atraso.</p>
         </div>
 
         <h3>Probabilidade condicional: quando o universo muda</h3>
@@ -335,8 +431,11 @@
             <h3>📝 Resumo para Levar na Mochila</h3>
             <ul>
                 <li><strong>Probabilidade</strong> é frequência observada no longo prazo, não chute sofisticado.</li>
+                <li><strong>Axiomas de Kolmogorov:</strong> \(P(A) \geq 0\), \(P(\Omega) = 1\), aditividade para eventos disjuntos. Toda fórmula deriva daqui.</li>
+                <li><strong>Intervalo obrigatório:</strong> \(0 \leq P(A) \leq 1\). Resultado fora disso é erro de modelagem.</li>
                 <li><strong>Espaço amostral</strong> define o universo da conta. Se ele estiver errado, o resto desaba.</li>
                 <li><strong>Taxa base</strong> é a referência inicial antes de qualquer informação extra.</li>
+                <li><strong>Independência</strong> significa \(P(A \cap B) = P(A) \cdot P(B)\) — não confundir com exclusividade mútua.</li>
                 <li><strong>Probabilidade condicional</strong> troca o universo total por um universo reduzido.</li>
                 <li><strong>União, interseção e complemento</strong> são a gramática mínima para combinar eventos com precisão.</li>
             </ul>
