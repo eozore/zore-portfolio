@@ -139,17 +139,17 @@
         <div class="story-box">
             <h3>🚚 O Problema de Negócio</h3>
             <p>Na FlashLog, a operação precisava decidir quantas entregas entrariam em monitoramento reforçado. O custo de monitorar demais era alto. O custo de monitorar de menos era pior: cliente irritado, SLA rompido e time correndo atrás do prejuízo.</p>
-            <p>A pergunta inicial parecia simples: <em>"qual é a chance de uma entrega atrasar?"</em> Mas logo vieram as perguntas certas: <em>"essa chance muda quando há alerta?"</em> e <em>"como combinar eventos sem contar coisa em dobro?"</em></p>
+            <p>A pergunta inicial parecia simples: <em>"qual é a chance de uma entrega atrasar?"</em> Mas logo vieram as perguntas certas: <em>"essa chance muda quando há alerta?"</em> e <em>"como combinar eventos?"</em></p>
             <p>Essas perguntas não se resolvem com intuição. Elas exigem o vocabulário básico da probabilidade: espaço amostral, evento, taxa base, probabilidade condicional e operações entre eventos.</p>
         </div>
     </section>
 
     <section>
         <h2>1. Problema de Negócio: Traduzindo Operação em Eventos</h2>
-        <p>Antes de qualquer fórmula, você precisa converter o problema operacional em perguntas mensuráveis. Esse é o ponto onde muita aula falha: entra em símbolo cedo demais e o aluno perde a ligação com a decisão real.</p>
+        <p>Antes de qualquer fórmula, precisamos converter o problema operacional em um problema matemático.</p>
 
         <div class="example-block">
-            <span class="example-label">Perguntas que a operação realmente faz</span>
+            <span class="example-label">Perguntas do time de operação</span>
             <p>Em uma base de 10.000 entregas, a FlashLog quer saber:</p>
             <ul>
                 <li>Qual é a chance de atraso em uma entrega escolhida ao acaso?</li>
@@ -166,6 +166,26 @@
 
     <section>
         <h2>2. Teoria: O Vocabulário Mínimo da Probabilidade</h2>
+        <h3>Os três objetos que você precisa dominar</h3>
+        <div class="term-grid">
+            <div class="term-card">
+                <strong>Experimento aleatório</strong>
+                O processo observado antes do resultado acontecer. Aqui: escolher uma entrega ao acaso do histórico.
+            </div>
+            <div class="term-card">
+                <strong>Espaço amostral \(\Omega\)</strong>
+                O conjunto de todos os resultados possíveis. Exemplo simples: \(\Omega = \{\text{Atraso}, \text{No Prazo}\}\).
+            </div>
+            <div class="term-card">
+                <strong>Evento</strong>
+                Um subconjunto de \(\Omega\) que interessa para a decisão. Exemplo: \(A = \{\text{Entrega atrasou}\}\).
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Erro comum</span>
+            <p>Muita conta errada de probabilidade é, na prática, um erro de espaço amostral. A conta pode estar formalmente certa, mas aplicada ao universo errado.</p>
+        </div>
 
         <h3>Probabilidade como frequência</h3>
         <p>Para quem trabalha com dados, a interpretação mais útil é a frequentista: a probabilidade de um evento é a frequência com que ele aparece quando o processo é observado muitas vezes.</p>
@@ -187,25 +207,64 @@
             <p>Esse 10% é a <strong>taxa base</strong>. É o ponto de partida honesto. Todo o resto compara contra ele.</p>
         </div>
 
-        <h3>Os três objetos que você precisa dominar</h3>
-        <div class="term-grid">
-            <div class="term-card">
-                <strong>Experimento aleatório</strong>
-                O processo observado antes do resultado acontecer. Aqui: escolher uma entrega ao acaso do histórico.
+        <h3>Combinando eventos sem se enrolar</h3>
+        <p>Depois de entender evento e condicional, você precisa saber combinar conjuntos. Isso aparece o tempo todo em regra de negócio, segmentação, risco e classificação.</p>
+
+        <div id="venn-section" style="margin: 30px 0;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+                <button class="venn-btn active" onclick="showVenn('intersection')">A ∩ B</button>
+                <button class="venn-btn" onclick="showVenn('union')">A ∪ B</button>
+                <button class="venn-btn" onclick="showVenn('complement')">Aᶜ</button>
+                <button class="venn-btn" onclick="showVenn('conditional')">P(A|B)</button>
+                <button class="venn-btn" onclick="showVenn('exclusive')">Exclusivos</button>
             </div>
-            <div class="term-card">
-                <strong>Espaço amostral \(\Omega\)</strong>
-                O conjunto de todos os resultados possíveis. Exemplo simples: \(\Omega = \{\text{Atraso}, \text{No Prazo}\}\).
-            </div>
-            <div class="term-card">
-                <strong>Evento</strong>
-                Um subconjunto de \(\Omega\) que interessa para a decisão. Exemplo: \(A = \{\text{Entrega atrasou}\}\).
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px; display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
+                <svg id="venn-svg" viewBox="0 0 320 200" width="320" height="200" style="flex-shrink:0;">
+                    <rect x="4" y="4" width="312" height="192" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"></rect>
+                    <text x="292" y="22" font-size="13" fill="#94a3b8" font-family="serif" font-style="italic">Ω</text>
+                    <circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.10"></circle>
+                    <circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.10"></circle>
+                    <g id="venn-fill"></g>
+                    <circle cx="118" cy="100" r="72" fill="none" stroke="#db4a2b" stroke-width="2.2"></circle>
+                    <circle cx="202" cy="100" r="72" fill="none" stroke="#2563eb" stroke-width="2.2"></circle>
+                    <text x="80" y="104" font-size="22" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text>
+                    <text x="228" y="104" font-size="22" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>
+                </svg>
+
+                <div id="venn-desc" style="flex:1; min-width:220px;">
+                    <div id="venn-title" style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;"></div>
+                    <div id="venn-formula" style="font-size:1rem; color:#db4a2b; font-weight:600; margin-bottom:10px; font-family:serif;"></div>
+                    <div id="venn-text" style="font-size:0.93rem; color:#475569; line-height:1.7;"></div>
+                </div>
             </div>
         </div>
 
-        <div class="warning-box">
-            <span class="warning-label">⚠️ Erro comum</span>
-            <p>Muita conta errada de probabilidade é, na prática, um erro de espaço amostral. A conta pode estar formalmente certa, mas aplicada ao universo errado.</p>
+        <div class="step-box">
+            <div class="step-number">A</div>
+            <div class="step-content">
+                <strong>União</strong>
+                Mede "A ou B". Use \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\) para não contar a interseção duas vezes.
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">B</div>
+            <div class="step-content">
+                <strong>Interseção</strong>
+                Mede "A e B". No exemplo FlashLog, alerta e atraso juntos representam \(700 / 10.000 = 7\%\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">C</div>
+            <div class="step-content">
+                <strong>Complemento</strong>
+                Mede "não A". Se \(P(\text{Atraso}) = 10\%\), então \(P(\text{No Prazo}) = 90\%\).
+            </div>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">Exemplo direto</span>
+            <p>Qual a chance de uma entrega ter alerta <em>ou</em> atrasar?</p>
+            $$P(\text{Alerta} \cup \text{Atraso}) = 0{,}25 + 0{,}10 - 0{,}07 = 0{,}28 = 28\%$$
         </div>
 
         <h3>Probabilidade condicional: quando o universo muda</h3>
@@ -269,65 +328,6 @@
             <p>No exemplo, \(P(\text{Atraso} \mid \text{Alerta}) = 28\%\), mas \(P(\text{Alerta} \mid \text{Atraso}) = 700/1.000 = 70\%\). Mesma tabela, perguntas diferentes.</p>
         </div>
 
-        <h3>Combinando eventos sem se enrolar</h3>
-        <p>Depois de entender evento e condicional, você precisa saber combinar conjuntos. Isso aparece o tempo todo em regra de negócio, segmentação, risco e classificação.</p>
-
-        <div id="venn-section" style="margin: 30px 0;">
-            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
-                <button class="venn-btn active" onclick="showVenn('intersection')">A ∩ B</button>
-                <button class="venn-btn" onclick="showVenn('union')">A ∪ B</button>
-                <button class="venn-btn" onclick="showVenn('complement')">Aᶜ</button>
-                <button class="venn-btn" onclick="showVenn('conditional')">P(A|B)</button>
-                <button class="venn-btn" onclick="showVenn('exclusive')">Exclusivos</button>
-            </div>
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px; display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
-                <svg id="venn-svg" viewBox="0 0 320 200" width="320" height="200" style="flex-shrink:0;">
-                    <rect x="4" y="4" width="312" height="192" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"></rect>
-                    <text x="292" y="22" font-size="13" fill="#94a3b8" font-family="serif" font-style="italic">Ω</text>
-                    <circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.10"></circle>
-                    <circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.10"></circle>
-                    <g id="venn-fill"></g>
-                    <circle cx="118" cy="100" r="72" fill="none" stroke="#db4a2b" stroke-width="2.2"></circle>
-                    <circle cx="202" cy="100" r="72" fill="none" stroke="#2563eb" stroke-width="2.2"></circle>
-                    <text x="80" y="104" font-size="22" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text>
-                    <text x="228" y="104" font-size="22" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>
-                </svg>
-
-                <div id="venn-desc" style="flex:1; min-width:220px;">
-                    <div id="venn-title" style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;"></div>
-                    <div id="venn-formula" style="font-size:1rem; color:#db4a2b; font-weight:600; margin-bottom:10px; font-family:serif;"></div>
-                    <div id="venn-text" style="font-size:0.93rem; color:#475569; line-height:1.7;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="step-box">
-            <div class="step-number">A</div>
-            <div class="step-content">
-                <strong>União</strong>
-                Mede "A ou B". Use \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\) para não contar a interseção duas vezes.
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">B</div>
-            <div class="step-content">
-                <strong>Interseção</strong>
-                Mede "A e B". No exemplo FlashLog, alerta e atraso juntos representam \(700 / 10.000 = 7\%\).
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">C</div>
-            <div class="step-content">
-                <strong>Complemento</strong>
-                Mede "não A". Se \(P(\text{Atraso}) = 10\%\), então \(P(\text{No Prazo}) = 90\%\).
-            </div>
-        </div>
-
-        <div class="example-block">
-            <span class="example-label">Exemplo direto</span>
-            <p>Qual a chance de uma entrega ter alerta <em>ou</em> atrasar?</p>
-            $$P(\text{Alerta} \cup \text{Atraso}) = 0{,}25 + 0{,}10 - 0{,}07 = 0{,}28 = 28\%$$
-        </div>
     </section>
 
     <section>
