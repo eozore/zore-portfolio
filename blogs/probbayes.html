@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Independência e Teorema de Bayes</title>
+    <link rel="alternate" href="probbayes.html" hreflang="pt-BR">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .step-box {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin: 16px 0;
+        }
+        .step-number {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            min-width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .step-content { flex: 1; }
+        .step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
+
+        .example-block {
+            background: #f0f9ff;
+            border-left: 4px solid #38bdf8;
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+        }
+        .example-block .example-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #0284c7;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .warning-box {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin: 20px 0;
+        }
+        .warning-box .warning-label {
+            font-weight: 700;
+            color: #c2410c;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .formula-card {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin: 20px 0;
+            font-family: "Courier New", monospace;
+        }
+        .formula-card .formula-label {
+            font-size: 0.78rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-family: "Segoe UI", sans-serif;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+        .metric-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+        .metric-card strong {
+            display: block;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .table-wrap { overflow-x: auto; margin: 22px 0; }
+
+        @media (max-width: 700px) {
+            .metric-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Independência e Teorema de Bayes</h1>
+        <p class="subtitle">Quando um sinal realmente ajuda a prever um resultado</p>
+        <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 4b de 8 — Bloco: Fundação Estatística &nbsp;| <a href="teoriadeprob.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4a: Probabilidade</a></p>
+        <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a></p>
+    </header>
+
+    <section>
+        <div class="story-box">
+            <h3>🚨 O Problema de Negócio</h3>
+            <p>A FlashLog já sabe calcular probabilidade. O problema agora é outro: o sistema de alerta de trânsito dispara bastante, mas cada disparo tem custo operacional. Avisar cliente sem necessidade desgasta confiança. Ignorar alerta relevante estoura SLA.</p>
+            <p>A pergunta certa deixou de ser <em>"qual a chance de atraso?"</em> e passou a ser <em>"quando o alerta aparece, esse sinal realmente aumenta a chance de atraso ou é só ruído?"</em></p>
+            <p>Responder isso exige duas ideias: <strong>independência</strong>, para testar se o sinal tem valor, e <strong>Bayes</strong>, para inverter a pergunta e medir o valor preditivo do alerta.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>1. Problema de Negócio: O Alerta Serve ou Não Serve?</h2>
+        <p>Se o alerta não mudar a probabilidade de atraso, ele não ajuda decisão nenhuma. Vira só barulho operacional. Antes de apresentar fórmulas, olhe para o problema como um teste de utilidade do sinal.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th></th><th>Alerta</th><th>Sem Alerta</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Atraso</strong></td><td>700</td><td>300</td><td>1.000</td></tr>
+                    <tr><td><strong>No Prazo</strong></td><td>1.800</td><td>7.200</td><td>9.000</td></tr>
+                    <tr><td><strong>Total</strong></td><td>2.500</td><td>7.500</td><td>10.000</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="metric-grid">
+            <div class="metric-card">
+                <strong>Taxa base</strong>
+                Sem informação extra, a chance de atraso é \(1.000 / 10.000 = 10\%\).
+            </div>
+            <div class="metric-card">
+                <strong>Chance com alerta</strong>
+                Entre entregas com alerta, \(700 / 2.500 = 28\%\).
+            </div>
+            <div class="metric-card">
+                <strong>Leitura de negócio</strong>
+                O alerta quase triplica a chance de atraso. Logo, ele parece carregar informação útil.
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 Tradução executiva</span>
+            <p>O ponto não é se o alerta está "certo" sempre. O ponto é se ele muda a decisão. Sinal útil é sinal que desloca probabilidade de forma material.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2>2. Teoria: Valor Preditivo, Independência e Bayes</h2>
+
+        <h3>Independência: quando a informação não ajuda</h3>
+        <p>Dois eventos são independentes quando conhecer um deles não muda a chance do outro.</p>
+
+        <div class="formula-card">
+            <span class="formula-label">Independência</span>
+            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
+                $$P(A \mid B) = P(A) \quad \Longleftrightarrow \quad A \text{ e } B \text{ são independentes}$$
+            </div>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">Teste direto</span>
+            <p>Na FlashLog, \(P(\text{Atraso}) = 10\%\), mas \(P(\text{Atraso} \mid \text{Alerta}) = 28\%\).</p>
+            <p>Como os valores são diferentes, alerta e atraso <strong>não são independentes</strong>. O alerta tem valor informacional.</p>
+        </div>
+
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Confusão comum</span>
+            <p>Evento independente não é evento raro, nem evento mutuamente exclusivo. Independência significa apenas: <strong>saber B não altera a chance de A</strong>.</p>
+        </div>
+
+        <h3>Bayes: invertendo a pergunta</h3>
+        <p>Em operação, você quase sempre observa primeiro o sinal e só depois quer inferir a causa. Bayes formaliza exatamente isso.</p>
+
+        <div class="formula-card">
+            <span class="formula-label">Teorema de Bayes</span>
+            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
+                $$P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B)}$$
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Termo</th><th>Nome técnico</th><th>Leitura prática</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>\(P(A)\)</td><td>Prior</td><td>Taxa base de atraso antes de ver qualquer sinal.</td></tr>
+                    <tr><td>\(P(B \mid A)\)</td><td>Verossimilhança</td><td>Com que frequência atrasos geram alerta.</td></tr>
+                    <tr><td>\(P(B)\)</td><td>Evidência</td><td>Com que frequência o alerta aparece no total.</td></tr>
+                    <tr><td>\(P(A \mid B)\)</td><td>Posterior</td><td>Chance de atraso depois do alerta.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Passo 1: calcular a evidência com a Lei da Probabilidade Total</h3>
+        <p>O erro mais comum em Bayes é pular o denominador. Sem \(P(B)\), a conta fica incompleta.</p>
+
+        <div class="formula-card">
+            <span class="formula-label">Lei da Probabilidade Total</span>
+            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
+                $$P(B) = P(B \mid A)\cdot P(A) + P(B \mid \neg A)\cdot P(\neg A)$$
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>Dados conhecidos</strong>
+                \(P(\text{Atraso}) = 0{,}10\), \(P(\text{Alerta} \mid \text{Atraso}) = 0{,}70\) e \(P(\text{Alerta} \mid \text{No Prazo}) = 0{,}20\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <strong>Complemento</strong>
+                \(P(\text{No Prazo}) = 1 - 0{,}10 = 0{,}90\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <strong>Probabilidade total do alerta</strong>
+                $$P(\text{Alerta}) = 0{,}70 \times 0{,}10 + 0{,}20 \times 0{,}90 = 0{,}25$$
+            </div>
+        </div>
+
+        <h3>Passo 2: calcular o valor preditivo do alerta</h3>
+        <div class="step-box">
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <strong>Aplicação de Bayes</strong>
+                $$P(\text{Atraso} \mid \text{Alerta}) = \frac{0{,}70 \times 0{,}10}{0{,}25} = 0{,}28 = 28\%$$
+                O alerta não garante atraso. Mas ele muda a chance de 10% para 28%. Isso já muda decisão.
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Bayes não prova causa</span>
+            <p>Bayes só atualiza crença à luz de evidência. Se a base de dados estiver ruim, o posterior também estará ruim. Fórmula boa não corrige dado ruim.</p>
+        </div>
+
+        <h3>O papel central da taxa base</h3>
+        <p>Se a taxa base cai, mesmo um alerta forte pode continuar tendo pouco valor preditivo. Esse é o ponto que mais confunde quem olha só para a verossimilhança.</p>
+
+        <div class="example-block">
+            <span class="example-label">Teste de sensibilidade</span>
+            <p>Se \(P(\text{Atraso}) = 1\%\), mantendo \(P(\text{Alerta} \mid \text{Atraso}) = 70\%\) e \(P(\text{Alerta} \mid \text{No Prazo}) = 20\%\):</p>
+            $$P(\text{Alerta}) = 0{,}70 \times 0{,}01 + 0{,}20 \times 0{,}99 = 0{,}205$$
+            $$P(\text{Atraso} \mid \text{Alerta}) = \frac{0{,}70 \times 0{,}01}{0{,}205} \approx 3{,}4\%$$
+            <p>Mesmo com um alerta relativamente forte, a chance final continua baixa. A <strong>taxa base domina</strong>.</p>
+        </div>
+    </section>
+
+    <section>
+        <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
+            <h3>📝 Resumo para Levar na Mochila</h3>
+            <ul>
+                <li><strong>Independência</strong> significa que o sinal não altera a probabilidade do resultado.</li>
+                <li><strong>Comparar prior e posterior</strong> é um teste prático de utilidade do sinal.</li>
+                <li><strong>Bayes</strong> serve para inverter a pergunta: da evidência para a causa.</li>
+                <li><strong>A evidência total</strong> precisa ser calculada; não é detalhe decorativo.</li>
+                <li><strong>Taxa base</strong> pode reduzir drasticamente o valor preditivo do sinal.</li>
+            </ul>
+        </div>
+    </section>
+
+    <section>
+        <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
+            <span class="complexity-title">➡️ O Que Vem a Seguir</span>
+            <p>Com a base e o raciocínio condicional organizados, agora faz sentido subir um nível de abstração. No próximo artigo, <a href="distribuicaodeprob.html" target="_blank" rel="noopener"><strong>Distribuições de Probabilidade</strong></a>, vamos sair de eventos pontuais e modelar o comportamento completo de uma variável aleatória.</p>
+        </div>
+    </section>
+
+    <section class="references">
+        <h3>📚 Para Se Aprofundar</h3>
+        <ul>
+            <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Excelente para enxergar Bayes como raciocínio estrutural.</li>
+            <li><strong>"The Signal and the Noise"</strong> — Nate Silver. Boa ponte entre previsão, incerteza e taxa base.</li>
+        </ul>
+    </section>
+
+    <section class="quiz-container">
+        <h2>🧠 Teste Seu Conhecimento</h2>
+        <p style="margin-bottom:20px;">Responda às perguntas abaixo para validar o que aprendeu.</p>
+        <div id="quiz-root"></div>
+    </section>
+</div>
+
+<script>
+    const questions = [
+        {
+            text: "Quando dois eventos são independentes?",
+            options: [
+                "Quando eles nunca ocorrem juntos.",
+                "Quando P(A|B) = P(A).",
+                "Quando P(A) = P(B).",
+                "Quando ambos são raros."
+            ],
+            correct: 1,
+            feedback: "Correto. Independência significa que saber B não altera a chance de A."
+        },
+        {
+            text: "Se P(Atraso) = 10% e P(Atraso|Alerta) = 28%, o alerta:",
+            options: [
+                "É irrelevante.",
+                "É independente do atraso.",
+                "Carrega informação útil sobre atraso.",
+                "Prova causalidade."
+            ],
+            correct: 2,
+            feedback: "Exato. Como a probabilidade mudou materialmente, o alerta tem valor preditivo."
+        },
+        {
+            text: "O que Bayes calcula?",
+            options: [
+                "A média de uma distribuição.",
+                "A probabilidade da causa dado o sinal.",
+                "A interseção de dois eventos independentes.",
+                "A variância de uma amostra."
+            ],
+            correct: 1,
+            feedback: "Correto. Bayes serve para inverter a direção da condicional."
+        },
+        {
+            text: "Na fórmula de Bayes, qual termo representa a taxa base?",
+            options: ["P(B)", "P(B|A)", "P(A)", "P(A|B)"],
+            correct: 2,
+            feedback: "Exato. O prior P(A) é a taxa base antes de observar a evidência."
+        },
+        {
+            text: "Qual é o papel da Lei da Probabilidade Total em Bayes?",
+            options: [
+                "Calcular o denominador P(B).",
+                "Substituir o prior.",
+                "Testar independência automaticamente.",
+                "Eliminar o complemento."
+            ],
+            correct: 0,
+            feedback: "Correto. Sem o denominador, você não fecha a conta de Bayes."
+        },
+        {
+            text: "Se a taxa base cai muito, o posterior tende a:",
+            options: [
+                "Subir necessariamente.",
+                "Ficar igual.",
+                "Cair, mesmo com um sinal razoavelmente forte.",
+                "Virar 50%."
+            ],
+            correct: 2,
+            feedback: "Exato. Esse é o efeito central da taxa base."
+        },
+        {
+            text: "Qual afirmação é correta?",
+            options: [
+                "Bayes prova que o alerta causa atraso.",
+                "Bayes atualiza a probabilidade de atraso depois de observar o alerta.",
+                "Bayes só funciona quando os eventos são independentes.",
+                "Bayes dispensa dados históricos."
+            ],
+            correct: 1,
+            feedback: "Correto. Bayes atualiza crença com evidência; ele não prova causalidade."
+        },
+        {
+            text: "Qual é a leitura correta de P(B)?",
+            options: [
+                "A chance da evidência aparecer no total.",
+                "A chance da causa ser verdadeira.",
+                "A chance de A dado B.",
+                "A chance de B dado A."
+            ],
+            correct: 0,
+            feedback: "Correto. P(B) é a evidência total, ou seja, a frequência do sinal na base inteira."
+        },
+        {
+            text: "Qual afirmação sobre independência está certa?",
+            options: [
+                "Se dois eventos são independentes, eles não podem ocorrer juntos.",
+                "Se dois eventos são independentes, conhecer um não altera a chance do outro.",
+                "Independência é o mesmo que exclusão mútua.",
+                "Independência só existe em variáveis contínuas."
+            ],
+            correct: 1,
+            feedback: "Exato. Independência é sobre ausência de mudança de probabilidade."
+        },
+        {
+            text: "Quando o posterior cai muito, a causa principal geralmente é:",
+            options: [
+                "A taxa base muito alta.",
+                "A taxa base muito baixa.",
+                "A interseção ser zero.",
+                "A variável ser discreta."
+            ],
+            correct: 1,
+            feedback: "Correto. O posterior é fortemente sensível à taxa base."
+        },
+        {
+            text: "Bayes é mais útil quando:",
+            options: [
+                "Você quer inverter a pergunta de evidência para causa.",
+                "Você quer calcular uma média amostral.",
+                "Você quer eliminar a necessidade de dados.",
+                "Você quer testar se dois eventos são mutuamente exclusivos."
+            ],
+            correct: 0,
+            feedback: "Exato. Bayes é o mecanismo de inversão da condicional."
+        }
+    ];
+
+    function renderQuiz() {
+        const root = document.getElementById("quiz-root");
+        questions.forEach((question, index) => {
+            const card = document.createElement("div");
+            card.className = "question-card";
+
+            const title = document.createElement("span");
+            title.className = "question-text";
+            title.innerText = (index + 1) + ". " + question.text;
+            card.appendChild(title);
+
+            const optionsDiv = document.createElement("div");
+            optionsDiv.className = "options";
+
+            const feedbackDiv = document.createElement("div");
+            feedbackDiv.className = "feedback";
+
+            question.options.forEach((option, optionIndex) => {
+                const button = document.createElement("button");
+                button.className = "option-btn";
+                button.innerText = option;
+                button.onclick = () => {
+                    optionsDiv.querySelectorAll(".option-btn").forEach((item) => {
+                        item.disabled = true;
+                    });
+
+                    if (optionIndex === question.correct) {
+                        button.classList.add("correct");
+                        feedbackDiv.innerText = "✅ " + question.feedback;
+                        feedbackDiv.style.backgroundColor = "#dcfce7";
+                        feedbackDiv.style.color = "#064e3b";
+                    } else {
+                        button.classList.add("incorrect");
+                        optionsDiv.querySelectorAll(".option-btn")[question.correct].classList.add("correct");
+                        feedbackDiv.innerText = "❌ Incorreto. " + question.feedback;
+                        feedbackDiv.style.backgroundColor = "#fee2e2";
+                        feedbackDiv.style.color = "#7f1d1d";
+                    }
+
+                    feedbackDiv.classList.add("show");
+                };
+                optionsDiv.appendChild(button);
+            });
+
+            card.appendChild(optionsDiv);
+            card.appendChild(feedbackDiv);
+            root.appendChild(card);
+        });
+    }
+
+    renderQuiz();
+</script>
+
+<div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
+    <a href="probbayes.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
+    <span style="color:#94a3b8;"> | </span>
+    <span style="color:#94a3b8;">🇺🇸 EN em breve</span>
+</div>
+</body>
+</html>
