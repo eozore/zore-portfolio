@@ -158,6 +158,25 @@
             </ul>
         </div>
 
+        <p>No caso da FlashLog, defina:</p>
+        <ul>
+            <li>\(A = \text{Entrega atrasou}\)</li>
+            <li>\(B = \text{Alerta de trânsito foi disparado}\)</li>
+        </ul>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th></th><th>Alerta (B)</th><th>Sem Alerta (\(\neg B\))</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Atraso (A)</strong></td><td>700</td><td>300</td><td>1.000</td></tr>
+                    <tr><td><strong>No Prazo (\(\neg A\))</strong></td><td>1.800</td><td>7.200</td><td>9.000</td></tr>
+                    <tr><td><strong>Total</strong></td><td>2.500</td><td>7.500</td><td>10.000</td></tr>
+                </tbody>
+            </table>
+        </div>
+
         <div class="highlight-box">
             <span class="highlight-title">💡 Disciplina mínima</span>
             <p>Probabilidade não começa na fórmula. Começa em definir corretamente <strong>qual é o universo do problema</strong> e <strong>qual evento você quer medir</strong>.</p>
@@ -374,25 +393,6 @@
             <div style="margin-top:12px;">
                 $$P(A \mid B) = \frac{P(A \cap B)}{P(B)}$$
             </div>
-        </div>
-
-        <p>No caso da FlashLog, defina:</p>
-        <ul>
-            <li>\(A = \text{Entrega atrasou}\)</li>
-            <li>\(B = \text{Alerta de trânsito foi disparado}\)</li>
-        </ul>
-
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th></th><th>Alerta (B)</th><th>Sem Alerta (\(\neg B\))</th><th>Total</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td><strong>Atraso (A)</strong></td><td>700</td><td>300</td><td>1.000</td></tr>
-                    <tr><td><strong>No Prazo (\(\neg A\))</strong></td><td>1.800</td><td>7.200</td><td>9.000</td></tr>
-                    <tr><td><strong>Total</strong></td><td>2.500</td><td>7.500</td><td>10.000</td></tr>
-                </tbody>
-            </table>
         </div>
 
         <div class="step-box">
