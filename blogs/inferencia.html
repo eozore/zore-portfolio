@@ -8,27 +8,76 @@
     <link rel="alternate" href="../en/blogs/inferencia.html" hreflang="en">
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
     <style>
-        :root {
-            --primary-color: #db4a2b;
-            --bg-color: #f8fafc;
-            --text-color: #1e293b;
-            --success-color: #10b981;
-            --error-color: #ef4444;
+        .step-box {
+            display: flex; gap: 16px; align-items: flex-start;
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 10px; padding: 18px 20px; margin: 14px 0;
         }
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.8; color: var(--text-color); background-color: var(--bg-color); margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        h1 { color: var(--primary-color); font-size: 2.5rem; margin-bottom: 10px; line-height: 1.2; }
-        h2 { color: var(--primary-color); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 40px; }
-        h3 { color: #475569; margin-top: 30px; }
-        .subtitle { font-size: 1.2rem; color: #64748b; margin-bottom: 40px; font-weight: 300; }
-        .story-box { background-color: #eff6ff; border-left: 5px solid var(--primary-color); padding: 20px; border-radius: 0 8px 8px 0; margin: 30px 0; font-style: italic; }
-        .highlight-box { background-color: #fffbeb; border: 1px solid #fcd34d; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .highlight-title { font-weight: bold; color: #92400e; display: block; margin-bottom: 5px; }
-        .complexity-box { background-color: #f0fdf4; border: 1px solid #86efac; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .complexity-title { font-weight: bold; color: #166534; display: block; margin-bottom: 8px; }
-        .references { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
-        @media (max-width: 600px) { .container { padding: 20px; } h1 { font-size: 1.8rem; } }
+        .step-number {
+            background: var(--primary-color); color: white; font-weight: 700;
+            font-size: 1rem; min-width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 2px;
+        }
+        .step-content { flex: 1; }
+        .step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
+
+        .example-block {
+            background: #f0f9ff; border-left: 4px solid #38bdf8;
+            padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0;
+        }
+        .example-block .example-label {
+            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; color: #0284c7; display: block; margin-bottom: 8px;
+        }
+
+        .warning-box {
+            background: #fff7ed; border: 1px solid #fed7aa;
+            border-radius: 8px; padding: 18px 20px; margin: 20px 0;
+        }
+        .warning-box .warning-label { font-weight: 700; color: #c2410c; display: block; margin-bottom: 6px; }
+
+        .formula-card {
+            background: #1e293b; color: #e2e8f0; border-radius: 10px;
+            padding: 20px 24px; margin: 20px 0;
+        }
+        .formula-card .formula-label {
+            font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #94a3b8; font-family: 'Segoe UI', sans-serif; display: block; margin-bottom: 10px;
+        }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+        @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+        .concept-card {
+            border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;
+            position: relative; overflow: hidden;
+        }
+        .concept-card::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 4px; background: var(--primary-color);
+        }
+        .concept-card.blue::before { background: #2563eb; }
+        .concept-card.green::before { background: #10b981; }
+        .concept-card h4 { margin: 0 0 8px; font-size: 1rem; color: #1e293b; }
+        .concept-card p { font-size: 0.9rem; color: #475569; margin: 0; line-height: 1.6; }
+
+        .table-wrap { overflow-x: auto; margin: 22px 0; }
+
+        .metric-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin: 24px 0;
+        }
+        .metric-card {
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+            padding: 18px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+        .metric-card strong { display: block; color: #1e293b; margin-bottom: 8px; }
+
+        .chart-caption { text-align: center; font-size: 0.88rem; color: #64748b; margin-top: -10px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -36,69 +85,504 @@
     <header>
         <h1>Inferência Estatística</h1>
         <p class="subtitle">Como sair de uma amostra e falar sobre a população com cuidado</p>
-        <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 6 de 7 — Bloco: Fundação Estatística</p>
-        <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">Ver no YouTube</a></p>
+        <p style="font-size:0.85rem; color:#94a3b8;">
+            📚 Artigo 6 de 8 — Bloco: Fundação Estatística &nbsp;|
+            <a href="distribuicaodeprob.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4c: Distribuições de Probabilidade</a>
+        </p>
+        <p style="margin-top:10px;">
+            <a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a>
+        </p>
     </header>
 
+    <!-- HISTÓRIA DE ABERTURA -->
     <section>
         <div class="story-box">
-            <h3>🗳️ O Número que Virou Manchete</h3>
-            <p>Um time de produto rodou uma pesquisa com 500 pessoas e viu 62% de aprovação. A liderança comemorou. No dia seguinte, outra pesquisa apareceu com 55%. Quem estava certo?</p>
-            <p>Essa diferença não é necessariamente erro ou manipulação. Muitas vezes é <strong>variabilidade amostral</strong>: amostras diferentes, respostas diferentes. Inferência é o conjunto de ferramentas para quantificar essa incerteza.</p>
+            <h3>📦 A Nova Região da FlashLog</h3>
+            <p>A FlashLog expandiu para uma nova cidade. Nas primeiras 200 entregas, a taxa de atraso foi de 14% — acima dos 10% históricos da operação.</p>
+            <p>O gerente de operações precisa decidir: <em>"essa região realmente tem mais atrasos, ou os 14% são apenas variabilidade amostral? Devo mandar mais equipe, ou esperar mais dados?"</em></p>
+            <p>Responder isso com rigor exige <strong>inferência estatística</strong> — o conjunto de ferramentas para ir de uma amostra a conclusões sobre a população, quantificando a incerteza de cada conclusão.</p>
         </div>
     </section>
 
+    <!-- SEÇÃO 1 — POPULAÇÃO VS AMOSTRA -->
     <section>
-        <h2>População vs Amostra</h2>
-        <p><strong>População</strong> é tudo o que você quer entender. <strong>Amostra</strong> é o que você observou. Inferência é a ponte entre os dois.</p>
+        <h2>1. População vs. Amostra</h2>
+        <p>A distinção mais fundamental da inferência:</p>
+
+        <div class="two-col">
+            <div class="concept-card">
+                <h4>População</h4>
+                <p>Tudo o que você quer entender. Para a FlashLog: <strong>todas as entregas que serão feitas nessa nova região</strong>, presentes e futuras. Geralmente é grande demais para observar por completo.</p>
+            </div>
+            <div class="concept-card blue">
+                <h4>Amostra</h4>
+                <p>O que você de fato observou. As <strong>200 entregas</strong> já realizadas. A amostra é o que você tem; a população é o que você quer conhecer. Inferência é a ponte.</p>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th></th><th>População</th><th>Amostra</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><strong>Tamanho</strong></td><td>N (geralmente desconhecido ou infinito)</td><td>n (conhecido)</td></tr>
+                    <tr><td><strong>Média</strong></td><td>μ (parâmetro — fixo, desconhecido)</td><td>\(\bar{x}\) (estatística — varia a cada amostra)</td></tr>
+                    <tr><td><strong>Proporção</strong></td><td>p (parâmetro)</td><td>\(\hat{p}\) (estimativa)</td></tr>
+                    <tr><td><strong>Desvio padrão</strong></td><td>σ (parâmetro)</td><td>s (estatística)</td></tr>
+                </tbody>
+            </table>
+        </div>
 
         <div class="highlight-box">
             <span class="highlight-title">💡 Regra de ouro</span>
-            <p>Quanto mais bem desenhada for a amostra (tema do Artigo 5), mais confiável será qualquer conclusão inferencial.</p>
+            <p>A qualidade de qualquer conclusão inferencial depende da qualidade da amostra. Uma amostra enviesada — por exemplo, só entregas de segunda-feira — produz estimativas enviesadas, não importa o quão sofisticada seja a fórmula usada.</p>
         </div>
     </section>
 
+    <!-- SEÇÃO 2 — ESTIMATIVA PONTUAL -->
     <section>
-        <h2>Estimativa e Incerteza</h2>
-        <p>Quando você calcula uma média ou uma proporção na amostra, você está produzindo uma <strong>estimativa</strong> para um parâmetro desconhecido da população.</p>
-        <p>O ponto que muita gente perde: toda estimativa vem com incerteza.</p>
+        <h2>2. Estimativa Pontual</h2>
+        <p>Quando você calcula uma proporção ou uma média na amostra, você está produzindo uma <strong>estimativa pontual</strong> para o parâmetro desconhecido da população.</p>
 
-        <h3>Intervalo de Confiança (ideia)</h3>
-        <p>Um intervalo de confiança é uma forma padronizada de dizer: <em>com este nível de confiança, o valor real provavelmente está aqui dentro</em>.</p>
+        <div class="formula-card">
+            <span class="formula-label">Estimativa pontual da proporção</span>
+            <div style="margin-top:4px;">
+                $$\hat{p} = \frac{\text{número de atrasos na amostra}}{n} = \frac{28}{200} = 0{,}14 = 14\%$$
+            </div>
+            <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                \(\hat{p}\) é o nosso melhor palpite para o verdadeiro p da população. Mas é só isso: um palpite baseado em dados limitados.
+            </div>
+        </div>
+
+        <h3>Propriedades desejáveis de um estimador</h3>
+        <div class="metric-grid">
+            <div class="metric-card">
+                <strong>Não-viesado (unbiased)</strong>
+                A média de muitos \(\hat{p}\) de amostras diferentes converge para o verdadeiro p. O estimador não erra sistematicamente para um lado.
+            </div>
+            <div class="metric-card">
+                <strong>Consistente</strong>
+                Conforme n cresce, \(\hat{p}\) se aproxima cada vez mais de p. Com amostra infinita, a estimativa seria perfeita.
+            </div>
+            <div class="metric-card">
+                <strong>Eficiente</strong>
+                Entre todos os estimadores não-viesados, tem a menor variância possível. Usa a informação da amostra da melhor forma.
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Estimativa sem incerteza é meia análise</span>
+            <p>Dizer "a taxa é 14%" sem dizer o quanto essa estimativa pode variar é como dar um GPS sem margem de erro. A próxima seção corrige isso.</p>
+        </div>
+    </section>
+
+    <!-- SEÇÃO 3 — ERRO PADRÃO -->
+    <section>
+        <h2>3. Erro Padrão e Distribuição Amostral</h2>
+        <p>Se você repetisse a coleta — outras 200 entregas na mesma região —, obteria um \(\hat{p}\) diferente. A <strong>distribuição amostral</strong> é a distribuição de todos os \(\hat{p}\) possíveis.</p>
+
+        <div class="formula-card">
+            <span class="formula-label">Erro Padrão da Proporção</span>
+            <div style="margin-top:4px;">
+                $$SE(\hat{p}) = \sqrt{\frac{\hat{p}(1-\hat{p})}{n}}$$
+            </div>
+            <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                Mede o quanto \(\hat{p}\) varia de amostra para amostra. Quanto maior o n, menor o erro padrão.
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>Cálculo para a FlashLog</strong>
+                $$SE(\hat{p}) = \sqrt{\frac{0{,}14 \times 0{,}86}{200}} = \sqrt{\frac{0{,}1204}{200}} = \sqrt{0{,}000602} \approx 0{,}0245$$
+                O erro padrão é de ~2,45 pontos percentuais.
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 O TCL entra aqui</span>
+            <p>Pelo Teorema Central do Limite (Artigo 4c), quando n é suficientemente grande, a distribuição amostral de \(\hat{p}\) é aproximadamente Normal:</p>
+            $$\hat{p} \sim \mathcal{N}\!\left(p,\; \frac{p(1-p)}{n}\right)$$
+            <p>Isso é o que nos permite usar a Normal para construir intervalos de confiança e testes de hipótese.</p>
+        </div>
 
         <div class="complexity-box">
-            <span class="complexity-title">🔬 O papel do TCL</span>
-            <p>O Teorema Central do Limite (Artigo 4) explica por que médias amostrais tendem a ter comportamento "quase Normal" quando \(n\) cresce, o que viabiliza muitos intervalos de confiança.</p>
+            <span class="complexity-title">🔬 Quando a aproximação Normal é válida?</span>
+            <p>Regra prática para proporções: \(n\hat{p} \geq 10\) e \(n(1-\hat{p}) \geq 10\). No caso da FlashLog: \(200 \times 0{,}14 = 28 \geq 10\) e \(200 \times 0{,}86 = 172 \geq 10\). A aproximação é válida.</p>
         </div>
     </section>
 
+    <!-- SEÇÃO 4 — INTERVALO DE CONFIANÇA -->
+    <section>
+        <h2>4. Intervalo de Confiança</h2>
+        <p>Um intervalo de confiança transforma a estimativa pontual em um <strong>intervalo com nível de certeza associado</strong>.</p>
+
+        <div class="formula-card">
+            <span class="formula-label">Intervalo de Confiança para Proporção (nível 1−α)</span>
+            <div style="margin-top:4px;">
+                $$\hat{p} \pm z_{\alpha/2} \cdot SE(\hat{p})$$
+            </div>
+            <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                Para 95% de confiança: \(z_{0{,}025} = 1{,}96\). Para 99%: \(z = 2{,}576\).
+            </div>
+        </div>
+
+        <h3>Cálculo passo a passo — FlashLog</h3>
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>Dados</strong>
+                \(\hat{p} = 0{,}14\), \(n = 200\), nível de confiança = 95%.
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <strong>Erro padrão</strong>
+                \(SE = 0{,}0245\) (calculado acima).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <strong>Margem de erro</strong>
+                $$ME = 1{,}96 \times 0{,}0245 = 0{,}048$$
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <strong>Intervalo</strong>
+                $$IC_{95\%} = 0{,}14 \pm 0{,}048 = [0{,}092;\; 0{,}188] = [9{,}2\%;\; 18{,}8\%]$$
+            </div>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">Interpretação correta</span>
+            <p>Se repetíssemos esse processo 100 vezes — cada vez coletando 200 entregas e calculando o IC — esperamos que <strong>~95 desses intervalos conteriam o verdadeiro valor de p</strong>.</p>
+            <p><strong>Cuidado:</strong> Não é "95% de chance de p estar nesse intervalo". O p é fixo e desconhecido; o intervalo é que varia entre amostras.</p>
+        </div>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 O que o IC nos diz sobre a FlashLog?</span>
+            <p>O intervalo [9,2% ; 18,8%] <strong>inclui os 10% históricos</strong>. Isso significa que, com 200 entregas, <strong>não temos evidência suficiente para afirmar que essa região é pior</strong>. Os 14% observados são compatíveis com a taxa histórica, considerando a incerteza amostral.</p>
+        </div>
+    </section>
+
+    <!-- SEÇÃO 5 — TESTE DE HIPÓTESES -->
+    <section>
+        <h2>5. Teste de Hipóteses: Quando uma Diferença É Evidência?</h2>
+        <p>O intervalo de confiança já deu uma pista. O teste de hipóteses formaliza a pergunta: <em>"os dados são compatíveis com a taxa histórica, ou a diferença é grande demais para ser acaso?"</em></p>
+
+        <div class="formula-card">
+            <span class="formula-label">Estrutura do Teste</span>
+            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
+                <p style="margin:0 0 8px;">\(H_0\) (hipótese nula): \(p = 0{,}10\) — a nova região tem a mesma taxa histórica.</p>
+                <p style="margin:0;">\(H_1\) (hipótese alternativa): \(p > 0{,}10\) — a nova região tem taxa maior.</p>
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>Estatística de teste</strong>
+                Sob \(H_0\), usamos \(p_0 = 0{,}10\) para calcular o erro padrão:
+                $$SE_0 = \sqrt{\frac{p_0(1-p_0)}{n}} = \sqrt{\frac{0{,}10 \times 0{,}90}{200}} = \sqrt{0{,}00045} \approx 0{,}0212$$
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <strong>Z-score</strong>
+                $$Z = \frac{\hat{p} - p_0}{SE_0} = \frac{0{,}14 - 0{,}10}{0{,}0212} = \frac{0{,}04}{0{,}0212} \approx 1{,}89$$
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <strong>P-valor</strong>
+                Para teste unilateral (direita): \(P(Z > 1{,}89) \approx 0{,}029 = 2{,}9\%\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <strong>Decisão (α = 5%)</strong>
+                P-valor (2,9%) < α (5%). <strong>Rejeitamos H₀</strong>. Há evidência estatística de que a taxa de atraso na nova região é maior que 10%.
+            </div>
+        </div>
+
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Significância ≠ Importância prática</span>
+            <p>O teste diz que a diferença é estatisticamente significativa a 5%. Mas a <strong>magnitude</strong> importa tanto quanto: 14% vs. 10% é uma diferença de 4 pontos percentuais. O gerente precisa avaliar se essa diferença justifica o custo de ações corretivas. Significância estatística sem significância prática é armadilha comum.</p>
+        </div>
+    </section>
+
+    <!-- SEÇÃO 6 — ERROS TIPO I E II -->
+    <section>
+        <h2>6. Erros Tipo I e Tipo II</h2>
+        <p>Toda decisão baseada em dados amostrais está sujeita a dois tipos de erro:</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th></th><th>H₀ é verdadeira</th><th>H₀ é falsa</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Rejeitamos H₀</strong></td>
+                        <td style="background:#fee2e2;"><strong>Erro Tipo I (α)</strong><br>Falso alarme. Achamos diferença onde não existe.</td>
+                        <td style="background:#dcfce7;"><strong>Decisão correta</strong><br>Detectamos a diferença real.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Não rejeitamos H₀</strong></td>
+                        <td style="background:#dcfce7;"><strong>Decisão correta</strong><br>Não alarme desnecessário.</td>
+                        <td style="background:#fef3c7;"><strong>Erro Tipo II (β)</strong><br>Deixamos passar uma diferença real.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="two-col">
+            <div class="concept-card">
+                <h4>Erro Tipo I (α)</h4>
+                <p>Rejeitar H₀ quando ela é verdadeira. "A nova região é pior" quando na verdade não é. É controlado pelo nível de significância (geralmente α = 5%).</p>
+            </div>
+            <div class="concept-card blue">
+                <h4>Erro Tipo II (β)</h4>
+                <p>Não rejeitar H₀ quando ela é falsa. "A nova região é igual" quando na verdade é pior. O <strong>poder</strong> do teste é \(1 - \beta\): a probabilidade de detectar uma diferença real.</p>
+            </div>
+        </div>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 O trade-off fundamental</span>
+            <p>Reduzir α (ser mais exigente) aumenta β (mais chances de perder diferenças reais), e vice-versa. A saída é <strong>aumentar n</strong>: com amostras maiores, é possível ter α baixo e β baixo ao mesmo tempo.</p>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">FlashLog: qual erro preocupa mais?</span>
+            <p><strong>Erro Tipo I</strong> = mandar equipe extra para uma região que não precisa → custo financeiro.</p>
+            <p><strong>Erro Tipo II</strong> = ignorar uma região problemática → SLA rompido, clientes perdidos.</p>
+            <p>Se o custo de perder clientes é maior que o custo de equipe extra, a FlashLog pode optar por α mais alto (ex: 10%), aceitando mais falsos alarmes para não perder problemas reais.</p>
+        </div>
+    </section>
+
+    <!-- SEÇÃO 7 — FECHAMENTO DO PROBLEMA -->
+    <section>
+        <h2>7. Voltando ao Problema: O Que a FlashLog Decide?</h2>
+
+        <div class="step-box">
+            <div class="step-number">✓</div>
+            <div class="step-content">
+                <strong>Ferramentas usadas</strong>
+                <ul style="margin:8px 0 0; padding-left:20px;">
+                    <li><strong>Estimativa pontual</strong> — \(\hat{p} = 14\%\) como melhor palpite para a taxa real da região.</li>
+                    <li><strong>Erro padrão</strong> — SE = 2,45 p.p. para quantificar a incerteza da estimativa.</li>
+                    <li><strong>Intervalo de confiança</strong> — IC₉₅% = [9,2% ; 18,8%] para visualizar a faixa de valores plausíveis.</li>
+                    <li><strong>Teste de hipóteses</strong> — Z = 1,89, p-valor = 2,9%. Rejeitamos H₀ a 5%.</li>
+                    <li><strong>Análise de erros</strong> — avaliação do trade-off entre falso alarme e problema ignorado.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">Decisão final</span>
+            <p>O teste indica evidência estatística de que a taxa dessa região é maior que 10%. Porém, o IC mostra que o valor real pode estar entre 9,2% e 18,8% — margem ainda ampla com apenas 200 entregas.</p>
+            <p><strong>Ação:</strong> A FlashLog decide (1) reforçar o monitoramento nessa região imediatamente e (2) coletar mais 300 entregas antes de decisões estruturais (como contratar equipe extra permanente). Com n = 500, o erro padrão cairia para ~1,55 p.p., apertando o IC e dando mais clareza.</p>
+        </div>
+    </section>
+
+    <!-- RESUMO -->
     <section>
         <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
             <h3>📝 Resumo para Levar na Mochila</h3>
             <ul>
-                <li><strong>Inferência</strong> é sobre concluir com incerteza, não sobre “certeza com números bonitos”.</li>
-                <li><strong>Amostra</strong> é o observado; <strong>população</strong> é o alvo.</li>
-                <li><strong>Estimativa</strong> sem incerteza é meia análise.</li>
-                <li><strong>Intervalo de confiança</strong> é a forma prática de comunicar incerteza.</li>
+                <li><strong>Inferência</strong> é sobre concluir com incerteza quantificada, não sobre "certeza com números bonitos".</li>
+                <li><strong>População</strong> é o alvo; <strong>amostra</strong> é o observado. Inferência é a ponte.</li>
+                <li><strong>Estimativa pontual</strong> é o melhor palpite; sem o <strong>erro padrão</strong>, não tem contexto.</li>
+                <li><strong>Intervalo de confiança</strong> = estimativa ± margem de erro. Interpretação: ~95 de cada 100 intervalos assim construídos conteriam o valor real.</li>
+                <li><strong>Teste de hipóteses</strong>: H₀ (sem efeito) vs. H₁ (efeito real). P-valor mede a compatibilidade dos dados com H₀.</li>
+                <li><strong>Erro Tipo I</strong> = falso alarme. <strong>Erro Tipo II</strong> = problema ignorado. Aumentar n reduz ambos.</li>
+                <li><strong>Significância estatística ≠ importância prática.</strong> Sempre avalie a magnitude do efeito.</li>
             </ul>
         </div>
     </section>
 
+    <!-- PRÓXIMO -->
     <section>
         <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
             <span class="complexity-title">➡️ O Que Vem a Seguir</span>
-            <p>No Artigo 7 — Teste de Hipóteses e Intervalos de Confiança, vamos transformar essa intuição em decisões: quando uma diferença é “ruído” e quando é evidência.</p>
+            <p>Agora que você sabe estimar, construir intervalos e testar hipóteses, o próximo passo é entender <strong>como medir e interpretar relações entre variáveis</strong> — correlação, causalidade e o perigo de confundir as duas. Esse é o tema do próximo artigo da série.</p>
         </div>
     </section>
 
+    <!-- REFERÊNCIAS -->
     <section class="references">
         <h3>📚 Para Se Aprofundar</h3>
         <ul>
-            <li><strong>"Practical Statistics for Data Scientists"</strong> — Bruce, Bruce & Gedeck.</li>
-            <li><strong>"The Art of Statistics"</strong> — David Spiegelhalter.</li>
+            <li><strong>"Practical Statistics for Data Scientists"</strong> — Bruce, Bruce & Gedeck. Foco direto em aplicações de inferência para DS.</li>
+            <li><strong>"The Art of Statistics"</strong> — David Spiegelhalter. Excelente para intuição sobre intervalos e testes.</li>
+            <li><strong>"Introduction to Probability and Statistics"</strong> — Mendenhall, Beaver & Beaver. Referência técnica completa sobre inferência.</li>
         </ul>
     </section>
+
+    <!-- QUIZ -->
+    <section class="quiz-container">
+        <h2>🧠 Teste Seu Conhecimento</h2>
+        <p style="margin-bottom:20px;">10 perguntas para fixar os conceitos de inferência estatística.</p>
+        <div id="quiz-root"></div>
+    </section>
 </div>
+
+<script>
+    const questions = [
+        {
+            text: "Qual a diferença entre parâmetro e estatística?",
+            options: [
+                "Parâmetro é da amostra; estatística é da população.",
+                "Parâmetro é da população (fixo, desconhecido); estatística é da amostra (varia a cada coleta).",
+                "São sinônimos — apenas notações diferentes.",
+                "Parâmetro é sempre maior que estatística."
+            ],
+            correct: 1,
+            feedback: "Exato! μ e p são parâmetros da população. x̄ e p̂ são estatísticas da amostra."
+        },
+        {
+            text: "Na FlashLog, p̂ = 14% com n = 200. O que é o erro padrão?",
+            options: [
+                "A diferença entre p̂ e a média amostral.",
+                "A medida de quanto p̂ varia de amostra para amostra.",
+                "O mesmo que desvio padrão dos dados.",
+                "A probabilidade de erro no cálculo."
+            ],
+            correct: 1,
+            feedback: "Correto! O erro padrão mede a variabilidade da estimativa entre amostras. Quanto maior n, menor o SE."
+        },
+        {
+            text: "Qual é a interpretação correta de um IC de 95%?",
+            options: [
+                "Há 95% de chance de o verdadeiro p estar no intervalo.",
+                "Se repetíssemos o processo 100 vezes, ~95 dos intervalos conteriam o verdadeiro p.",
+                "95% dos dados estão dentro do intervalo.",
+                "O intervalo é 95% mais preciso que a estimativa pontual."
+            ],
+            correct: 1,
+            feedback: "Exato! O p é fixo e desconhecido. O intervalo é que varia entre amostras. A interpretação frequentista é sobre repetição do processo."
+        },
+        {
+            text: "O IC₉₅% da FlashLog é [9,2% ; 18,8%] e a taxa histórica é 10%. O que podemos concluir?",
+            options: [
+                "A região é certamente pior que a média histórica.",
+                "A região é certamente igual à média histórica.",
+                "O intervalo inclui 10%, então os dados são compatíveis com a taxa histórica.",
+                "Precisamos de um IC de 99% para decidir."
+            ],
+            correct: 2,
+            feedback: "Correto! Como 10% está dentro do IC, não podemos descartar que a taxa real da região seja 10%. É compatível com os dados."
+        },
+        {
+            text: "No teste de hipóteses, H₀ é:",
+            options: [
+                "A hipótese que queremos provar.",
+                "A hipótese do status quo — sem efeito, sem diferença.",
+                "A hipótese alternativa.",
+                "Sempre p = 50%."
+            ],
+            correct: 1,
+            feedback: "Exato! H₀ é o ponto de referência conservador. Precisamos de evidência suficiente para rejeitá-la."
+        },
+        {
+            text: "P-valor = 2,9% com α = 5%. Qual a decisão?",
+            options: [
+                "Não rejeitamos H₀.",
+                "Rejeitamos H₀ — o p-valor é menor que α.",
+                "Aceitamos H₁ com certeza.",
+                "O teste é inconclusivo."
+            ],
+            correct: 1,
+            feedback: "Correto! P-valor < α significa que os dados são pouco compatíveis com H₀. Rejeitamos a hipótese nula."
+        },
+        {
+            text: "Erro Tipo I é:",
+            options: [
+                "Não detectar uma diferença real.",
+                "Rejeitar H₀ quando ela é verdadeira — falso alarme.",
+                "Aceitar H₁ quando ela é falsa.",
+                "Calcular o SE errado."
+            ],
+            correct: 1,
+            feedback: "Exato! Tipo I = falso positivo. Declarar que há efeito quando não há."
+        },
+        {
+            text: "Como reduzir simultaneamente os erros Tipo I e Tipo II?",
+            options: [
+                "Usar α = 1%.",
+                "Usar α = 10%.",
+                "Aumentar o tamanho da amostra (n).",
+                "Isso é impossível."
+            ],
+            correct: 2,
+            feedback: "Correto! Aumentar n reduz a variabilidade amostral, permitindo α baixo e poder alto ao mesmo tempo."
+        },
+        {
+            text: "\"Significância estatística\" e \"importância prática\" são:",
+            options: [
+                "A mesma coisa.",
+                "Coisas diferentes. Um efeito pode ser estatisticamente significativo mas praticamente irrelevante.",
+                "Sempre inversamente proporcionais.",
+                "Relevantes apenas para amostras pequenas."
+            ],
+            correct: 1,
+            feedback: "Exato! Com n grande o suficiente, até diferenças minúsculas são significativas. Sempre avalie a magnitude."
+        },
+        {
+            text: "A FlashLog decidiu coletar mais 300 entregas antes de decisões estruturais. Por quê?",
+            options: [
+                "Para mudar o nível α.",
+                "Para reduzir o erro padrão e apertar o intervalo de confiança, ganhando mais clareza.",
+                "Para eliminar todos os erros possíveis.",
+                "Porque 200 entregas não permitem fazer teste de hipóteses."
+            ],
+            correct: 1,
+            feedback: "Correto! Com n = 500, SE cai de 2,45 p.p. para ~1,55 p.p. e o IC fica mais estreito, permitindo conclusões mais precisas."
+        }
+    ];
+
+    function renderQuiz() {
+        const root = document.getElementById("quiz-root");
+        questions.forEach((q, index) => {
+            const card = document.createElement("div"); card.className = "question-card";
+            const title = document.createElement("span"); title.className = "question-text";
+            title.innerText = `${index + 1}. ${q.text}`; card.appendChild(title);
+            const optDiv = document.createElement("div"); optDiv.className = "options";
+            const fbDiv = document.createElement("div"); fbDiv.className = "feedback";
+            q.options.forEach((opt, i) => {
+                const btn = document.createElement("button"); btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => {
+                    optDiv.querySelectorAll(".option-btn").forEach(b => b.disabled = true);
+                    if (i === q.correct) {
+                        btn.classList.add("correct");
+                        fbDiv.innerText = "✅ " + q.feedback;
+                        fbDiv.style.backgroundColor = "#dcfce7"; fbDiv.style.color = "#064e3b";
+                    } else {
+                        btn.classList.add("incorrect");
+                        optDiv.querySelectorAll(".option-btn")[q.correct].classList.add("correct");
+                        fbDiv.innerText = "❌ Incorreto. " + q.feedback;
+                        fbDiv.style.backgroundColor = "#fee2e2"; fbDiv.style.color = "#7f1d1d";
+                    }
+                    fbDiv.classList.add("show");
+                };
+                optDiv.appendChild(btn);
+            });
+            card.appendChild(optDiv); card.appendChild(fbDiv); root.appendChild(card);
+        });
+    }
+    renderQuiz();
+</script>
+
 <div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
     <a href="inferencia.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
     <span style="color:#94a3b8;"> | </span>

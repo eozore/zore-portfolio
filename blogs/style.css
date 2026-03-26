@@ -1,7 +1,8 @@
 /* ============================================================
    Blog de Estatística — Estilos Compartilhados
    Usado por: estatisticabasica.html, graficosetabelas.html,
-              variaveisaleatorias.html
+               variaveisaleatorias.html, teoriadeprob.html,
+               probbayes.html
    ============================================================ */
 
 /* --- Variáveis globais --- */
@@ -40,7 +41,8 @@ h3 { color: #475569; margin-top: 30px; }
 
 .subtitle { font-size: 1.2rem; color: #64748b; margin-bottom: 40px; font-weight: 300; }
 
-/* --- Caixas de destaque --- */
+/* ─── Caixas de destaque ──────────────────────────────────── */
+
 .story-box {
     background-color: #eff6ff;
     border-left: 5px solid var(--primary-color);
@@ -57,7 +59,6 @@ h3 { color: #475569; margin-top: 30px; }
     border-radius: 8px;
     margin: 20px 0;
 }
-
 .highlight-title { font-weight: bold; color: #92400e; display: block; margin-bottom: 5px; }
 
 .complexity-box {
@@ -67,10 +68,96 @@ h3 { color: #475569; margin-top: 30px; }
     border-radius: 8px;
     margin: 20px 0;
 }
-
 .complexity-title { font-weight: bold; color: #166534; display: block; margin-bottom: 8px; }
 
-/* --- Tabelas --- */
+/* ─── Warning box ─────────────────────────────────────────── */
+
+.warning-box {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 20px 0;
+}
+.warning-box .warning-label { font-weight: 700; color: #c2410c; display: block; margin-bottom: 6px; }
+
+/* ─── Example block ───────────────────────────────────────── */
+
+.example-block {
+    background: #f0f9ff;
+    border-left: 4px solid #38bdf8;
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+}
+.example-block .example-label {
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #0284c7; display: block; margin-bottom: 8px;
+}
+
+/* ─── Formula card (dark background) ─────────────────────── */
+
+.formula-card {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+}
+.formula-card .formula-label {
+    font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #94a3b8; font-family: 'Segoe UI', sans-serif;
+    display: block; margin-bottom: 10px;
+}
+
+/* ─── Step boxes ──────────────────────────────────────────── */
+
+.step-box {
+    display: flex; gap: 16px; align-items: flex-start;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 18px 20px; margin: 14px 0;
+}
+.step-number {
+    background: var(--primary-color); color: white; font-weight: 700;
+    font-size: 1rem; min-width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+}
+.step-content { flex: 1; }
+.step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
+
+/* ─── Term / card grid ────────────────────────────────────── */
+
+.term-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+}
+.term-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 18px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+.term-card strong { display: block; color: #1e293b; margin-bottom: 8px; }
+
+/* ─── Answer cards (seção de aplicação) ──────────────────── */
+
+.answer-card {
+    background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 24px; margin: 24px 0;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+}
+.answer-card h4 { color: var(--primary-color); margin-top: 0; margin-bottom: 12px; font-size: 1.1rem; }
+.answer-card .theory-tag {
+    display: inline-block; background: #eff6ff; color: #1d4ed8;
+    font-size: 0.78rem; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;
+}
+
+/* ─── Tabelas ─────────────────────────────────────────────── */
+
+.table-wrap { overflow-x: auto; margin: 22px 0; }
+
 table {
     width: 100%;
     border-collapse: collapse;
@@ -78,19 +165,69 @@ table {
     font-size: 0.9em;
     box-shadow: 0 0 20px rgba(0,0,0,0.05);
 }
-
 table thead tr { background-color: var(--primary-color); color: #fff; text-align: left; }
 table th, table td { padding: 12px 15px; border: 1px solid #ddd; }
 table tbody tr { border-bottom: 1px solid #ddd; }
 
-/* --- Gráficos --- */
-.chart-container { position: relative; height: 380px; width: 100%; margin: 30px 0; }
+/* tabela de comparação (fundo claro, sem thead colorido) */
+.compare-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+.compare-table th { background: #f1f5f9; color: #1e293b; padding: 12px 15px; border: 1px solid #e2e8f0; text-align: left; }
+.compare-table td { padding: 12px 15px; border: 1px solid #e2e8f0; }
+.compare-table tr:nth-child(even) { background: #f8fafc; }
 
-/* Layout de dois gráficos lado a lado (usado em graficosetabelas) */
+/* ─── Venn diagram buttons (teoriadeprob) ─────────────────── */
+
+.venn-btn {
+    padding: 8px 16px; border: 1px solid #e2e8f0; border-radius: 999px;
+    background: #fff; font-family: 'Segoe UI', sans-serif; font-size: 0.84rem;
+    font-weight: 500; cursor: pointer; transition: all 0.2s; color: #1e293b;
+}
+.venn-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.venn-btn.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+
+/* ─── Bayes flow diagram (probbayes) ──────────────────────── */
+
+.bayes-flow {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; flex-wrap: wrap; margin: 28px 0; padding: 24px;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+}
+.bayes-flow .bf-box {
+    text-align: center; padding: 16px 20px; border-radius: 10px;
+    min-width: 120px; font-family: 'Segoe UI', sans-serif;
+}
+.bayes-flow .bf-label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; display: block; margin-bottom: 6px;
+}
+.bayes-flow .bf-arrow { font-size: 1.6rem; color: #94a3b8; font-weight: 300; }
+
+/* ─── Bayes interactive calculator (probbayes) ────────────── */
+
+.bayes-calc {
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 12px; padding: 24px; margin: 28px 0;
+}
+.bayes-calc label {
+    display: block; font-size: 0.88rem; font-weight: 600;
+    color: #475569; margin-bottom: 4px; margin-top: 14px;
+}
+.bayes-calc label:first-child { margin-top: 0; }
+.bayes-calc input[type="range"] { width: 100%; margin: 4px 0; }
+.bayes-calc .calc-result {
+    background: #1e293b; color: #e2e8f0; border-radius: 10px;
+    padding: 16px 20px; margin-top: 20px; text-align: center;
+    font-size: 1.1rem; font-family: 'Segoe UI', sans-serif;
+}
+
+/* ─── Gráficos ────────────────────────────────────────────── */
+
+.chart-container { position: relative; height: 380px; width: 100%; margin: 30px 0; }
 .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 30px 0; }
 .chart-row .chart-container { margin: 0; height: 300px; }
 
-/* --- Quiz --- */
+/* ─── Quiz ────────────────────────────────────────────────── */
+
 .quiz-container { margin-top: 50px; border-top: 2px dashed #cbd5e1; padding-top: 30px; }
 .question-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
 .question-text { font-weight: 600; margin-bottom: 15px; display: block; }
@@ -105,7 +242,6 @@ table tbody tr { border-bottom: 1px solid #ddd; }
     text-align: left;
     transition: all 0.2s;
 }
-
 .option-btn:hover { background-color: #f1f5f9; }
 .option-btn.correct { background-color: #dcfce7; border-color: var(--success-color); color: #064e3b; }
 .option-btn.incorrect { background-color: #fee2e2; border-color: var(--error-color); color: #7f1d1d; }
@@ -113,12 +249,16 @@ table tbody tr { border-bottom: 1px solid #ddd; }
 .feedback { margin-top: 10px; font-size: 0.9em; display: none; padding: 10px; border-radius: 6px; }
 .feedback.show { display: block; }
 
-/* --- Referências --- */
+/* ─── Referências ─────────────────────────────────────────── */
+
 .references { background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-top: 40px; }
 
-/* --- Responsividade --- */
-@media (max-width: 600px) {
+/* ─── Responsividade ──────────────────────────────────────── */
+
+@media (max-width: 700px) {
     .container { padding: 20px; }
     h1 { font-size: 1.8rem; }
     .chart-row { grid-template-columns: 1fr; }
+    .term-grid { grid-template-columns: 1fr; }
+    .bayes-flow { flex-direction: column; }
 }

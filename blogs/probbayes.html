@@ -1,491 +1,711 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Independência e Teorema de Bayes</title>
+    <title>Teorema de Bayes — Invertendo Perguntas</title>
+    <meta name="description"
+        content="Teorema de Bayes, prior, posterior, verossimilhança e valor preditivo — aprendidos a partir de um problema real de diagnóstico médico onde a resposta intuitiva está errada.">
     <link rel="alternate" href="probbayes.html" hreflang="pt-BR">
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .step-box {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 18px 20px;
-            margin: 16px 0;
-        }
-        .step-number {
-            background: var(--primary-color);
-            color: white;
-            font-weight: 700;
-            font-size: 1rem;
-            min-width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-        .step-content { flex: 1; }
-        .step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
-
-        .example-block {
-            background: #f0f9ff;
-            border-left: 4px solid #38bdf8;
-            padding: 16px 20px;
-            border-radius: 0 8px 8px 0;
-            margin: 20px 0;
-        }
-        .example-block .example-label {
-            font-size: 0.78rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #0284c7;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .warning-box {
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 8px;
-            padding: 18px 20px;
-            margin: 20px 0;
-        }
-        .warning-box .warning-label {
-            font-weight: 700;
-            color: #c2410c;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .formula-card {
-            background: #1e293b;
-            color: #e2e8f0;
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin: 20px 0;
-            font-family: "Courier New", monospace;
-        }
-        .formula-card .formula-label {
-            font-size: 0.78rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #94a3b8;
-            font-family: "Segoe UI", sans-serif;
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin: 24px 0;
-        }
-        .metric-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 18px;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-        }
-        .metric-card strong {
-            display: block;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-
-        .table-wrap { overflow-x: auto; margin: 22px 0; }
-
-        @media (max-width: 700px) {
-            .metric-grid { grid-template-columns: 1fr; }
-        }
-    </style>
 </head>
+
 <body>
-<div class="container">
-    <header>
-        <h1>Independência e Teorema de Bayes</h1>
-        <p class="subtitle">Quando um sinal realmente ajuda a prever um resultado</p>
-        <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 4b de 8 — Bloco: Fundação Estatística &nbsp;| <a href="teoriadeprob.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4a: Probabilidade</a></p>
-        <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a></p>
-    </header>
+    <div class="container">
+        <header>
+            <h1>Teorema de Bayes</h1>
+            <p class="subtitle">A fórmula que inverte perguntas — e transforma dados em decisão</p>
+            <p style="font-size:0.85rem; color:#94a3b8;">
+                📚 Artigo 6 de 25 — Bloco: Fundação Estatística &nbsp;|
+                <a href="teoriadeprob.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 5:
+                    Probabilidade — Fundamentos</a>
+            </p>
+            <p style="margin-top:10px;">
+                <a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener"
+                    style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a>
+            </p>
+        </header>
 
-    <section>
-        <div class="story-box">
-            <h3>🚨 O Problema de Negócio</h3>
-            <p>A FlashLog já sabe calcular probabilidade. O problema agora é outro: o sistema de alerta de trânsito dispara bastante, mas cada disparo tem custo operacional. Avisar cliente sem necessidade desgasta confiança. Ignorar alerta relevante estoura SLA.</p>
-            <p>A pergunta certa deixou de ser <em>"qual a chance de atraso?"</em> e passou a ser <em>"quando o alerta aparece, esse sinal realmente aumenta a chance de atraso ou é só ruído?"</em></p>
-            <p>Responder isso exige duas ideias: <strong>independência</strong>, para testar se o sinal tem valor, e <strong>Bayes</strong>, para inverter a pergunta e medir o valor preditivo do alerta.</p>
-        </div>
-    </section>
-
-    <section>
-        <h2>1. Problema de Negócio: O Alerta Serve ou Não Serve?</h2>
-        <p>Se o alerta não mudar a probabilidade de atraso, ele não ajuda decisão nenhuma. Vira só barulho operacional. Antes de apresentar fórmulas, olhe para o problema como um teste de utilidade do sinal.</p>
-
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th></th><th>Alerta</th><th>Sem Alerta</th><th>Total</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td><strong>Atraso</strong></td><td>700</td><td>300</td><td>1.000</td></tr>
-                    <tr><td><strong>No Prazo</strong></td><td>1.800</td><td>7.200</td><td>9.000</td></tr>
-                    <tr><td><strong>Total</strong></td><td>2.500</td><td>7.500</td><td>10.000</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="metric-grid">
-            <div class="metric-card">
-                <strong>Taxa base</strong>
-                Sem informação extra, a chance de atraso é \(1.000 / 10.000 = 10\%\).
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 0 — O PROBLEMA
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="story-box">
+                <h3>🏥 O Problema de Negócio</h3>
+                <p>A <strong>SaúdeCheck</strong> desenvolveu um teste rápido para dengue: sem laboratório, resultado em
+                    15 minutos. O produto chegou em boa hora — o Brasil registra picos sazonais e qualquer hora ganha na
+                    triagem ágil.</p>
+                <p>Em validação com <strong>100.000 pacientes</strong> durante o pico de dengue, o teste mostrou
+                    <strong>90% de sensibilidade</strong>.
+                <p>Então veio a reunião com o conselho médico. Um infectologista fez a pergunta que travou tudo:</p>
+                <p
+                    style="font-size:1.1rem; font-weight:700; color:#1e293b; font-style:normal; margin:20px 0; padding:16px; background:#fff; border-radius:8px; border-left:4px solid var(--primary-color);">
+                    "Ok, o teste tem 90% de sensibilidade. Mas quando ele dá positivo, qual a probabilidade real de que
+                    o paciente tem dengue?"
+                </p>
+                <p>O time olhou um para o outro. A resposta óbvia — "perto de 90%" — estava errada.</p>
             </div>
-            <div class="metric-card">
-                <strong>Chance com alerta</strong>
-                Entre entregas com alerta, \(700 / 2.500 = 28\%\).
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 1 — POR QUE INVERTER NÃO É TRIVIAL
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>1. Por Que Inverter Não É Trivial</h2>
+
+            <!-- GANCHO -->
+            <div class="example-block">
+                <span class="example-label">Conexão com o problema</span>
+                O time da SaúdeCheck sabe que \(P(+ \mid \text{Dengue}) = 90\%\) — a chance de o teste dar positivo
+                <em>dado que o paciente tem dengue</em>. O médico, porém, pergutou \(P(\text{Dengue} \mid +)\) — a
+                chance de ter dengue <em>dado que o teste deu positivo</em>. São notações parecidas. São perguntas
+                completamente diferentes.
             </div>
-            <div class="metric-card">
-                <strong>Leitura de negócio</strong>
-                O alerta quase triplica a chance de atraso. Logo, ele parece carregar informação útil.
+
+            <p>A intuição humana trata \(P(A \mid B)\) e \(P(B \mid A)\) como se fossem a mesma coisa. Mas elas medem
+                coisas completamente diferentes:</p>
+
+            <div class="term-grid">
+                <div class="term-card" style="border-left: 4px solid #2563eb;">
+                    <strong>\(P(+ \mid \text{Dengue})\) — Perspectiva do teste</strong>
+                    "Olhando só para quem tem dengue: quantos testam positivo?" É a sensibilidade — uma propriedade fixa
+                    do equipamento. O denominador é o grupo de doentes.
+                </div>
+                <div class="term-card" style="border-left: 4px solid #db4a2b;">
+                    <strong>\(P(\text{Dengue} \mid +)\) — Perspectiva do médico</strong>
+                    "Olhando só para quem testou positivo: quantos têm dengue?" É o que o médico precisa para decidir. O
+                    denominador é o grupo de positivos — que inclui falsos positivos.
+                </div>
             </div>
-        </div>
 
-        <div class="highlight-box">
-            <span class="highlight-title">💡 Tradução executiva</span>
-            <p>O ponto não é se o alerta está "certo" sempre. O ponto é se ele muda a decisão. Sinal útil é sinal que desloca probabilidade de forma material.</p>
-        </div>
-    </section>
+            <p>Esses dois grupos têm tamanhos radicalmente diferentes. A primeira pergunta usa como universo <em>quem
+                    tem a doença</em>. A segunda usa como universo <em>quem testou positivo</em>. Misturar as duas é o
+                erro que vai custar fortunas em tratamentos desnecessários.</p>
 
-    <section>
-        <h2>2. Teoria: Valor Preditivo, Independência e Bayes</h2>
+        </section>
 
-        <h3>Independência: quando a informação não ajuda</h3>
-        <p>Dois eventos são independentes quando conhecer um deles não muda a chance do outro.</p>
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 2 — TEOREMA DE BAYES
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>2. O Teorema de Bayes</h2>
 
-        <div class="formula-card">
-            <span class="formula-label">Independência</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
-                $$P(A \mid B) = P(A) \quad \Longleftrightarrow \quad A \text{ e } B \text{ são independentes}$$
+            <!-- GANCHO -->
+            <div class="example-block">
+                <span class="example-label">Conexão com o problema</span>
+                Precisamos transformar \(P(+\mid\text{Dengue})\) — que o estudo clínico nos deu — em
+                \(P(\text{Dengue}\mid+)\) — o que o médico precisa. A seção abaixo mostra como fazer essa inversão em 3
+                passos, sem suposições extras.
             </div>
-        </div>
 
-        <div class="example-block">
-            <span class="example-label">Teste direto</span>
-            <p>Na FlashLog, \(P(\text{Atraso}) = 10\%\), mas \(P(\text{Atraso} \mid \text{Alerta}) = 28\%\).</p>
-            <p>Como os valores são diferentes, alerta e atraso <strong>não são independentes</strong>. O alerta tem valor informacional.</p>
-        </div>
+            <p>O Teorema de Bayes não é uma fórmula decorada — é um resultado que sai diretamente de uma identidade que
+                já conhecemos.</p>
 
-        <div class="warning-box">
-            <span class="warning-label">⚠️ Confusão comum</span>
-            <p>Evento independente não é evento raro, nem evento mutuamente exclusivo. Independência significa apenas: <strong>saber B não altera a chance de A</strong>.</p>
-        </div>
+            <h3>Derivação em 3 passos</h3>
 
-        <h3>Bayes: invertendo a pergunta</h3>
-        <p>Em operação, você quase sempre observa primeiro o sinal e só depois quer inferir a causa. Bayes formaliza exatamente isso.</p>
-
-        <div class="formula-card">
-            <span class="formula-label">Teorema de Bayes</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
-                $$P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B)}$$
+            <div class="step-box">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>A Regra da Multiplicação pode ser escrita de duas formas</strong>
+                    A interseção "\(A\) e \(B\)" pode ser decomposta de dois jeitos equivalentes:
+                    $$P(A \cap B) = P(A \mid B) \cdot P(B) = P(B \mid A) \cdot P(A)$$
+                </div>
             </div>
-        </div>
-
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th>Termo</th><th>Nome técnico</th><th>Leitura prática</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td>\(P(A)\)</td><td>Prior</td><td>Taxa base de atraso antes de ver qualquer sinal.</td></tr>
-                    <tr><td>\(P(B \mid A)\)</td><td>Verossimilhança</td><td>Com que frequência atrasos geram alerta.</td></tr>
-                    <tr><td>\(P(B)\)</td><td>Evidência</td><td>Com que frequência o alerta aparece no total.</td></tr>
-                    <tr><td>\(P(A \mid B)\)</td><td>Posterior</td><td>Chance de atraso depois do alerta.</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <h3>Passo 1: calcular a evidência com a Lei da Probabilidade Total</h3>
-        <p>O erro mais comum em Bayes é pular o denominador. Sem \(P(B)\), a conta fica incompleta.</p>
-
-        <div class="formula-card">
-            <span class="formula-label">Lei da Probabilidade Total</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
-                $$P(B) = P(B \mid A)\cdot P(A) + P(B \mid \neg A)\cdot P(\neg A)$$
+            <div class="step-box">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>As duas formas são iguais — então podemos igualá-las</strong>
+                    $$P(A \mid B) \cdot P(B) = P(B \mid A) \cdot P(A)$$
+                </div>
             </div>
-        </div>
-
-        <div class="step-box">
-            <div class="step-number">1</div>
-            <div class="step-content">
-                <strong>Dados conhecidos</strong>
-                \(P(\text{Atraso}) = 0{,}10\), \(P(\text{Alerta} \mid \text{Atraso}) = 0{,}70\) e \(P(\text{Alerta} \mid \text{No Prazo}) = 0{,}20\).
+            <div class="step-box">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>Isolar o que queremos</strong>
+                    Dividindo os dois lados por \(P(B)\):
+                    $$P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B)}$$
+                </div>
             </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">2</div>
-            <div class="step-content">
-                <strong>Complemento</strong>
-                \(P(\text{No Prazo}) = 1 - 0{,}10 = 0{,}90\).
+
+            <div class="formula-card">
+                <span class="formula-label">Teorema de Bayes</span>
+                <div style="margin-top:4px;">
+                    $$\boxed{P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B)}}$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
+                    No nosso problema: \(A\) = ter dengue, \(B\) = teste positivo. A fórmula converte
+                    \(P(+\mid\text{Dengue})\) em \(P(\text{Dengue}\mid+)\) — exatamente o que o médico perguntou.
+                </div>
             </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">3</div>
-            <div class="step-content">
-                <strong>Probabilidade total do alerta</strong>
-                $$P(\text{Alerta}) = 0{,}70 \times 0{,}10 + 0{,}20 \times 0{,}90 = 0{,}25$$
+
+            <p>O denominador \(P(B)\) pode ser expandido. Isso é útil quando você não tem \(P(B)\) diretamente, mas sabe
+                como o sinal se comporta em cada cenário:</p>
+
+            <div class="formula-card">
+                <span class="formula-label">Bayes Expandido — o denominador calculado</span>
+                <div style="margin-top:4px;">
+                    $$P(A \mid B) = \frac{P(B \mid A) \cdot P(A)}{P(B \mid A) \cdot P(A) + P(B \mid \neg A) \cdot P(\neg
+                    A)}$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                    Lido em português: o denominador é "chance de positivo entre doentes × proporção de doentes" mais
+                    "chance de positivo entre saudáveis × proporção de saudáveis". Essa é a Lei da Probabilidade Total
+                    aplicada ao denominador.
+                </div>
             </div>
-        </div>
+        </section>
 
-        <h3>Passo 2: calcular o valor preditivo do alerta</h3>
-        <div class="step-box">
-            <div class="step-number">4</div>
-            <div class="step-content">
-                <strong>Aplicação de Bayes</strong>
-                $$P(\text{Atraso} \mid \text{Alerta}) = \frac{0{,}70 \times 0{,}10}{0{,}25} = 0{,}28 = 28\%$$
-                O alerta não garante atraso. Mas ele muda a chance de 10% para 28%. Isso já muda decisão.
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 3 — OS INGREDIENTES
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>3. Os Ingredientes da Fórmula</h2>
+
+            <!-- GANCHO -->
+            <div class="example-block">
+                <span class="example-label">Conexão com o problema</span>
+                A fórmula tem quatro slots. Antes de plugar os dados da SaúdeCheck, você precisa saber o nome e o papel
+                de cada um — porque quando o resultado surpreender, você vai precisar saber <em>qual ingrediente causou
+                    a surpresa</em>.
             </div>
-        </div>
 
-        <div class="warning-box">
-            <span class="warning-label">⚠️ Bayes não prova causa</span>
-            <p>Bayes só atualiza crença à luz de evidência. Se a base de dados estiver ruim, o posterior também estará ruim. Fórmula boa não corrige dado ruim.</p>
-        </div>
+            <div class="bayes-flow">
+                <div class="bf-box" style="background:#eff6ff; border:2px solid #93c5fd;">
+                    <span class="bf-label" style="color:#1d4ed8;">Prior</span>
+                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b;">\(P(A)\)</div>
+                    <div style="font-size:0.82rem; color:#475569; margin-top:4px;">O que sei <em>antes</em></div>
+                </div>
+                <div class="bf-arrow">×</div>
+                <div class="bf-box" style="background:#fef3c7; border:2px solid #fcd34d;">
+                    <span class="bf-label" style="color:#92400e;">Verossimilhança</span>
+                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b;">\(P(B \mid A)\)</div>
+                    <div style="font-size:0.82rem; color:#475569; margin-top:4px;">Força da evidência</div>
+                </div>
+                <div class="bf-arrow">÷</div>
+                <div class="bf-box" style="background:#f1f5f9; border:2px solid #cbd5e1;">
+                    <span class="bf-label" style="color:#475569;">Evidência</span>
+                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b;">\(P(B)\)</div>
+                    <div style="font-size:0.82rem; color:#475569; margin-top:4px;">Normalização</div>
+                </div>
+                <div class="bf-arrow">=</div>
+                <div class="bf-box" style="background:#dcfce7; border:2px solid #86efac;">
+                    <span class="bf-label" style="color:#166534;">Posterior</span>
+                    <div style="font-size:1.1rem; font-weight:700; color:#1e293b;">\(P(A \mid B)\)</div>
+                    <div style="font-size:0.82rem; color:#475569; margin-top:4px;">O que sei <em>depois</em></div>
+                </div>
+            </div>
 
-        <h3>O papel central da taxa base</h3>
-        <p>Se a taxa base cai, mesmo um alerta forte pode continuar tendo pouco valor preditivo. Esse é o ponto que mais confunde quem olha só para a verossimilhança.</p>
 
-        <div class="example-block">
-            <span class="example-label">Teste de sensibilidade</span>
-            <p>Se \(P(\text{Atraso}) = 1\%\), mantendo \(P(\text{Alerta} \mid \text{Atraso}) = 70\%\) e \(P(\text{Alerta} \mid \text{No Prazo}) = 20\%\):</p>
-            $$P(\text{Alerta}) = 0{,}70 \times 0{,}01 + 0{,}20 \times 0{,}99 = 0{,}205$$
-            $$P(\text{Atraso} \mid \text{Alerta}) = \frac{0{,}70 \times 0{,}01}{0{,}205} \approx 3{,}4\%$$
-            <p>Mesmo com um alerta relativamente forte, a chance final continua baixa. A <strong>taxa base domina</strong>.</p>
-        </div>
-    </section>
+            <div class="term-grid" style="grid-template-columns: repeat(4, 1fr);">
 
-    <section>
-        <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
-            <h3>📝 Resumo para Levar na Mochila</h3>
+                <div class="term-card">
+                    <strong>Prior — \(P(A)\)</strong>
+                    O que você sabe <em>antes</em> de observar a evidência. É a taxa base — a frequência natural do
+                    evento na população. No diagnóstico médico, é a prevalência da doença. Se você não souber isso, a
+                    fórmula vai gerar uma resposta numericamente correta mas completamente inaplicável.
+                </div>
+                <div class="term-card">
+                    <strong>Verossimilhança — \(P(B \mid A)\)</strong>
+                    A chance de observar a evidência B <em>supondo que A é verdade</em>. Em diagnóstico, é a
+                    sensibilidade do teste. É o que os estudos clínicos medem. Parece o número mais importante — mas a
+                    seção 4 vai mostrar que o prior tem mais poder.
+                </div>
+                <div class="term-card">
+                    <strong>Evidência — \(P(B)\)</strong>
+                    A frequência total de B na população, independente de qualquer hipótese. É o denominador — e o mais
+                    esquecido. Ele normaliza o resultado para que o posterior fique entre 0 e 1.
+                </div>
+                <div class="term-card">
+                    <strong>Posterior — \(P(A \mid B)\)</strong>
+                    A resposta. É o prior <em>atualizado</em> depois de observar a evidência. É o número que o médico
+                    precisa para decidir. E é o número que vai surpreender.
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <span class="highlight-title">💡 A essência de Bayes em uma frase</span>
+                <p><strong>Posterior = Prior × Verossimilhança ÷ Evidência.</strong> Bayes não cria informação — ele
+                    combina o que você já sabia (prior) com o que acabou de observar (verossimilhança), corrigindo pela
+                    frequência total da observação (evidência). O resultado atualiza sua crença de forma matematicamente
+                    consistente.</p>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 4 — A ARMADILHA DA TAXA BASE
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>4. A Armadilha da Taxa Base</h2>
+
+            <!-- GANCHO -->
+            <div class="example-block">
+                <span class="example-label">Conexão com o problema — este é o ponto central</span>
+                Dengue afeta aproximadamente <strong>5% da população triada</strong> durante o pico sazonal. Essa é a
+                taxa base. Esta seção explica por que esse número de 5% vai dominar o resultado final — muito mais do
+                que a sensibilidade de 90% do teste. Quando você entender o mecanismo abaixo, o resultado do cálculo não
+                vai mais parecer surpreendente.
+            </div>
+
+            <h3>O mecanismo</h3>
+            <p>Quando a condição é rara, <strong>o grupo de saudáveis é enorme</strong>. Mesmo que apenas uma pequena
+                fração deles teste positivo (falso positivo), esse número em absoluto pode superar o total de doentes
+                que testaram positivo. O denominador de Bayes captura exatamente isso:</p>
+
+            <div class="formula-card">
+                <span class="formula-label">Por que o prior domina o denominador</span>
+                <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; font-size:0.92rem; margin-top:4px;">
+                    No denominador expandido, o segundo termo é \(P(+\mid\neg\text{Dengue}) \cdot
+                    P(\neg\text{Dengue})\). Quando \(P(\neg\text{Dengue})\) é grande — porque a doença é rara — esse
+                    termo cresce e "dilui" o numerador, puxando o posterior para baixo.
+                </div>
+                <div style="margin-top:12px;">
+                    $$P(\text{Dengue}\mid+) = \frac{\overbrace{P(+\mid\text{Dengue}) \cdot
+                    P(\text{Dengue})}^{\text{sinal real}}}{\underbrace{P(+\mid\text{Dengue}) \cdot
+                    P(\text{Dengue})}_{\text{sinal real}} + \underbrace{P(+\mid\neg\text{Dengue}) \cdot
+                    P(\neg\text{Dengue})}_{\text{ruído dos saudáveis}}}$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                    Quando 95% da população é saudável, até 12% de falsos positivos gera muito mais alarmes do que os
+                    90% dos 5% doentes. O denominador vai crescer pelo ruído.
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <span class="warning-label">⚠️ Falácia do Promotor — a versão médica</span>
+                <p>"90% de sensibilidade" e "90% de chance de estar doente se positivo" parecem a mesma afirmação. Não
+                    são. A primeira é uma propriedade do equipamento, medida em pacientes que <em>já sabemos que
+                        têm</em> a doença. A segunda depende de <em>quão comum</em> é a doença na população que você
+                    está testando. Bayes é a ponte entre as duas.</p>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 5 — QUALIDADE DO SINAL
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>5. Como Comunicar a Qualidade de um Sinal</h2>
+
+            <!-- GANCHO -->
+            <div class="example-block">
+                <span class="example-label">Conexão com o problema</span>
+                Quando a SaúdeCheck apresentar o resultado ao conselho médico, precisará de linguagem precisa. "90% de
+                acurácia" não é suficiente — e já vimos por quê. As quatro métricas abaixo são o vocabulário padrão para
+                descrever o que o teste faz — e onde ele tem limite.
+            </div>
+
+            <p>Cada métrica responde a uma pergunta diferente sobre o desempenho do diagnóstico:</p>
+
+            <div class="table-wrap">
+                <table class="compare-table">
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>Fórmula</th>
+                            <th>Pergunta que responde</th>
+                            <th>Depende da taxa base?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Sensibilidade</strong><br><span style="font-size:0.82rem; color:#64748b;">Recall
+                                    / TPR</span></td>
+                            <td>\(P(+\mid\text{Doente})\)</td>
+                            <td>Dos doentes, quantos o teste detecta?</td>
+                            <td style="text-align:center;">❌ Não</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Especificidade</strong><br><span
+                                    style="font-size:0.82rem; color:#64748b;">TNR</span></td>
+                            <td>\(P(-\mid\text{Saudável})\)</td>
+                            <td>Dos saudáveis, quantos o teste libera corretamente?</td>
+                            <td style="text-align:center;">❌ Não</td>
+                        </tr>
+                        <tr>
+                            <td><strong>VPP</strong><br><span style="font-size:0.82rem; color:#64748b;">Precision /
+                                    PPV</span></td>
+                            <td>\(P(\text{Doente}\mid+)\)</td>
+                            <td>Dos positivos, quantos são de verdade?</td>
+                            <td style="text-align:center;">✅ Sim — muito</td>
+                        </tr>
+                        <tr>
+                            <td><strong>VPN</strong><br><span style="font-size:0.82rem; color:#64748b;">NPV</span></td>
+                            <td>\(P(\text{Saudável}\mid-)\)</td>
+                            <td>Dos negativos, quantos estão de fato livres?</td>
+                            <td style="text-align:center;">✅ Sim — muito</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="warning-box">
+                <span class="warning-label">⚠️ A armadilha do marketing técnico</span>
+                <p>Empresas de diagnóstico reportam sensibilidade e especificidade — porque são números do ensaio
+                    clínico controlado e ficam muito altos. VPP e VPN só aparecem na bula fina, em letra pequena, com
+                    asterisco: "calculado para prevalência de X%". Na prática clínica, o médico usa VPP e VPN — que
+                    dependem da prevalência local.</p>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 6 — APLICAÇÃO
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>6. A Resposta — Dados da SaúdeCheck</h2>
+
+            <p>Temos a teoria. Temos os ingredientes. Agora vamos responder a pergunta do infectologista.</p>
+
+            <p>Os dados da validação clínica com 100.000 pacientes:</p>
             <ul>
-                <li><strong>Independência</strong> significa que o sinal não altera a probabilidade do resultado.</li>
-                <li><strong>Comparar prior e posterior</strong> é um teste prático de utilidade do sinal.</li>
-                <li><strong>Bayes</strong> serve para inverter a pergunta: da evidência para a causa.</li>
-                <li><strong>A evidência total</strong> precisa ser calculada; não é detalhe decorativo.</li>
-                <li><strong>Taxa base</strong> pode reduzir drasticamente o valor preditivo do sinal.</li>
+                <li>\(P(\text{Dengue}) = 5\%\) — 5.000 doentes em 100.000</li>
+                <li>\(P(+ \mid \text{Dengue}) = 90\%\) — sensibilidade</li>
+                <li>\(P(+ \mid \neg\text{Dengue}) = 12\%\) — taxa de falso positivo</li>
             </ul>
-        </div>
-    </section>
 
-    <section>
-        <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
-            <span class="complexity-title">➡️ O Que Vem a Seguir</span>
-            <p>Com a base e o raciocínio condicional organizados, agora faz sentido subir um nível de abstração. No próximo artigo, <a href="distribuicaodeprob.html" target="_blank" rel="noopener"><strong>Distribuições de Probabilidade</strong></a>, vamos sair de eventos pontuais e modelar o comportamento completo de uma variável aleatória.</p>
-        </div>
-    </section>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Teste Positivo (+)</th>
+                            <th>Teste Negativo (−)</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Com Dengue</strong></td>
+                            <td>4.500</td>
+                            <td>500</td>
+                            <td>5.000</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sem Dengue</strong></td>
+                            <td>11.400</td>
+                            <td>83.600</td>
+                            <td>95.000</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td>15.900</td>
+                            <td>84.100</td>
+                            <td>100.000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-    <section class="references">
-        <h3>📚 Para Se Aprofundar</h3>
-        <ul>
-            <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Excelente para enxergar Bayes como raciocínio estrutural.</li>
-            <li><strong>"The Signal and the Noise"</strong> — Nate Silver. Boa ponte entre previsão, incerteza e taxa base.</li>
-        </ul>
-    </section>
+            <!-- RESPOSTA 1: VPP -->
+            <div class="answer-card">
+                <h4>Pergunta do infectologista: P(Dengue | Positivo) = ?</h4>
+                <span class="theory-tag">📐 Usa: Bayes expandido (§2) + Armadilha da taxa base (§4)</span>
 
-    <section class="quiz-container">
-        <h2>🧠 Teste Seu Conhecimento</h2>
-        <p style="margin-bottom:20px;">Responda às perguntas abaixo para validar o que aprendeu.</p>
-        <div id="quiz-root"></div>
-    </section>
-</div>
+                <div class="step-box">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <strong>Calcular o denominador — P(+)</strong>
+                        Usando a Lei da Probabilidade Total (todos os caminhos para um positivo):
+                        $$P(+) = 0{,}90 \times 0{,}05 + 0{,}12 \times 0{,}95 = 0{,}045 + 0{,}114 = 0{,}159$$
+                    </div>
+                </div>
+                <div class="step-box">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <strong>Aplicar Bayes</strong>
+                        $$P(\text{Dengue}\mid+) = \frac{P(+\mid\text{Dengue}) \cdot P(\text{Dengue})}{P(+)} =
+                        \frac{0{,}90 \times 0{,}05}{0{,}159} = \frac{0{,}045}{0{,}159} \approx \mathbf{28{,}3\%}$$
+                    </div>
+                </div>
+                <div class="step-box">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <strong>Verificar pela tabela</strong>
+                        $$\frac{4.500}{15.900} \approx 28{,}3\% \checkmark$$
+                    </div>
+                </div>
 
-<script>
-    const questions = [
-        {
-            text: "Quando dois eventos são independentes?",
-            options: [
-                "Quando eles nunca ocorrem juntos.",
-                "Quando P(A|B) = P(A).",
-                "Quando P(A) = P(B).",
-                "Quando ambos são raros."
-            ],
-            correct: 1,
-            feedback: "Correto. Independência significa que saber B não altera a chance de A."
-        },
-        {
-            text: "Se P(Atraso) = 10% e P(Atraso|Alerta) = 28%, o alerta:",
-            options: [
-                "É irrelevante.",
-                "É independente do atraso.",
-                "Carrega informação útil sobre atraso.",
-                "Prova causalidade."
-            ],
-            correct: 2,
-            feedback: "Exato. Como a probabilidade mudou materialmente, o alerta tem valor preditivo."
-        },
-        {
-            text: "O que Bayes calcula?",
-            options: [
-                "A média de uma distribuição.",
-                "A probabilidade da causa dado o sinal.",
-                "A interseção de dois eventos independentes.",
-                "A variância de uma amostra."
-            ],
-            correct: 1,
-            feedback: "Correto. Bayes serve para inverter a direção da condicional."
-        },
-        {
-            text: "Na fórmula de Bayes, qual termo representa a taxa base?",
-            options: ["P(B)", "P(B|A)", "P(A)", "P(A|B)"],
-            correct: 2,
-            feedback: "Exato. O prior P(A) é a taxa base antes de observar a evidência."
-        },
-        {
-            text: "Qual é o papel da Lei da Probabilidade Total em Bayes?",
-            options: [
-                "Calcular o denominador P(B).",
-                "Substituir o prior.",
-                "Testar independência automaticamente.",
-                "Eliminar o complemento."
-            ],
-            correct: 0,
-            feedback: "Correto. Sem o denominador, você não fecha a conta de Bayes."
-        },
-        {
-            text: "Se a taxa base cai muito, o posterior tende a:",
-            options: [
-                "Subir necessariamente.",
-                "Ficar igual.",
-                "Cair, mesmo com um sinal razoavelmente forte.",
-                "Virar 50%."
-            ],
-            correct: 2,
-            feedback: "Exato. Esse é o efeito central da taxa base."
-        },
-        {
-            text: "Qual afirmação é correta?",
-            options: [
-                "Bayes prova que o alerta causa atraso.",
-                "Bayes atualiza a probabilidade de atraso depois de observar o alerta.",
-                "Bayes só funciona quando os eventos são independentes.",
-                "Bayes dispensa dados históricos."
-            ],
-            correct: 1,
-            feedback: "Correto. Bayes atualiza crença com evidência; ele não prova causalidade."
-        },
-        {
-            text: "Qual é a leitura correta de P(B)?",
-            options: [
-                "A chance da evidência aparecer no total.",
-                "A chance da causa ser verdadeira.",
-                "A chance de A dado B.",
-                "A chance de B dado A."
-            ],
-            correct: 0,
-            feedback: "Correto. P(B) é a evidência total, ou seja, a frequência do sinal na base inteira."
-        },
-        {
-            text: "Qual afirmação sobre independência está certa?",
-            options: [
-                "Se dois eventos são independentes, eles não podem ocorrer juntos.",
-                "Se dois eventos são independentes, conhecer um não altera a chance do outro.",
-                "Independência é o mesmo que exclusão mútua.",
-                "Independência só existe em variáveis contínuas."
-            ],
-            correct: 1,
-            feedback: "Exato. Independência é sobre ausência de mudança de probabilidade."
-        },
-        {
-            text: "Quando o posterior cai muito, a causa principal geralmente é:",
-            options: [
-                "A taxa base muito alta.",
-                "A taxa base muito baixa.",
-                "A interseção ser zero.",
-                "A variável ser discreta."
-            ],
-            correct: 1,
-            feedback: "Correto. O posterior é fortemente sensível à taxa base."
-        },
-        {
-            text: "Bayes é mais útil quando:",
-            options: [
-                "Você quer inverter a pergunta de evidência para causa.",
-                "Você quer calcular uma média amostral.",
-                "Você quer eliminar a necessidade de dados.",
-                "Você quer testar se dois eventos são mutuamente exclusivos."
-            ],
-            correct: 0,
-            feedback: "Exato. Bayes é o mecanismo de inversão da condicional."
+            </div>
+
+            <!-- RESPOSTA 2: TODAS AS MÉTRICAS -->
+            <div class="answer-card">
+                <h4>Retrato completo do teste: as quatro métricas</h4>
+                <span class="theory-tag">📐 Usa: Qualidade do sinal (§5)</span>
+
+                <div class="term-grid" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="term-card" style="border-left:4px solid #2563eb;">
+                        <strong>Sensibilidade</strong>
+                        $$\frac{4.500}{5.000} = 90\%$$
+                        O teste detecta 9 em cada 10 casos reais. Excelente para triagem.
+                    </div>
+                    <div class="term-card" style="border-left:4px solid #8b5cf6;">
+                        <strong>Especificidade</strong>
+                        $$\frac{83.600}{95.000} = 88\%$$
+                        88% dos saudáveis testam negativo corretamente.
+                    </div>
+                    <div class="term-card" style="border-left:4px solid #db4a2b;">
+                        <strong>VPP (Precision)</strong>
+                        $$\frac{4.500}{15.900} \approx 28\%$$
+                        Apenas 28% dos positivos têm dengue. Fraco para confirmar.
+                    </div>
+                    <div class="term-card" style="border-left:4px solid #10b981;">
+                        <strong>VPN</strong>
+                        $$\frac{83.600}{84.100} \approx 99{,}4\%$$
+                        Negativo é fortíssimo: 99,4% de confiança de ausência de dengue.
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- CALCULADORA INTERATIVA -->
+            <h3>Simule você mesmo essa matemática</h3>
+            <p>Ajuste a taxa base e observe o que acontece com o posterior:</p>
+
+            <div class="bayes-calc">
+                <label>Taxa base — P(Dengue): <span id="prior-val">5%</span></label>
+                <input type="range" id="prior-slider" min="1" max="50" value="5" oninput="updateCalc()">
+                <label>Sensibilidade — P(+|Dengue): <span id="sens-val">90%</span></label>
+                <input type="range" id="sens-slider" min="10" max="99" value="90" oninput="updateCalc()">
+                <label>Falso Positivo — P(+|Sem Dengue): <span id="fpr-val">12%</span></label>
+                <input type="range" id="fpr-slider" min="1" max="50" value="12" oninput="updateCalc()">
+                <div class="calc-result" id="calc-result">P(Dengue | +) = <strong>28.4%</strong></div>
+                <p style="font-size:0.82rem; color:#94a3b8; margin-top:10px; text-align:center;">
+                    Suba a taxa base para 30% e veja o posterior ir a 75%. Baixe para 1% e veja cair para 7% — com o
+                    <em>mesmo teste</em>.
+                </p>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         RESUMO
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
+                <h3>📝 Resumo para Levar na Mochila</h3>
+
+                <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Conceitos</p>
+                <ul>
+                    <li>\(P(A \mid B) \neq P(B \mid A)\) — a diferença que custou a reunião da SaúdeCheck.</li>
+                    <li><strong>Prior</strong> (taxa base) é o que domina quando a doença é rara. A sensibilidade fica
+                        em segundo plano.</li>
+                    <li><strong>VPP e VPN</strong> são o que o médico usa — e mudam com a população. Sensibilidade e
+                        especificidade são do equipamento.</li>
+                </ul>
+
+                <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Fórmulas</p>
+                <ul>
+                    <li><strong>Bayes:</strong> \(P(A \mid B) = \dfrac{P(B \mid A) \cdot P(A)}{P(B)}\)</li>
+                    <li><strong>Denominador expandido:</strong> \(P(B \mid A) \cdot P(A) + P(B \mid \neg A) \cdot P(\neg
+                        A)\)</li>
+                </ul>
+
+                <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Decisão</p>
+                <ul>
+                    <li>Antes de aplicar Bayes: <strong>saiba a taxa base</strong>. Sem ela, a fórmula é matematicamente
+                        correta e praticamente inútil.</li>
+                    <li>Um positivo com VPP baixo → <strong>triagem</strong>, não confirmação.</li>
+                    <li>Um negativo com VPN alto → <strong>exclusão confiável</strong>.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- PRÓXIMO -->
+        <section>
+            <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
+                <span class="complexity-title">➡️ O Que Vem a Seguir</span>
+                <p>Com probabilidade e Bayes dominados, o próximo passo é entender como descrever o comportamento de
+                    variáveis numéricas que carregam incerteza. No próximo artigo, <a href="distribuicaodeprob.html"
+                        target="_blank" rel="noopener"><strong>Distribuições de Probabilidade</strong></a>, vamos sair
+                    de eventos isolados e entrar no mundo das funções de probabilidade.</p>
+            </div>
+        </section>
+
+        <!-- REFERÊNCIAS -->
+        <section class="references">
+            <h3>📚 Para Se Aprofundar</h3>
+            <ul>
+                <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. O capítulo 2 é o melhor tour de
+                    Bayes com intuição e rigor.</li>
+                <li><strong>"Thinking, Fast and Slow"</strong> — Daniel Kahneman. O capítulo sobre a falácia da taxa
+                    base em julgamentos médicos e jurídicos.</li>
+                <li><strong>"The Signal and the Noise"</strong> — Nate Silver. Bayes em previsões do mundo real, com
+                    muitos exemplos de VPP baixo em sistemas de alerta.</li>
+            </ul>
+        </section>
+
+        <!-- QUIZ -->
+        <section class="quiz-container">
+            <h2>🧠 Teste Seu Conhecimento</h2>
+            <p style="margin-bottom:20px;">Use os dados da SaúdeCheck para responder.</p>
+            <div id="quiz-root"></div>
+        </section>
+    </div>
+
+    <script>
+        /* ── Calculadora interativa ── */
+        function updateCalc() {
+            const prior = parseInt(document.getElementById("prior-slider").value) / 100;
+            const sens = parseInt(document.getElementById("sens-slider").value) / 100;
+            const fpr = parseInt(document.getElementById("fpr-slider").value) / 100;
+            document.getElementById("prior-val").textContent = Math.round(prior * 100) + "%";
+            document.getElementById("sens-val").textContent = Math.round(sens * 100) + "%";
+            document.getElementById("fpr-val").textContent = Math.round(fpr * 100) + "%";
+            const num = sens * prior;
+            const den = sens * prior + fpr * (1 - prior);
+            const post = den > 0 ? num / den : 0;
+            document.getElementById("calc-result").innerHTML =
+                'P(Dengue | +) = <strong>' + (post * 100).toFixed(1) + '%</strong>';
         }
-    ];
+        updateCalc();
 
-    function renderQuiz() {
-        const root = document.getElementById("quiz-root");
-        questions.forEach((question, index) => {
-            const card = document.createElement("div");
-            card.className = "question-card";
+        /* ── Quiz ── */
+        const questions = [
+            {
+                text: "Por que P(+|Dengue) ≠ P(Dengue|+)?",
+                options: [
+                    "São a mesma coisa — apenas notação diferente.",
+                    "Elas usam universos diferentes como denominador.",
+                    "Só diferem quando o teste é imperfeito.",
+                    "A diferença some quando a sensibilidade é alta."
+                ],
+                correct: 1,
+                feedback: "Correto. P(+|Dengue) olha só para doentes; P(Dengue|+) olha só para positivos. Grupos diferentes."
+            },
+            {
+                text: "Qual é a fórmula do Teorema de Bayes?",
+                options: [
+                    "P(A|B) = P(A) + P(B)",
+                    "P(A|B) = P(A∩B) / P(A)",
+                    "P(A|B) = P(B|A) · P(A) / P(B)",
+                    "P(A|B) = P(A) · P(B)"
+                ],
+                correct: 2,
+                feedback: "Exato. Bayes inverte a condicional usando prior, verossimilhança e evidência total."
+            },
+            {
+                text: "Na SaúdeCheck, taxa base = 5%, sensibilidade = 90%, falso positivo = 12%. Qual é P(Dengue|+)?",
+                options: ["90%", "12%", "≈ 28%", "5%"],
+                correct: 2,
+                feedback: "Correto. P(+) = 0.9×0.05 + 0.12×0.95 = 0.159. Posterior = 0.045/0.159 ≈ 28.3%."
+            },
+            {
+                text: "O que é o 'prior' no contexto do diagnóstico de dengue?",
+                options: [
+                    "A sensibilidade do teste.",
+                    "A prevalência de dengue na população triada — antes de ver o resultado do teste.",
+                    "O resultado do teste após a evidência.",
+                    "A especificidade do equipamento."
+                ],
+                correct: 1,
+                feedback: "Exato. Prior = taxa base = prevalência. É o ponto de partida antes de qualquer informação nova."
+            },
+            {
+                text: "Por que o VPP de 28% não é um defeito do teste?",
+                options: [
+                    "É sim um defeito — o teste precisa ser melhorado.",
+                    "Porque sensibilidade de 90% já compensa o VPP baixo.",
+                    "Porque com taxa base de 5%, os saudáveis que geram falsos positivos superam em número os verdadeiros positivos.",
+                    "Porque VPP e sensibilidade sempre diferem."
+                ],
+                correct: 2,
+                feedback: "Correto. 95.000 saudáveis × 12% = 11.400 falsos positivos. 5.000 doentes × 90% = 4.500 verdadeiros. O ruído supera o sinal."
+            },
+            {
+                text: "O VPN da SaúdeCheck é 99,4%. O que isso significa para o médico?",
+                options: [
+                    "99,4% dos doentes são detectados.",
+                    "Quando o teste é negativo, 99,4% de chance de o paciente estar livre de dengue.",
+                    "O teste tem 99,4% de acurácia geral.",
+                    "99,4% dos positivos são reais."
+                ],
+                correct: 1,
+                feedback: "Correto. VPN = P(Saudável|−). O resultado negativo é altamente confiável — o médico pode dar alta."
+            },
+            {
+                text: "Sensibilidade e especificidade dependem da taxa base da população?",
+                options: [
+                    "Sim — mudam conforme a prevalência.",
+                    "Não — são propriedades fixas do teste.",
+                    "Só a especificidade depende.",
+                    "Apenas quando o teste é barato."
+                ],
+                correct: 1,
+                feedback: "Correto. São medidas em populações de doentes e saudáveis confirmados — independem da prevalência. VPP e VPN é que dependem."
+            },
+            {
+                text: "Se a taxa base de dengue subir para 20% (pico extremo), o VPP do mesmo teste vai:",
+                options: [
+                    "Continuar igual em 28%.",
+                    "Cair ainda mais.",
+                    "Subir significativamente.",
+                    "Passar a ser igual à sensibilidade."
+                ],
+                correct: 2,
+                feedback: "Correto. Com mais doentes na população, a proporção de verdadeiros positivos entre os positivos aumenta. A calculadora confirma."
+            },
+            {
+                text: "Qual seria a estratégia de produto correta para a SaúdeCheck dado o VPP de 28%?",
+                options: [
+                    "Usar o positivo para iniciar tratamento imediato de dengue grave.",
+                    "Usar o teste como exclusão confiável (negativo = alta segura) e encaminhar positivos para confirmação.",
+                    "Retirar o produto do mercado.",
+                    "Aumentar a sensibilidade para 99%."
+                ],
+                correct: 1,
+                feedback: "Correto. O VPN de 99,4% é o valor real do produto: excluir dengue com confiança, não confirmar com o teste isolado."
+            },
+            {
+                text: "No denominador de Bayes, o que representa P(B|¬A)·P(¬A)?",
+                options: [
+                    "A sensibilidade ajustada pela prevalência.",
+                    "O prior multiplicado pela verossimilhança.",
+                    "A contribuição dos saudáveis ao total de positivos — o 'ruído'.",
+                    "O valor preditivo negativo."
+                ],
+                correct: 2,
+                feedback: "Exato. É quantos saudáveis geram falsos positivos. Quando a doença é rara e esse grupo é grande, este termo domina o denominador."
+            }
+        ];
 
-            const title = document.createElement("span");
-            title.className = "question-text";
-            title.innerText = (index + 1) + ". " + question.text;
-            card.appendChild(title);
-
-            const optionsDiv = document.createElement("div");
-            optionsDiv.className = "options";
-
-            const feedbackDiv = document.createElement("div");
-            feedbackDiv.className = "feedback";
-
-            question.options.forEach((option, optionIndex) => {
-                const button = document.createElement("button");
-                button.className = "option-btn";
-                button.innerText = option;
-                button.onclick = () => {
-                    optionsDiv.querySelectorAll(".option-btn").forEach((item) => {
-                        item.disabled = true;
-                    });
-
-                    if (optionIndex === question.correct) {
-                        button.classList.add("correct");
-                        feedbackDiv.innerText = "✅ " + question.feedback;
-                        feedbackDiv.style.backgroundColor = "#dcfce7";
-                        feedbackDiv.style.color = "#064e3b";
-                    } else {
-                        button.classList.add("incorrect");
-                        optionsDiv.querySelectorAll(".option-btn")[question.correct].classList.add("correct");
-                        feedbackDiv.innerText = "❌ Incorreto. " + question.feedback;
-                        feedbackDiv.style.backgroundColor = "#fee2e2";
-                        feedbackDiv.style.color = "#7f1d1d";
-                    }
-
-                    feedbackDiv.classList.add("show");
-                };
-                optionsDiv.appendChild(button);
+        function renderQuiz() {
+            const root = document.getElementById("quiz-root");
+            questions.forEach((q, index) => {
+                const card = document.createElement("div"); card.className = "question-card";
+                const title = document.createElement("span"); title.className = "question-text";
+                title.innerText = `${index + 1}. ${q.text}`; card.appendChild(title);
+                const optDiv = document.createElement("div"); optDiv.className = "options";
+                const fbDiv = document.createElement("div"); fbDiv.className = "feedback";
+                q.options.forEach((opt, i) => {
+                    const btn = document.createElement("button"); btn.className = "option-btn";
+                    btn.innerText = opt;
+                    btn.onclick = () => {
+                        optDiv.querySelectorAll(".option-btn").forEach(b => b.disabled = true);
+                        if (i === q.correct) {
+                            btn.classList.add("correct");
+                            fbDiv.innerText = "✅ " + q.feedback;
+                            fbDiv.style.backgroundColor = "#dcfce7"; fbDiv.style.color = "#064e3b";
+                        } else {
+                            btn.classList.add("incorrect");
+                            optDiv.querySelectorAll(".option-btn")[q.correct].classList.add("correct");
+                            fbDiv.innerText = "❌ Incorreto. " + q.feedback;
+                            fbDiv.style.backgroundColor = "#fee2e2"; fbDiv.style.color = "#7f1d1d";
+                        }
+                        fbDiv.classList.add("show");
+                    };
+                    optDiv.appendChild(btn);
+                });
+                card.appendChild(optDiv); card.appendChild(fbDiv); root.appendChild(card);
             });
+        }
+        renderQuiz();
+    </script>
 
-            card.appendChild(optionsDiv);
-            card.appendChild(feedbackDiv);
-            root.appendChild(card);
-        });
-    }
-
-    renderQuiz();
-</script>
-
-<div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
-    <a href="probbayes.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
-    <span style="color:#94a3b8;"> | </span>
-    <span style="color:#94a3b8;">🇺🇸 EN em breve</span>
-</div>
+    <div
+        style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
+        <a href="probbayes.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
+        <span style="color:#94a3b8;"> | </span>
+        <span style="color:#94a3b8;">🇺🇸 EN em breve</span>
+    </div>
 </body>
+
 </html>

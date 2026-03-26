@@ -1,712 +1,821 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Probabilidade — Fundamentos</title>
+    <meta name="description"
+        content="Espaço amostral, axiomas de Kolmogorov, probabilidade condicional, operações entre eventos e independência — explicados com um caso real de logística e diagramas de Venn interativos.">
     <link rel="alternate" href="teoriadeprob.html" hreflang="pt-BR">
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .step-box {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 18px 20px;
-            margin: 16px 0;
-        }
-        .step-number {
-            background: var(--primary-color);
-            color: white;
-            font-weight: 700;
-            font-size: 1rem;
-            min-width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-        .step-content { flex: 1; }
-        .step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
 
-        .example-block {
-            background: #f0f9ff;
-            border-left: 4px solid #38bdf8;
-            padding: 16px 20px;
-            border-radius: 0 8px 8px 0;
-            margin: 20px 0;
-        }
-        .example-block .example-label {
-            font-size: 0.78rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #0284c7;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .warning-box {
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 8px;
-            padding: 18px 20px;
-            margin: 20px 0;
-        }
-        .warning-box .warning-label {
-            font-weight: 700;
-            color: #c2410c;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        .formula-card {
-            background: #1e293b;
-            color: #e2e8f0;
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin: 20px 0;
-            font-family: "Courier New", monospace;
-        }
-        .formula-card .formula-label {
-            font-size: 0.78rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #94a3b8;
-            font-family: "Segoe UI", sans-serif;
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        .term-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin: 24px 0;
-        }
-        .term-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 18px;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-        }
-        .term-card strong {
-            display: block;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-
-        .venn-btn {
-            padding: 8px 16px;
-            border: 1px solid #e2e8f0;
-            border-radius: 999px;
-            background: #fff;
-            font-family: "Segoe UI", sans-serif;
-            font-size: 0.84rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #1e293b;
-        }
-        .venn-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
-        .venn-btn.active { background: var(--primary-color, #db4a2b); color: #fff; border-color: var(--primary-color, #db4a2b); }
-
-        .table-wrap { overflow-x: auto; margin: 22px 0; }
-
-        @media (max-width: 700px) {
-            .term-grid { grid-template-columns: 1fr; }
-        }
-    </style>
 </head>
+
 <body>
-<div class="container">
-    <header>
-        <h1>Probabilidade</h1>
-        <p class="subtitle">Da intuição de chance ao raciocínio preciso sobre incerteza</p>
-        <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 4a de 8 — Bloco: Fundação Estatística &nbsp;| <a href="graficosetabelas.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 3: Tabelas e Gráficos</a></p>
-        <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a></p>
-    </header>
+    <div class="container">
+        <header>
+            <h1>Probabilidade</h1>
+            <p class="subtitle">Da intuição de chance ao raciocínio preciso sobre incerteza</p>
+            <p style="font-size:0.85rem; color:#94a3b8;">
+                📚 Artigo 5 de 25 — Bloco: Fundação Estatística &nbsp;|
+                <a href="graficosetabelas.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4:
+                    Tabelas e Gráficos</a>
+            </p>
+            <p style="margin-top:10px;">
+                <a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener"
+                    style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a>
+            </p>
+        </header>
 
-    <section>
-        <div class="story-box">
-            <h3>🚚 O Problema de Negócio</h3>
-            <p>Na FlashLog, a operação precisava decidir quantas entregas entrariam em monitoramento reforçado. O custo de monitorar demais era alto. O custo de monitorar de menos era pior: cliente irritado, SLA rompido e time correndo atrás do prejuízo. Então a flashlog resolveu criar um alarme de tráfego pesado.</p>
-            <p>A pergunta inicial parecia simples: <em>"qual é a chance de uma entrega atrasar?"</em> Mas logo vieram as perguntas certas: <em>"essa chance muda quando há alerta?"</em> e <em>"como combinar eventos?"</em></p>
-            <p>Essas perguntas não se resolvem com intuição. Elas exigem o vocabulário básico da probabilidade: espaço amostral, evento, taxa base, probabilidade condicional e operações entre eventos.</p>
-        </div>
-    </section>
-
-    <section>
-        <h2>1. Problema de Negócio: Traduzindo Operação em Eventos</h2>
-        <p>Antes de qualquer fórmula, precisamos converter o problema operacional em um problema matemático.</p>
-
-        <div class="example-block">
-            <span class="example-label">Perguntas do time de operação</span>
-            <p>Em uma base de 10.000 entregas, a FlashLog quer saber:</p>
-            <ul>
-                <li>Qual é a chance de atraso em uma entrega escolhida ao acaso?</li>
-                <li>Se um alerta foi disparado, essa chance sobe quanto?</li>
-                <li>Qual é a chance de uma entrega ter alerta ou atraso?</li>
-            </ul>
-        </div>
-
-        <p>No caso da FlashLog, defina:</p>
-        <ul>
-            <li>\(A = \text{Entrega atrasou}\)</li>
-            <li>\(B = \text{Alerta de trânsito foi disparado}\)</li>
-        </ul>
-
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr><th></th><th>Alerta (B)</th><th>Sem Alerta (\(\neg B\))</th><th>Total</th></tr>
-                </thead>
-                <tbody>
-                    <tr><td><strong>Atraso (A)</strong></td><td>700</td><td>300</td><td>1.000</td></tr>
-                    <tr><td><strong>No Prazo (\(\neg A\))</strong></td><td>1.800</td><td>7.200</td><td>9.000</td></tr>
-                    <tr><td><strong>Total</strong></td><td>2.500</td><td>7.500</td><td>10.000</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="highlight-box">
-            <span class="highlight-title">💡 Disciplina mínima</span>
-            <p>Probabilidade não começa na fórmula. Começa em definir corretamente <strong>qual é o universo do problema</strong> e <strong>qual evento você quer medir</strong>.</p>
-        </div>
-
-        <h3>Combinando eventos sem se enrolar</h3>
-        <p>Depois de entender evento e condicional, você precisa saber combinar conjuntos. Isso aparece o tempo todo em regra de negócio, segmentação, risco e classificação.</p>
-
-        <div id="venn-section" style="margin: 30px 0;">
-            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
-                <button class="venn-btn active" onclick="showVenn('intersection')">A ∩ B</button>
-                <button class="venn-btn" onclick="showVenn('union')">A ∪ B</button>
-                <button class="venn-btn" onclick="showVenn('complement')">Aᶜ</button>
-                <button class="venn-btn" onclick="showVenn('conditional')">P(A|B)</button>
-                <button class="venn-btn" onclick="showVenn('exclusive')">Exclusivos</button>
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 0 — O PROBLEMA
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="story-box">
+                <h3>🚚 O Problema de Negócio</h3>
+                <p>Na FlashLog, a operação precisava decidir quantas entregas entrariam em monitoramento reforçado. O
+                    custo de monitorar demais era alto. O custo de monitorar de menos era pior: cliente irritado, SLA
+                    rompido e time correndo atrás do prejuízo. Então a FlashLog resolveu criar um alarme de tráfego
+                    pesado.</p>
+                <p>A partir daí, três perguntas guiaram a análise:</p>
+                <ol style="margin-top:8px; padding-left:20px;">
+                    <li><strong>Qual é a chance de uma entrega atrasar?</strong> — a taxa base do problema.</li>
+                    <li><strong>Essa chance muda quando há alerta?</strong> — probabilidade condicional.</li>
+                    <li><strong>O alerta realmente ajuda na decisão?</strong> — independência e valor preditivo.</li>
+                </ol>
+                <p style="margin-top:10px;">Essas perguntas não se resolvem com intuição. Elas exigem o vocabulário
+                    básico da probabilidade: espaço amostral, evento, taxa base, probabilidade condicional e operações
+                    entre eventos. Vamos construir esse vocabulário — e depois voltar ao problema para responder cada
+                    uma.</p>
             </div>
-            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px; display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
-                <svg id="venn-svg" viewBox="0 0 320 200" width="320" height="200" style="flex-shrink:0;">
-                    <rect x="4" y="4" width="312" height="192" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5"></rect>
-                    <text x="292" y="22" font-size="13" fill="#94a3b8" font-family="serif" font-style="italic">Ω</text>
-                    <circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.10"></circle>
-                    <circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.10"></circle>
-                    <g id="venn-fill"></g>
-                    <circle cx="118" cy="100" r="72" fill="none" stroke="#db4a2b" stroke-width="2.2"></circle>
-                    <circle cx="202" cy="100" r="72" fill="none" stroke="#2563eb" stroke-width="2.2"></circle>
-                    <text x="80" y="104" font-size="22" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text>
-                    <text x="228" y="104" font-size="22" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>
-                </svg>
+        </section>
 
-                <div id="venn-desc" style="flex:1; min-width:220px;">
-                    <div id="venn-title" style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;"></div>
-                    <div id="venn-formula" style="font-size:1rem; color:#db4a2b; font-weight:600; margin-bottom:10px; font-family:serif;"></div>
-                    <div id="venn-text" style="font-size:0.93rem; color:#475569; line-height:1.7;"></div>
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 1 — O UNIVERSO DO PROBLEMA
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>1. O Universo do Problema</h2>
+            <p>Antes de qualquer fórmula, precisamos converter um problema do mundo real em um problema matemático. Isso
+                exige definir três objetos:</p>
+
+            <div class="term-grid">
+                <div class="term-card">
+                    <strong>Experimento aleatório</strong>
+                    O processo observado antes do resultado acontecer. Exemplo: lançar um dado, observar se chove
+                    amanhã, ou verificar se um processo terminou dentro do prazo.
+                </div>
+                <div class="term-card">
+                    <strong>Espaço amostral \(\Omega\)</strong>
+                    O conjunto de <em>todos</em> os resultados possíveis do experimento. Para um dado de 6 faces,
+                    \(\Omega = \{1, 2, 3, 4, 5, 6\}\). Para um processo com duas características binárias, \(\Omega\)
+                    pode ter 4 combinações.
+                </div>
+                <div class="term-card">
+                    <strong>Evento</strong>
+                    Um subconjunto de \(\Omega\) que interessa para a análise. Exemplo: "o dado caiu em número par" =
+                    \(\{2, 4, 6\}\). Um evento pode conter um, vários ou nenhum resultado.
                 </div>
             </div>
-        </div>
 
-        <div class="step-box">
-            <div class="step-number">A</div>
-            <div class="step-content">
-                <strong>União — "A ou B"</strong>
-                \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\). A subtração evita contar a interseção duas vezes. Se os eventos forem mutuamente exclusivos, \(P(A \cap B) = 0\) e a fórmula simplifica para \(P(A) + P(B)\).
+            <div class="warning-box">
+                <span class="warning-label">⚠️ Erro comum</span>
+                <p>Muita conta errada de probabilidade é, na prática, um erro de espaço amostral. A fórmula pode estar
+                    formalmente certa, mas aplicada ao universo errado. Definir \(\Omega\) corretamente é o primeiro
+                    passo — e o mais crítico.</p>
             </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">B</div>
-            <div class="step-content">
-                <strong>Interseção — "A e B"</strong>
-                Mede os casos em que ambos ocorrem. No exemplo FlashLog, alerta e atraso juntos representam \(700 / 10.000 = 7\%\). Para eventos independentes, \(P(A \cap B) = P(A) \cdot P(B)\).
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">C</div>
-            <div class="step-content">
-                <strong>Complemento — "não A"</strong>
-                \(P(A^c) = 1 - P(A)\). Se \(P(\text{Atraso}) = 10\%\), então \(P(\text{No Prazo}) = 90\%\). Decorre diretamente de \(P(\Omega) = 1\).
-            </div>
-        </div>
+        </section>
 
-        <div class="example-block">
-            <span class="example-label">Exemplo direto</span>
-            <p>Qual a chance de uma entrega ter alerta <em>ou</em> atrasar?</p>
-            $$P(\text{Alerta} \cup \text{Atraso}) = 0{,}25 + 0{,}10 - 0{,}07 = 0{,}28 = 28\%$$
-        </div>
-    </section>
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 2 — O QUE SIGNIFICA "CHANCE"?
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>2. O Que Significa "Chance"?</h2>
+            <p>Antes de calcular, vale entender <em>o que estamos calculando</em>. Existem duas maneiras complementares
+                de pensar em probabilidade:</p>
 
-    <section>
-        <h2>2. Teoria: O Vocabulário Mínimo da Probabilidade</h2>
-        <h3>Os três objetos que você precisa dominar</h3>
-        <div class="term-grid">
-            <div class="term-card">
-                <strong>Experimento aleatório</strong>
-                O processo observado antes do resultado acontecer. Aqui: escolher uma entrega ao acaso do histórico.
+            <div class="term-grid">
+                <div class="term-card">
+                    <strong>Interpretação clássica (Laplace)</strong>
+                    Quando todos os resultados são equiprováveis:
+                    $$P(A) = \frac{\text{casos favoráveis}}{\text{casos possíveis}}$$
+                    Funciona bem para dados, moedas e urnas. Limitada quando os resultados não são igualmente prováveis.
+                </div>
+                <div class="term-card">
+                    <strong>Interpretação frequentista</strong>
+                    A probabilidade é a frequência observada do evento quando o processo é repetido muitas vezes:
+                    $$P(A) = \lim_{n \to \infty} \frac{n_A}{n}$$
+                    Para quem trabalha com dados reais, essa é a interpretação mais natural e útil no dia a dia.
+                </div>
             </div>
-            <div class="term-card">
-                <strong>Espaço amostral \(\Omega\)</strong>
-                O conjunto de todos os resultados possíveis. Exemplo simples: \(\Omega = \{\text{Atraso}, \text{No Prazo}\}\).
-            </div>
-            <div class="term-card">
-                <strong>Evento</strong>
-                Um subconjunto de \(\Omega\) que interessa para a decisão. Exemplo: \(A = \{\text{Entrega atrasou}\}\).
-            </div>
-        </div>
 
-        <div class="warning-box">
-            <span class="warning-label">⚠️ Erro comum</span>
-            <p>Muita conta errada de probabilidade é, na prática, um erro de espaço amostral. A conta pode estar formalmente certa, mas aplicada ao universo errado.</p>
-        </div>
-
-        <h3>Probabilidade como frequência</h3>
-        <p>Para quem trabalha com dados, a interpretação mais útil é a frequentista: a probabilidade de um evento é a frequência com que ele aparece quando o processo é observado muitas vezes.</p>
-
-        <div class="formula-card">
-            <span class="formula-label">Definição Operacional</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
-                Probabilidade = proporção observada de ocorrências no longo prazo
+            <div class="formula-card">
+                <span class="formula-label">Definição Operacional (frequentista)</span>
+                <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif;">
+                    Probabilidade = proporção observada de ocorrências no longo prazo
+                </div>
+                <div style="margin-top:12px;">
+                    $$P(A) = \frac{\text{número de ocorrências de }A}{\text{número total de observações}}$$
+                </div>
             </div>
-            <div style="margin-top:12px;">
-                $$P(A) = \frac{\text{número de ocorrências de }A}{\text{número total de observações}}$$
-            </div>
-        </div>
 
-        <h3>Os Axiomas de Kolmogorov</h3>
-        <p>Toda a teoria de probabilidade repousa sobre três axiomas formulados por Andrei Kolmogorov em 1933. Eles são o contrato mínimo que qualquer função \(P\) precisa respeitar para ser chamada de probabilidade.</p>
+            <p>A <strong>taxa base</strong> é a probabilidade de um evento calculada sobre o universo inteiro, antes de
+                qualquer informação extra. É o ponto de partida honesto — o número contra o qual todo o resto será
+                comparado.</p>
+        </section>
 
-        <div class="step-box">
-            <div class="step-number">I</div>
-            <div class="step-content">
-                <strong>Não-negatividade</strong>
-                Para qualquer evento \(A\), a probabilidade nunca é negativa:
-                $$P(A) \geq 0$$
-                Probabilidade de −20% não existe. O piso é zero.
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">II</div>
-            <div class="step-content">
-                <strong>Normalização (espaço amostral)</strong>
-                A probabilidade do espaço amostral inteiro é 1:
-                $$P(\Omega) = 1$$
-                Algo sempre acontece. A soma de todas as possibilidades é certeza.
-            </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">III</div>
-            <div class="step-content">
-                <strong>Aditividade (eventos mutuamente exclusivos)</strong>
-                Se \(A\) e \(B\) não podem ocorrer juntos (\(A \cap B = \emptyset\)), então:
-                $$P(A \cup B) = P(A) + P(B)$$
-                Isso se generaliza para qualquer coleção enumerável de eventos disjuntos.
-            </div>
-        </div>
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 3 — AXIOMAS DE KOLMOGOROV
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>3. As Regras do Jogo: Axiomas de Kolmogorov</h2>
+            <p>Toda a teoria de probabilidade repousa sobre três axiomas formulados por Andrei Kolmogorov em 1933. Eles
+                são o contrato mínimo que qualquer função \(P\) precisa respeitar para ser chamada de probabilidade.</p>
 
-        <div class="highlight-box">
-            <span class="highlight-title">💡 Por que axiomas importam na prática?</span>
-            <p>Toda fórmula que você vai usar — complemento, condicional, Bayes — é uma consequência direta desses três axiomas. Quando uma conta de probabilidade dá resultado negativo ou maior que 1, o erro está em alguma violação implícita deles.</p>
-        </div>
-
-        <h3>Consequências imediatas dos axiomas</h3>
-        <p>A partir dos três axiomas, derivam-se as propriedades que usamos no dia a dia:</p>
-
-        <div class="term-grid">
-            <div class="term-card">
-                <strong>Intervalo obrigatório</strong>
-                $$0 \leq P(A) \leq 1$$
-                Probabilidade sempre está entre 0 (impossível) e 1 (certo). Valores fora desse intervalo indicam erro de modelagem.
+            <div class="step-box">
+                <div class="step-number">I</div>
+                <div class="step-content">
+                    <strong>Não-negatividade</strong>
+                    Para qualquer evento \(A\), a probabilidade nunca é negativa:
+                    $$P(A) \geq 0$$
+                    Probabilidade de −20% não existe. O piso é zero.
+                </div>
             </div>
-            <div class="term-card">
-                <strong>Complemento</strong>
-                $$P(A^c) = 1 - P(A)$$
-                Decorre diretamente de \(P(\Omega) = 1\) e da aditividade: \(A\) e \(A^c\) são disjuntos e juntos formam \(\Omega\).
+            <div class="step-box">
+                <div class="step-number">II</div>
+                <div class="step-content">
+                    <strong>Normalização (espaço amostral)</strong>
+                    A probabilidade do espaço amostral inteiro é 1:
+                    $$P(\Omega) = 1$$
+                    Algo sempre acontece. A soma de todas as possibilidades é certeza.
+                </div>
             </div>
-            <div class="term-card">
-                <strong>Monotonicidade</strong>
-                $$\text{Se } A \subseteq B \text{, então } P(A) \leq P(B)$$
-                Um subconjunto nunca pode ser mais provável que o conjunto que o contém.
+            <div class="step-box">
+                <div class="step-number">III</div>
+                <div class="step-content">
+                    <strong>Aditividade (eventos mutuamente exclusivos)</strong>
+                    Se \(A\) e \(B\) não podem ocorrer juntos (\(A \cap B = \emptyset\)), então:
+                    $$P(A \cup B) = P(A) + P(B)$$
+                    Isso se generaliza para qualquer coleção enumerável de eventos disjuntos (aditividade contável).
+                </div>
             </div>
-        </div>
 
-        <div class="formula-card">
-            <span class="formula-label">Regra da Adição — caso geral</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; font-size:0.95rem;">
-                Quando A e B podem ocorrer juntos (não são mutuamente exclusivos):
+            <div class="highlight-box">
+                <span class="highlight-title">💡 Por que axiomas importam na prática?</span>
+                <p>Toda fórmula que você vai usar — complemento, condicional, Bayes — é uma consequência direta desses
+                    três axiomas. Quando uma conta de probabilidade dá resultado negativo ou maior que 1, o erro está em
+                    alguma violação implícita deles.</p>
             </div>
-            <div style="margin-top:12px;">
-                $$P(A \cup B) = P(A) + P(B) - P(A \cap B)$$
+
+            <h3>Consequências imediatas dos axiomas</h3>
+            <p>A partir dos três axiomas, derivam-se as propriedades que usamos no dia a dia:</p>
+
+            <div class="term-grid">
+                <div class="term-card">
+                    <strong>Intervalo obrigatório</strong>
+                    $$0 \leq P(A) \leq 1$$
+                    Probabilidade sempre está entre 0 (impossível) e 1 (certo). Valores fora desse intervalo indicam
+                    erro de modelagem.
+                </div>
+                <div class="term-card">
+                    <strong>Complemento</strong>
+                    $$P(A^c) = 1 - P(A)$$
+                    Decorre de \(P(\Omega) = 1\) e da aditividade: \(A\) e \(A^c\) são disjuntos e juntos formam
+                    \(\Omega\).
+                </div>
+                <div class="term-card">
+                    <strong>Monotonicidade</strong>
+                    $$\text{Se } A \subseteq B \text{, então } P(A) \leq P(B)$$
+                    Um subconjunto nunca pode ser mais provável que o conjunto que o contém.
+                </div>
             </div>
-            <div style="color:#94a3b8; font-size:0.88rem; margin-top:8px; font-family:'Segoe UI',sans-serif;">
-                A subtração evita contar a interseção duas vezes. Quando \(A \cap B = \emptyset\), o termo some e voltamos ao Axioma III.
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 4 — COMBINANDO EVENTOS (TEORIA DE CONJUNTOS)
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>4. Combinando Eventos</h2>
+            <p>Com os axiomas definidos, temos as ferramentas para combinar conjuntos. Existem três operações
+                fundamentais:</p>
+
+            <div class="step-box">
+                <div class="step-number">A</div>
+                <div class="step-content">
+                    <strong>Complemento — "não A"</strong>
+                    \(P(A^c) = 1 - P(A)\). Tudo que não está em A. Decorre diretamente de \(P(\Omega) = 1\). É a
+                    operação mais simples — e a mais usada no dia a dia.
+                </div>
             </div>
-        </div>
-
-        <div class="example-block">
-            <span class="example-label">Taxa base</span>
-            <p>Se 1.000 das 10.000 entregas atrasaram, então:</p>
-            $$P(\text{Atraso}) = \frac{1.000}{10.000} = 0{,}10 = 10\%$$
-            <p>Esse 10% é a <strong>taxa base</strong>. É o ponto de partida honesto. Todo o resto compara contra ele.</p>
-        </div>
-
-        <h3>Independência entre eventos</h3>
-        <p>Dois eventos são <strong>independentes</strong> quando o resultado de um não altera a probabilidade do outro. Formalmente:</p>
-
-        <div class="formula-card">
-            <span class="formula-label">Definição de Independência</span>
-            <div style="margin-top:4px;">
-                $$P(A \cap B) = P(A) \cdot P(B)$$
+            <div class="step-box">
+                <div class="step-number">B</div>
+                <div class="step-content">
+                    <strong>Interseção — "A e B"</strong>
+                    \(A \cap B\) — os casos em que ambos os eventos ocorrem simultaneamente. Para calcular, precisamos
+                    contar quantos resultados pertencem a A <em>e</em> a B ao mesmo tempo.
+                </div>
             </div>
-            <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
-                Equivalentemente: \(P(A \mid B) = P(A)\) — saber que B ocorreu não muda a chance de A.
+            <div class="step-box">
+                <div class="step-number">C</div>
+                <div class="step-content">
+                    <strong>União — "A ou B"</strong>
+                    \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\). Subtraímos a interseção para não contar duas vezes. Se
+                    os eventos forem mutuamente exclusivos (\(A \cap B = \emptyset\)), a fórmula simplifica para \(P(A)
+                    + P(B)\) — que é o Axioma III.
+                </div>
             </div>
-        </div>
 
-        <div class="warning-box">
-            <span class="warning-label">⚠️ Independência ≠ Exclusividade mútua</span>
-            <p>São conceitos opostos, não sinônimos. Se \(A\) e \(B\) são mutuamente exclusivos e \(P(A) > 0\), então \(P(A \mid B) = 0 \neq P(A)\) — ou seja, são <em>dependentes</em>. Eventos que não podem ocorrer juntos são os mais dependentes possíveis.</p>
-        </div>
-
-        <div class="example-block">
-            <span class="example-label">Teste de independência — FlashLog</span>
-            <p>Alerta e Atraso são independentes? Verifique se \(P(\text{Alerta} \cap \text{Atraso}) = P(\text{Alerta}) \cdot P(\text{Atraso})\):</p>
-            $$P(\text{Alerta}) \cdot P(\text{Atraso}) = 0{,}25 \times 0{,}10 = 0{,}025$$
-            $$P(\text{Alerta} \cap \text{Atraso}) = \frac{700}{10.000} = 0{,}07$$
-            <p>\(0{,}07 \neq 0{,}025\) — os eventos <strong>não são independentes</strong>. O alerta carrega informação real sobre o atraso.</p>
-        </div>
-
-        <h3>Probabilidade condicional: quando o universo muda</h3>
-        <p>Quando aparece uma informação adicional, você não está mais olhando para o universo inteiro. Está olhando para um universo reduzido. É isso que a condicional formaliza.</p>
-
-        <div class="formula-card">
-            <span class="formula-label">Probabilidade Condicional</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; font-size:1.05rem;">
-                \(P(A \mid B)\) = chance de A ocorrer, dado que B já ocorreu
+            <div class="formula-card">
+                <span class="formula-label">Regra da Adição — caso geral</span>
+                <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; font-size:0.95rem;">
+                    Quando A e B podem ocorrer juntos (não são mutuamente exclusivos):
+                </div>
+                <div style="margin-top:12px;">
+                    $$P(A \cup B) = P(A) + P(B) - P(A \cap B)$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:8px; font-family:'Segoe UI',sans-serif;">
+                    A subtração evita contar a interseção duas vezes. Quando \(A \cap B = \emptyset\), o termo some e
+                    voltamos ao Axioma III.
+                </div>
             </div>
-            <div style="margin-top:12px;">
-                $$P(A \mid B) = \frac{P(A \cap B)}{P(B)}$$
-            </div>
-        </div>
 
-        <div class="step-box">
-            <div class="step-number">1</div>
-            <div class="step-content">
-                <strong>Taxa base</strong>
-                Sem informação extra, \(P(\text{Atraso}) = 1.000 / 10.000 = 10\%\).
+            <!-- VENN INTERATIVO -->
+            <h3>Visualizando as operações</h3>
+            <div id="venn-section" style="margin: 30px 0;">
+                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+                    <button class="venn-btn active" onclick="showVenn('intersection')">A ∩ B</button>
+                    <button class="venn-btn" onclick="showVenn('union')">A ∪ B</button>
+                    <button class="venn-btn" onclick="showVenn('complement')">Aᶜ</button>
+                    <button class="venn-btn" onclick="showVenn('conditional')">P(A|B)</button>
+                    <button class="venn-btn" onclick="showVenn('exclusive')">Exclusivos</button>
+                </div>
+                <div
+                    style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px; display:flex; gap:32px; align-items:center; flex-wrap:wrap;">
+                    <svg id="venn-svg" viewBox="0 0 320 200" width="320" height="200" style="flex-shrink:0;">
+                        <rect x="4" y="4" width="312" height="192" rx="10" fill="#f1f5f9" stroke="#94a3b8"
+                            stroke-width="1.5"></rect>
+                        <text x="292" y="22" font-size="13" fill="#94a3b8" font-family="serif"
+                            font-style="italic">Ω</text>
+                        <circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.10"></circle>
+                        <circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.10"></circle>
+                        <g id="venn-fill"></g>
+                        <circle cx="118" cy="100" r="72" fill="none" stroke="#db4a2b" stroke-width="2.2"></circle>
+                        <circle cx="202" cy="100" r="72" fill="none" stroke="#2563eb" stroke-width="2.2"></circle>
+                        <text x="80" y="104" font-size="22" fill="#db4a2b" font-family="serif" font-style="italic"
+                            font-weight="bold">A</text>
+                        <text x="228" y="104" font-size="22" fill="#2563eb" font-family="serif" font-style="italic"
+                            font-weight="bold">B</text>
+                    </svg>
+                    <div id="venn-desc" style="flex:1; min-width:220px;">
+                        <div id="venn-title"
+                            style="font-size:1.1rem; font-weight:700; color:#1e293b; margin-bottom:8px;"></div>
+                        <div id="venn-formula"
+                            style="font-size:1rem; color:#db4a2b; font-weight:600; margin-bottom:10px; font-family:serif;">
+                        </div>
+                        <div id="venn-text" style="font-size:0.93rem; color:#475569; line-height:1.7;"></div>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">2</div>
-            <div class="step-content">
-                <strong>Universo reduzido</strong>
-                Com alerta, o universo deixa de ser 10.000 entregas e passa a ser só as 2.500 entregas com alerta.
+
+            <!-- EXCLUSIVOS vs INDEPENDENTES -->
+            <h3>Mutuamente exclusivos ≠ Independentes</h3>
+            <p>Esses dois conceitos são confundidos o tempo todo. A tabela abaixo resolve de vez:</p>
+            <div class="table-wrap">
+                <table class="compare-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Mutuamente Exclusivos</th>
+                            <th>Independentes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Significado</strong></td>
+                            <td>Não podem ocorrer juntos</td>
+                            <td>Um não altera a chance do outro</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Fórmula</strong></td>
+                            <td>\(P(A \cap B) = 0\)</td>
+                            <td>\(P(A \cap B) = P(A) \cdot P(B)\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Exemplo</strong></td>
+                            <td>Cara e Coroa no mesmo lançamento</td>
+                            <td>Resultado de um dado e de uma moeda lançados juntos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Relação</strong></td>
+                            <td>Se um ocorre, o outro é impossível</td>
+                            <td>Se um ocorre, a chance do outro não muda</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
-        <div class="step-box">
-            <div class="step-number">3</div>
-            <div class="step-content">
-                <strong>Conta correta</strong>
-                Entre essas 2.500 entregas com alerta, 700 atrasaram. Logo:
-                $$P(\text{Atraso} \mid \text{Alerta}) = \frac{700}{2.500} = 28\%$$
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 5 — PROBABILIDADE CONDICIONAL
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>5. Quando a Pergunta Muda: Probabilidade Condicional</h2>
+            <p>Quando aparece uma informação adicional, você não está mais olhando para o universo inteiro. Está olhando
+                para um <strong>universo reduzido</strong>. É isso que a condicional formaliza.</p>
+
+            <div class="formula-card">
+                <span class="formula-label">Probabilidade Condicional</span>
+                <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; font-size:1.05rem;">
+                    \(P(A \mid B)\) = chance de A ocorrer, dado que B já ocorreu
+                </div>
+                <div style="margin-top:12px;">
+                    $$P(A \mid B) = \frac{P(A \cap B)}{P(B)}, \quad P(B) > 0$$
+                </div>
             </div>
-        </div>
 
-        <div class="warning-box">
-            <span class="warning-label">⚠️ Erro clássico: inverter a pergunta</span>
-            <p>\(P(\text{Atraso} \mid \text{Alerta})\) e \(P(\text{Alerta} \mid \text{Atraso})\) não são a mesma coisa.</p>
-            <p>No exemplo, \(P(\text{Atraso} \mid \text{Alerta}) = 28\%\), mas \(P(\text{Alerta} \mid \text{Atraso}) = 700/1.000 = 70\%\). Mesma tabela, perguntas diferentes.</p>
-        </div>
+            <p>A ideia central é simples: em vez de dividir pelo total geral, dividimos apenas pelos casos em que B
+                aconteceu. Isso <strong>reduz o espaço amostral</strong>.</p>
 
-    </section>
+            <div class="formula-card">
+                <span class="formula-label">Regra da Multiplicação — a ponte entre interseção e condicional</span>
+                <div style="margin-top:4px;">
+                    $$P(A \cap B) = P(A \mid B) \cdot P(B)$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                    Essa fórmula conecta duas ideias centrais: a interseção (§4) e a condicional (§5). Ela também é
+                    metade do caminho para o Teorema de Bayes.
+                </div>
+            </div>
 
-    <section>
-        <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
-            <h3>📝 Resumo para Levar na Mochila</h3>
+            <div class="warning-box">
+                <span class="warning-label">⚠️ Erro clássico: inverter a pergunta</span>
+                <p>\(P(A \mid B)\) e \(P(B \mid A)\) <strong>não são a mesma coisa</strong>. Inverter a condicional sem
+                    a fórmula correta é o erro mais frequente — e é exatamente o que o Teorema de Bayes resolve.</p>
+            </div>
+
+            <h3>Lei da Probabilidade Total</h3>
+            <p>Se B e \(\neg B\) formam uma <strong>partição</strong> de \(\Omega\) (todo resultado cai em um e somente
+                um dos dois), podemos decompor qualquer probabilidade:</p>
+
+            <div class="formula-card">
+                <span class="formula-label">Lei da Probabilidade Total</span>
+                <div style="margin-top:4px;">
+                    $$P(A) = P(A \mid B) \cdot P(B) + P(A \mid \neg B) \cdot P(\neg B)$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                    Decompõe a taxa base em contribuições de cada cenário. É metade do Teorema de Bayes.
+                </div>
+            </div>
+
+            <div class="formula-card">
+                <span class="formula-label">Definição de Independência</span>
+                <div style="margin-top:4px;">
+                    $$P(A \mid B) = P(A) \quad \Longleftrightarrow \quad \text{A e B são independentes}$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                    Equivale a dizer que \(P(A \cap B) = P(A) \cdot P(B)\). Se essa igualdade não vale, os eventos são
+                    <strong style="color:#f1f5f9;">dependentes</strong> — e o sinal carrega informação.
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         SEÇÃO 6 — APLICAÇÃO AO PROBLEMA
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>6. Aplicação: Respondendo as Perguntas da FlashLog</h2>
+            <p>Agora que temos toda a teoria, vamos voltar ao problema. A FlashLog definiu dois eventos:</p>
             <ul>
-                <li><strong>Probabilidade</strong> é frequência observada no longo prazo, não chute sofisticado.</li>
-                <li><strong>Axiomas de Kolmogorov:</strong> \(P(A) \geq 0\), \(P(\Omega) = 1\), aditividade para eventos disjuntos. Toda fórmula deriva daqui.</li>
-                <li><strong>Intervalo obrigatório:</strong> \(0 \leq P(A) \leq 1\). Resultado fora disso é erro de modelagem.</li>
-                <li><strong>Espaço amostral</strong> define o universo da conta. Se ele estiver errado, o resto desaba.</li>
-                <li><strong>Taxa base</strong> é a referência inicial antes de qualquer informação extra.</li>
-                <li><strong>Independência</strong> significa \(P(A \cap B) = P(A) \cdot P(B)\) — não confundir com exclusividade mútua.</li>
-                <li><strong>Probabilidade condicional</strong> troca o universo total por um universo reduzido.</li>
-                <li><strong>União, interseção e complemento</strong> são a gramática mínima para combinar eventos com precisão.</li>
+                <li>\(A = \text{Entrega atrasou}\)</li>
+                <li>\(B = \text{Alerta de trânsito foi disparado}\)</li>
             </ul>
-        </div>
-    </section>
+            <p>E tem um histórico de <strong>10.000 entregas</strong>, organizadas nesta tabela de contingência:</p>
 
-    <section>
-        <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
-            <span class="complexity-title">➡️ O Que Vem a Seguir</span>
-            <p>Agora que a base está firme, o próximo passo é mais útil para decisão real: descobrir se um sinal agrega informação e como inverter perguntas condicionais. No próximo artigo, <a href="probbayes.html" target="_blank" rel="noopener"><strong>Independência e Teorema de Bayes</strong></a>, vamos sair da definição e entrar em valor preditivo.</p>
-        </div>
-    </section>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Alerta (B)</th>
+                            <th>Sem Alerta (\(\neg B\))</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Atraso (A)</strong></td>
+                            <td>700</td>
+                            <td>300</td>
+                            <td>1.000</td>
+                        </tr>
+                        <tr>
+                            <td><strong>No Prazo (\(\neg A\))</strong></td>
+                            <td>1.800</td>
+                            <td>7.200</td>
+                            <td>9.000</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td>2.500</td>
+                            <td>7.500</td>
+                            <td>10.000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-    <section class="references">
-        <h3>📚 Para Se Aprofundar</h3>
-        <ul>
-            <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Excelente para construir intuição sem perder rigor.</li>
-            <li><strong>"Thinking in Bets"</strong> — Annie Duke. Bom para ligar raciocínio probabilístico a decisão prática.</li>
-        </ul>
-    </section>
+            <div class="highlight-box">
+                <span class="highlight-title">💡 Por que a tabela é o centro de tudo</span>
+                <p>Essa tabela resume <strong>4 contagens fundamentais</strong>. Cada fórmula que usamos nas seções
+                    anteriores — taxa base, condicional, união, interseção — será respondida extraindo números
+                    diretamente dela.</p>
+            </div>
 
-    <section class="quiz-container">
-        <h2>🧠 Teste Seu Conhecimento</h2>
-        <p style="margin-bottom:20px;">Responda às perguntas abaixo para validar o que aprendeu.</p>
-        <div id="quiz-root"></div>
-    </section>
-</div>
+            <p>Vamos relembrar as três perguntas e responder cada uma usando a teoria construída:</p>
 
-<script>
-    const vennData = {
-        intersection: {
-            title: "Interseção — A ∩ B",
-            formula: "P(A ∩ B)",
-            text: "São os casos em que <strong>A e B acontecem juntos</strong>. Na FlashLog: entregas com alerta e com atraso ao mesmo tempo.",
-            render(svg) {
-                svg.innerHTML += '<clipPath id="vci1"><circle cx="118" cy="100" r="72"></circle></clipPath><circle cx="202" cy="100" r="72" fill="#db4a2b" fill-opacity="0.55" clip-path="url(#vci1)"></circle>';
+            <!-- PERGUNTA 1 -->
+            <div class="answer-card">
+                <h4>Pergunta 1: Qual é a chance de uma entrega atrasar?</h4>
+                <span class="theory-tag">📐 Usa: Definição frequentista (§2) + Taxa base</span>
+                <p>Das 10.000 entregas, 1.000 atrasaram. Pela definição frequentista:</p>
+                <div class="formula-card" style="margin-top:12px;">
+                    <span class="formula-label">Taxa base — Resposta</span>
+                    <div style="margin-top:4px;">
+                        $$P(\text{Atraso}) = \frac{1.000}{10.000} = 0{,}10 = 10\%$$
+                    </div>
+                    <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                        Esse 10% é a <strong style="color:#f1f5f9;">taxa base</strong>. Todo o resto do artigo compara
+                        contra esse número.
+                    </div>
+                </div>
+                <p style="margin-top:12px;">Podemos verificar os axiomas com esses dados:</p>
+                <ul>
+                    <li><strong>Axioma I:</strong> \(P(\text{Atraso}) = 10\% \geq 0\) ✓</li>
+                    <li><strong>Axioma II:</strong> \(P(\text{Atraso}) + P(\text{No Prazo}) = 10\% + 90\% = 100\%\) ✓
+                    </li>
+                    <li><strong>Complemento:</strong> \(P(\text{No Prazo}) = 1 - 0{,}10 = 0{,}90 = 90\%\)</li>
+                </ul>
+            </div>
+
+            <!-- PERGUNTA 2 -->
+            <div class="answer-card">
+                <h4>Pergunta 2: A chance muda quando há alerta?</h4>
+                <span class="theory-tag">📐 Usa: Probabilidade condicional (§5) + Regra da multiplicação</span>
+                <p>Com alerta, o universo deixa de ser 10.000 e passa a ser apenas as <strong>2.500 entregas com
+                        alerta</strong>. Entre essas, 700 atrasaram:</p>
+                <div class="formula-card" style="margin-top:12px;">
+                    <span class="formula-label">Condicional — Resposta</span>
+                    <div style="margin-top:4px;">
+                        $$P(\text{Atraso} \mid \text{Alerta}) = \frac{700}{2.500} = 28\%$$
+                    </div>
+                </div>
+                <p style="margin-top:12px;"><strong>Verificação pela Regra da Multiplicação:</strong></p>
+                $$P(A \cap B) = P(A \mid B) \cdot P(B) = 0{,}28 \times 0{,}25 = 0{,}07 = 7\%$$
+                <p>Bate com os 700/10.000 da tabela. ✓</p>
+
+                <p style="margin-top:12px;"><strong>Verificação pela Lei da Probabilidade Total:</strong></p>
+                <p>Sabemos que \(P(\text{Atraso} \mid \text{Sem Alerta}) = 300 / 7.500 = 4\%\). Então:</p>
+                $$P(\text{Atraso}) = 0{,}28 \times 0{,}25 + 0{,}04 \times 0{,}75 = 0{,}07 + 0{,}03 = 0{,}10 = 10\%
+                \checkmark$$
+
+                <div class="warning-box" style="margin-top:16px;">
+                    <span class="warning-label">⚠️ Cuidado: não inverta a condicional!</span>
+                    <p>\(P(\text{Atraso} \mid \text{Alerta}) = 28\%\), mas \(P(\text{Alerta} \mid \text{Atraso}) =
+                        700/1.000 = 70\%\). Mesma tabela, perguntas diferentes.</p>
+                </div>
+
+                <p style="margin-top:12px;">E o uso da <strong>união</strong>? Qual a chance de uma entrega ter alerta
+                    <em>ou</em> atrasar?</p>
+                $$P(\text{Alerta} \cup \text{Atraso}) = 0{,}25 + 0{,}10 - 0{,}07 = 0{,}28 = 28\%$$
+                <p>E para os eventos disjuntos (Axioma III): "Atraso com alerta" e "Atraso sem alerta" não podem ocorrer
+                    juntos para a mesma entrega:</p>
+                $$P(\text{Atraso c/ alerta}) + P(\text{Atraso s/ alerta}) = \frac{700}{10.000} + \frac{300}{10.000} =
+                \frac{1.000}{10.000} = P(\text{Atraso}) \checkmark$$
+            </div>
+
+            <!-- PERGUNTA 3 -->
+            <div class="answer-card">
+                <h4>Pergunta 3: O alerta realmente ajuda na decisão?</h4>
+                <span class="theory-tag">📐 Usa: Independência (§5) + Comparação com taxa base (§2)</span>
+                <p>Se alerta e atraso fossem <strong>independentes</strong>, teríamos \(P(\text{Atraso} \mid
+                    \text{Alerta}) = P(\text{Atraso}) = 10\%\). Mas vimos que \(P(\text{Atraso} \mid \text{Alerta}) =
+                    28\%\).</p>
+                <p>Logo, <strong>não são independentes</strong> — o alerta carrega informação real sobre o atraso.</p>
+
+                <div class="term-grid" style="margin-top:16px;">
+                    <div class="term-card" style="border-left: 4px solid #ef4444;">
+                        <strong>Com alerta</strong>
+                        $$P(\text{Atraso} \mid \text{Alerta}) = 28\%$$
+                        Risco 2,8× maior que a taxa base.
+                    </div>
+                    <div class="term-card" style="border-left: 4px solid #10b981;">
+                        <strong>Sem alerta</strong>
+                        $$P(\text{Atraso} \mid \text{Sem Alerta}) = \frac{300}{7.500} = 4\%$$
+                        Risco 2,5× menor que a taxa base.
+                    </div>
+                </div>
+
+                <div class="highlight-box" style="margin-top:16px;">
+                    <span class="highlight-title">💡 O lift do alerta</span>
+                    <p>O alerta move a chance de atraso de <strong>10% → 28%</strong> — um <strong>lift de
+                            2,8×</strong>. A ausência do alerta move para <strong>4%</strong>. O sinal não é perfeito,
+                        mas separa o fluxo em dois grupos com riscos radicalmente diferentes. Isso é suficiente para
+                        decidir onde concentrar monitoramento.</p>
+                </div>
+
+                <div class="warning-box" style="margin-top:16px;">
+                    <span class="warning-label">⚠️ A taxa base decide se o sinal vale a pena</span>
+                    <p>Se a taxa base de atraso fosse 0,1% em vez de 10%, nem um lift de 2,8× justificaria monitoramento
+                        reforçado (resultaria em 0,28% — quase nada). A taxa base é o <strong>denominador
+                            invisível</strong> de toda decisão baseada em probabilidade.</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         RESUMO
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
+                <h3>📝 Resumo para Levar na Mochila</h3>
+
+                <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Conceitos</p>
+                <ul>
+                    <li><strong>Espaço amostral</strong> define o universo da conta. Se ele estiver errado, o resto
+                        desaba.</li>
+                    <li><strong>Probabilidade</strong> é frequência observada no longo prazo, não chute sofisticado.
+                    </li>
+                    <li><strong>Taxa base</strong> é a referência inicial antes de qualquer informação extra.</li>
+                </ul>
+
+                <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Fórmulas</p>
+                <ul>
+                    <li><strong>Axiomas de Kolmogorov:</strong> \(P(A) \geq 0\), \(P(\Omega) = 1\), aditividade para
+                        eventos disjuntos.</li>
+                    <li><strong>Complemento:</strong> \(P(A^c) = 1 - P(A)\)</li>
+                    <li><strong>União:</strong> \(P(A \cup B) = P(A) + P(B) - P(A \cap B)\)</li>
+                    <li><strong>Condicional:</strong> \(P(A \mid B) = P(A \cap B) / P(B)\)</li>
+                    <li><strong>Multiplicação:</strong> \(P(A \cap B) = P(A \mid B) \cdot P(B)\)</li>
+                    <li><strong>Probabilidade Total:</strong> \(P(A) = P(A \mid B) \cdot P(B) + P(A \mid \neg B) \cdot
+                        P(\neg B)\)</li>
+                </ul>
+
+                <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Decisão</p>
+                <ul>
+                    <li>Use a <strong>tabela de contingência</strong> antes de qualquer fórmula.</li>
+                    <li><strong>Independência</strong> significa que saber B não altera a chance de A.</li>
+                    <li>A <strong>taxa base</strong> decide se o sinal vale a pena — sem ela, o lift não significa nada.
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- PRÓXIMO -->
+        <section>
+            <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
+                <span class="complexity-title">➡️ O Que Vem a Seguir</span>
+                <p>Agora que a base está firme, o próximo passo é descobrir como inverter perguntas condicionais e medir
+                    o valor preditivo de um sinal. No próximo artigo, <a href="probbayes.html" target="_blank"
+                        rel="noopener"><strong>Independência e Teorema de Bayes</strong></a>, vamos sair da definição e
+                    entrar em poder de decisão.</p>
+            </div>
+        </section>
+
+        <!-- REFERÊNCIAS -->
+        <section class="references">
+            <h3>📚 Para Se Aprofundar</h3>
+            <ul>
+                <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Excelente para construir
+                    intuição sem perder rigor.</li>
+                <li><strong>"Thinking in Bets"</strong> — Annie Duke. Bom para ligar raciocínio probabilístico a decisão
+                    prática.</li>
+            </ul>
+        </section>
+
+        <!-- QUIZ -->
+        <section class="quiz-container">
+            <h2>🧠 Teste Seu Conhecimento</h2>
+            <p style="margin-bottom:20px;">Responda às perguntas abaixo para validar o que aprendeu.</p>
+            <div id="quiz-root"></div>
+        </section>
+    </div>
+
+    <script>
+        const vennData = {
+            intersection: {
+                title: "Interseção — A ∩ B",
+                formula: "P(A ∩ B)",
+                text: "São os casos em que <strong>A e B acontecem juntos</strong>. Visualmente, é a região onde os dois círculos se sobrepõem.",
+                render(svg) {
+                    svg.innerHTML += '<clipPath id="vci1"><circle cx="118" cy="100" r="72"></circle></clipPath><circle cx="202" cy="100" r="72" fill="#db4a2b" fill-opacity="0.55" clip-path="url(#vci1)"></circle>';
+                }
+            },
+            union: {
+                title: "União — A ∪ B",
+                formula: "P(A ∪ B) = P(A) + P(B) - P(A ∩ B)",
+                text: "Inclui tudo que está em <strong>A, em B ou nos dois</strong>. A subtração de P(A ∩ B) evita a dupla contagem da região compartilhada.",
+                render(svg) {
+                    svg.innerHTML += '<circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.45"></circle><circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.45"></circle>';
+                }
+            },
+            complement: {
+                title: "Complemento — Aᶜ",
+                formula: "P(Aᶜ) = 1 - P(A)",
+                text: "É tudo que <strong>não está em A</strong>. A região fora do círculo A, mas ainda dentro de Ω.",
+                render(svg) {
+                    svg.innerHTML += '<rect x="4" y="4" width="312" height="192" rx="10" fill="#2563eb" fill-opacity="0.22"></rect><circle cx="118" cy="100" r="72" fill="#f1f5f9"></circle><circle cx="202" cy="100" r="72" fill="#f1f5f9"></circle>';
+                }
+            },
+            conditional: {
+                title: "Condicional — P(A|B)",
+                formula: "P(A|B) = P(A ∩ B) / P(B)",
+                text: "Primeiro você restringe o universo para <strong>B</strong> (circulo azul). Depois mede, dentro desse universo menor, a fração que também pertence a A.",
+                render(svg) {
+                    svg.innerHTML += '<circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.30"></circle><clipPath id="vcc2"><circle cx="118" cy="100" r="72"></circle></clipPath><circle cx="202" cy="100" r="72" fill="#db4a2b" fill-opacity="0.60" clip-path="url(#vcc2)"></circle>';
+                }
+            },
+            exclusive: {
+                title: "Mutuamente Exclusivos",
+                formula: "P(A ∩ B) = 0",
+                text: "Aqui <strong>A e B não podem acontecer juntos</strong>. Os círculos não se tocam. Isso não é independência — é incompatibilidade.",
+                render(svg) {
+                    svg.innerHTML += '<circle cx="88" cy="100" r="66" fill="#db4a2b" fill-opacity="0.40"></circle><circle cx="232" cy="100" r="66" fill="#2563eb" fill-opacity="0.40"></circle><circle cx="88" cy="100" r="66" fill="none" stroke="#db4a2b" stroke-width="2.2" stroke-dasharray="5,3"></circle><circle cx="232" cy="100" r="66" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-dasharray="5,3"></circle><text x="60" y="104" font-size="20" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text><text x="218" y="104" font-size="20" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>';
+                }
             }
-        },
-        union: {
-            title: "União — A ∪ B",
-            formula: "P(A ∪ B) = P(A) + P(B) - P(A ∩ B)",
-            text: "Inclui tudo que está em <strong>A, em B ou nos dois</strong>. É aqui que a dupla contagem costuma aparecer.",
-            render(svg) {
-                svg.innerHTML += '<circle cx="118" cy="100" r="72" fill="#db4a2b" fill-opacity="0.45"></circle><circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.45"></circle>';
-            }
-        },
-        complement: {
-            title: "Complemento — Aᶜ",
-            formula: "P(Aᶜ) = 1 - P(A)",
-            text: "É tudo que <strong>não está em A</strong>. Se A é atraso, o complemento é entrega no prazo.",
-            render(svg) {
-                svg.innerHTML += '<rect x="4" y="4" width="312" height="192" rx="10" fill="#2563eb" fill-opacity="0.22"></rect><circle cx="118" cy="100" r="72" fill="#f1f5f9"></circle><circle cx="202" cy="100" r="72" fill="#f1f5f9"></circle>';
-            }
-        },
-        conditional: {
-            title: "Condicional — P(A|B)",
-            formula: "P(A|B) = P(A ∩ B) / P(B)",
-            text: "Primeiro você restringe o universo para <strong>B</strong>. Depois mede, dentro desse universo menor, a fração que também pertence a A.",
-            render(svg) {
-                svg.innerHTML += '<circle cx="202" cy="100" r="72" fill="#2563eb" fill-opacity="0.30"></circle><clipPath id="vcc2"><circle cx="118" cy="100" r="72"></circle></clipPath><circle cx="202" cy="100" r="72" fill="#db4a2b" fill-opacity="0.60" clip-path="url(#vcc2)"></circle>';
-            }
-        },
-        exclusive: {
-            title: "Mutuamente Exclusivos",
-            formula: "P(A ∩ B) = 0",
-            text: "Aqui <strong>A e B não podem acontecer juntos</strong>. Isso não é independência. É incompatibilidade.",
-            render(svg) {
-                svg.innerHTML += '<circle cx="88" cy="100" r="66" fill="#db4a2b" fill-opacity="0.40"></circle><circle cx="232" cy="100" r="66" fill="#2563eb" fill-opacity="0.40"></circle><circle cx="88" cy="100" r="66" fill="none" stroke="#db4a2b" stroke-width="2.2" stroke-dasharray="5,3"></circle><circle cx="232" cy="100" r="66" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-dasharray="5,3"></circle><text x="60" y="104" font-size="20" fill="#db4a2b" font-family="serif" font-style="italic" font-weight="bold">A</text><text x="218" y="104" font-size="20" fill="#2563eb" font-family="serif" font-style="italic" font-weight="bold">B</text>';
-            }
-        }
-    };
+        };
 
-    function showVenn(key) {
-        document.querySelectorAll(".venn-btn").forEach((button) => button.classList.remove("active"));
-        document.querySelectorAll(".venn-btn").forEach((button) => {
-            if (button.getAttribute("onclick") === "showVenn('" + key + "')") {
-                button.classList.add("active");
-            }
-        });
-
-        const data = vennData[key];
-        document.getElementById("venn-title").textContent = data.title;
-        document.getElementById("venn-formula").textContent = data.formula;
-        document.getElementById("venn-text").innerHTML = data.text;
-
-        const fillGroup = document.getElementById("venn-fill");
-        fillGroup.innerHTML = "";
-
-        const wrapper = { innerHTML: "" };
-        data.render(wrapper);
-
-        const parser = new DOMParser();
-        const doc = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg">' + wrapper.innerHTML + "</svg>", "image/svg+xml");
-        Array.from(doc.documentElement.children).forEach((child) => {
-            fillGroup.appendChild(document.importNode(child, true));
-        });
-    }
-
-    showVenn("intersection");
-
-    const questions = [
-        {
-            text: "Na visão frequentista, o que é probabilidade?",
-            options: [
-                "Uma opinião qualificada sobre o futuro.",
-                "A frequência observada de um evento em muitas repetições do processo.",
-                "O total de eventos favoráveis multiplicado por 100.",
-                "A mesma coisa que risco financeiro."
-            ],
-            correct: 1,
-            feedback: "Correto. Para dados reais, probabilidade é frequência observada no longo prazo."
-        },
-        {
-            text: "O espaço amostral Ω é:",
-            options: [
-                "O conjunto de todos os resultados possíveis.",
-                "A lista de resultados mais prováveis.",
-                "O conjunto dos resultados favoráveis.",
-                "A probabilidade total do experimento."
-            ],
-            correct: 0,
-            feedback: "Exato. Evento é subconjunto; espaço amostral é o universo completo."
-        },
-        {
-            text: "Se 1.000 de 10.000 entregas atrasaram, qual é a taxa base de atraso?",
-            options: ["1%", "5%", "10%", "25%"],
-            correct: 2,
-            feedback: "Correto. 1.000 / 10.000 = 10%."
-        },
-        {
-            text: "O que muda em P(A|B)?",
-            options: [
-                "Só o numerador muda.",
-                "O universo analisado passa a ser apenas os casos em que B ocorreu.",
-                "A pergunta vira interseção automaticamente.",
-                "Nada muda; é só outra notação."
-            ],
-            correct: 1,
-            feedback: "Exato. Probabilidade condicional é, antes de tudo, uma mudança de universo."
-        },
-        {
-            text: "Na FlashLog, 700 entregas tiveram alerta e atraso. 2.500 tiveram alerta. Qual é P(Atraso|Alerta)?",
-            options: ["7%", "10%", "25%", "28%"],
-            correct: 3,
-            feedback: "Correto. A conta é 700 / 2.500 = 28%."
-        },
-        {
-            text: "Qual fórmula evita dupla contagem na união?",
-            options: [
-                "P(A ∪ B) = P(A) + P(B)",
-                "P(A ∪ B) = P(A) + P(B) - P(A ∩ B)",
-                "P(A ∪ B) = P(A) · P(B)",
-                "P(A ∪ B) = P(A|B)"
-            ],
-            correct: 1,
-            feedback: "Exato. Sem subtrair a interseção, você conta os casos compartilhados duas vezes."
-        },
-        {
-            text: "Qual afirmação é verdadeira?",
-            options: [
-                "P(A|B) sempre é igual a P(B|A).",
-                "Eventos mutuamente exclusivos sempre são independentes.",
-                "P(A|B) e P(B|A) são perguntas diferentes.",
-                "Complemento e interseção são a mesma ideia."
-            ],
-            correct: 2,
-            feedback: "Correto. Condicionais invertidas respondem perguntas diferentes."
-        },
-        {
-            text: "Qual item é um exemplo de evento no artigo?",
-            options: [
-                "Atraso",
-                "Amostra",
-                "Experimento aleatório",
-                "Espaço amostral"
-            ],
-            correct: 0,
-            feedback: "Correto. Evento é um subconjunto do espaço amostral; no exemplo, atraso é o evento analisado."
-        },
-        {
-            text: "Quando usamos P(A | B), o que estamos fazendo?",
-            options: [
-                "Somando probabilidades de A e B.",
-                "Restringindo a análise apenas aos casos em que B ocorreu.",
-                "Ignorando o denominador.",
-                "Convertendo A em variável contínua."
-            ],
-            correct: 1,
-            feedback: "Exato. A condicional reduz o universo para os casos onde B aconteceu."
-        },
-        {
-            text: "Se A e B são mutuamente exclusivos, então:",
-            options: [
-                "P(A ∩ B) = 0",
-                "P(A|B) = P(A)",
-                "P(A) = P(B)",
-                "P(A ∪ B) = P(A ∩ B)"
-            ],
-            correct: 0,
-            feedback: "Correto. Mutuamente exclusivos significa que os dois não podem ocorrer juntos."
-        },
-        {
-            text: "Qual frase resume o papel da taxa base?",
-            options: [
-                "Ela não importa se o alerta é forte.",
-                "Ela domina a conclusão e precisa ser considerada antes da evidência.",
-                "Ela só existe em distribuições contínuas.",
-                "Ela é igual à probabilidade condicional."
-            ],
-            correct: 1,
-            feedback: "Exato. A taxa base é o ponto de partida e evita interpretações erradas do sinal."
-        }
-    ];
-
-    function renderQuiz() {
-        const root = document.getElementById("quiz-root");
-        questions.forEach((question, index) => {
-            const card = document.createElement("div");
-            card.className = "question-card";
-
-            const title = document.createElement("span");
-            title.className = "question-text";
-            title.innerText = (index + 1) + ". " + question.text;
-            card.appendChild(title);
-
-            const optionsDiv = document.createElement("div");
-            optionsDiv.className = "options";
-
-            const feedbackDiv = document.createElement("div");
-            feedbackDiv.className = "feedback";
-
-            question.options.forEach((option, optionIndex) => {
-                const button = document.createElement("button");
-                button.className = "option-btn";
-                button.innerText = option;
-                button.onclick = () => {
-                    optionsDiv.querySelectorAll(".option-btn").forEach((item) => {
-                        item.disabled = true;
-                    });
-
-                    if (optionIndex === question.correct) {
-                        button.classList.add("correct");
-                        feedbackDiv.innerText = "✅ " + question.feedback;
-                        feedbackDiv.style.backgroundColor = "#dcfce7";
-                        feedbackDiv.style.color = "#064e3b";
-                    } else {
-                        button.classList.add("incorrect");
-                        optionsDiv.querySelectorAll(".option-btn")[question.correct].classList.add("correct");
-                        feedbackDiv.innerText = "❌ Incorreto. " + question.feedback;
-                        feedbackDiv.style.backgroundColor = "#fee2e2";
-                        feedbackDiv.style.color = "#7f1d1d";
-                    }
-
-                    feedbackDiv.classList.add("show");
-                };
-                optionsDiv.appendChild(button);
+        function showVenn(key) {
+            document.querySelectorAll(".venn-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".venn-btn").forEach(b => {
+                if (b.getAttribute("onclick") === "showVenn('" + key + "')") b.classList.add("active");
             });
+            const data = vennData[key];
+            document.getElementById("venn-title").textContent = data.title;
+            document.getElementById("venn-formula").textContent = data.formula;
+            document.getElementById("venn-text").innerHTML = data.text;
+            const fillGroup = document.getElementById("venn-fill");
+            fillGroup.innerHTML = "";
+            const wrapper = { innerHTML: "" };
+            data.render(wrapper);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString('<svg xmlns="http://www.w3.org/2000/svg">' + wrapper.innerHTML + "</svg>", "image/svg+xml");
+            Array.from(doc.documentElement.children).forEach(child => {
+                fillGroup.appendChild(document.importNode(child, true));
+            });
+        }
+        showVenn("intersection");
 
-            card.appendChild(optionsDiv);
-            card.appendChild(feedbackDiv);
-            root.appendChild(card);
-        });
-    }
+        const questions = [
+            {
+                text: "Na visão frequentista, o que é probabilidade?",
+                options: [
+                    "Uma opinião qualificada sobre o futuro.",
+                    "A frequência observada de um evento em muitas repetições do processo.",
+                    "O total de eventos favoráveis multiplicado por 100.",
+                    "A mesma coisa que risco financeiro."
+                ],
+                correct: 1,
+                feedback: "Correto. Para dados reais, probabilidade é frequência observada no longo prazo."
+            },
+            {
+                text: "O espaço amostral Ω é:",
+                options: [
+                    "O conjunto de todos os resultados possíveis.",
+                    "A lista de resultados mais prováveis.",
+                    "O conjunto dos resultados favoráveis.",
+                    "A probabilidade total do experimento."
+                ],
+                correct: 0,
+                feedback: "Exato. Evento é subconjunto; espaço amostral é o universo completo."
+            },
+            {
+                text: "Se 1.000 de 10.000 entregas atrasaram, qual é a taxa base de atraso?",
+                options: ["1%", "5%", "10%", "25%"],
+                correct: 2,
+                feedback: "Correto. 1.000 / 10.000 = 10%."
+            },
+            {
+                text: "Na interpretação clássica (Laplace), P(A) é calculada como:",
+                options: [
+                    "A frequência relativa no longo prazo.",
+                    "Casos favoráveis divididos por casos possíveis (quando equiprováveis).",
+                    "A média dos resultados observados.",
+                    "O complemento de P(B)."
+                ],
+                correct: 1,
+                feedback: "Exato. A interpretação clássica funciona quando todos os resultados são igualmente prováveis."
+            },
+            {
+                text: "O que muda em P(A|B) comparado a P(A)?",
+                options: [
+                    "Só o numerador muda.",
+                    "O universo analisado passa a ser apenas os casos em que B ocorreu.",
+                    "A pergunta vira interseção automaticamente.",
+                    "Nada muda; é só outra notação."
+                ],
+                correct: 1,
+                feedback: "Exato. Probabilidade condicional é, antes de tudo, uma mudança de universo."
+            },
+            {
+                text: "Na FlashLog, 700 entregas tiveram alerta e atraso. 2.500 tiveram alerta. Qual é P(Atraso|Alerta)?",
+                options: ["7%", "10%", "25%", "28%"],
+                correct: 3,
+                feedback: "Correto. A conta é 700 / 2.500 = 28%."
+            },
+            {
+                text: "Qual fórmula evita dupla contagem na união?",
+                options: [
+                    "P(A ∪ B) = P(A) + P(B)",
+                    "P(A ∪ B) = P(A) + P(B) - P(A ∩ B)",
+                    "P(A ∪ B) = P(A) · P(B)",
+                    "P(A ∪ B) = P(A|B)"
+                ],
+                correct: 1,
+                feedback: "Exato. Sem subtrair a interseção, você conta os casos compartilhados duas vezes."
+            },
+            {
+                text: "Qual afirmação é verdadeira?",
+                options: [
+                    "P(A|B) sempre é igual a P(B|A).",
+                    "Eventos mutuamente exclusivos sempre são independentes.",
+                    "P(A|B) e P(B|A) são perguntas diferentes.",
+                    "Complemento e interseção são a mesma ideia."
+                ],
+                correct: 2,
+                feedback: "Correto. Condicionais invertidas respondem perguntas diferentes."
+            },
+            {
+                text: "Se A e B são mutuamente exclusivos, então:",
+                options: [
+                    "P(A ∩ B) = 0",
+                    "P(A|B) = P(A)",
+                    "P(A) = P(B)",
+                    "P(A ∪ B) = P(A ∩ B)"
+                ],
+                correct: 0,
+                feedback: "Correto. Mutuamente exclusivos significa que os dois não podem ocorrer juntos."
+            },
+            {
+                text: "Qual fórmula conecta interseção e condicional?",
+                options: [
+                    "P(A ∩ B) = P(A) + P(B)",
+                    "P(A ∩ B) = P(A|B) · P(B)",
+                    "P(A ∩ B) = P(A) - P(B)",
+                    "P(A ∩ B) = P(A|B) / P(B)"
+                ],
+                correct: 1,
+                feedback: "Correto. A Regra da Multiplicação é a ponte: P(A ∩ B) = P(A|B) · P(B)."
+            },
+            {
+                text: "Se P(Atraso) = 10% e P(Atraso|Alerta) = 28%, o lift do alerta é:",
+                options: ["1,0×", "1,8×", "2,8×", "10×"],
+                correct: 2,
+                feedback: "Exato. Lift = 28% / 10% = 2,8×. O alerta quase triplica a chance de atraso."
+            }
+        ];
 
-    renderQuiz();
-</script>
+        function renderQuiz() {
+            const root = document.getElementById("quiz-root");
+            questions.forEach((q, index) => {
+                const card = document.createElement("div"); card.className = "question-card";
+                const title = document.createElement("span"); title.className = "question-text";
+                title.innerText = `${index + 1}. ${q.text}`; card.appendChild(title);
+                const optDiv = document.createElement("div"); optDiv.className = "options";
+                const fbDiv = document.createElement("div"); fbDiv.className = "feedback";
+                q.options.forEach((opt, i) => {
+                    const btn = document.createElement("button"); btn.className = "option-btn";
+                    btn.innerText = opt;
+                    btn.onclick = () => {
+                        optDiv.querySelectorAll(".option-btn").forEach(b => b.disabled = true);
+                        if (i === q.correct) {
+                            btn.classList.add("correct");
+                            fbDiv.innerText = "✅ " + q.feedback;
+                            fbDiv.style.backgroundColor = "#dcfce7"; fbDiv.style.color = "#064e3b";
+                        } else {
+                            btn.classList.add("incorrect");
+                            optDiv.querySelectorAll(".option-btn")[q.correct].classList.add("correct");
+                            fbDiv.innerText = "❌ Incorreto. " + q.feedback;
+                            fbDiv.style.backgroundColor = "#fee2e2"; fbDiv.style.color = "#7f1d1d";
+                        }
+                        fbDiv.classList.add("show");
+                    };
+                    optDiv.appendChild(btn);
+                });
+                card.appendChild(optDiv); card.appendChild(fbDiv); root.appendChild(card);
+            });
+        }
+        renderQuiz();
+    </script>
 
-<div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
-    <a href="teoriadeprob.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
-    <span style="color:#94a3b8;"> | </span>
-    <span style="color:#94a3b8;">🇺🇸 EN em breve</span>
-</div>
+    <div
+        style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
+        <a href="teoriadeprob.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷
+            PT</a>
+        <span style="color:#94a3b8;"> | </span>
+        <span style="color:#94a3b8;">🇺🇸 EN em breve</span>
+    </div>
 </body>
+
 </html>

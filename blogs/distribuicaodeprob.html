@@ -4,89 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Distribuições de Probabilidade</title>
-    <link rel="alternate" href="distribuicoes.html" hreflang="pt-BR">
-    <link rel="alternate" href="../en/blogs/distribuicoes.html" hreflang="en">
+    <link rel="alternate" href="distribuicaodeprob.html" hreflang="pt-BR">
+    <link rel="alternate" href="../en/blogs/probabilidadedistribuicoes.html" hreflang="en">
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
         .step-box {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 18px 20px;
-            margin: 16px 0;
+            display: flex; gap: 16px; align-items: flex-start;
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 10px; padding: 18px 20px; margin: 14px 0;
         }
         .step-number {
-            background: var(--primary-color);
-            color: white;
-            font-weight: 700;
-            font-size: 1rem;
-            min-width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-top: 2px;
+            background: var(--primary-color); color: white; font-weight: 700;
+            font-size: 1rem; min-width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-top: 2px;
         }
         .step-content { flex: 1; }
         .step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
 
         .example-block {
-            background: #f0f9ff;
-            border-left: 4px solid #38bdf8;
-            padding: 16px 20px;
-            border-radius: 0 8px 8px 0;
-            margin: 20px 0;
+            background: #f0f9ff; border-left: 4px solid #38bdf8;
+            padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0;
         }
         .example-block .example-label {
-            font-size: 0.78rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #0284c7;
-            display: block;
-            margin-bottom: 8px;
+            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; color: #0284c7; display: block; margin-bottom: 8px;
         }
 
         .formula-card {
-            background: #1e293b;
-            color: #e2e8f0;
-            border-radius: 10px;
-            padding: 20px 24px;
-            margin: 20px 0;
+            background: #1e293b; color: #e2e8f0; border-radius: 10px;
+            padding: 20px 24px; margin: 20px 0;
         }
         .formula-card .formula-label {
-            font-size: 0.78rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #94a3b8;
-            font-family: 'Segoe UI', sans-serif;
-            display: block;
-            margin-bottom: 10px;
+            font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
+            color: #94a3b8; font-family: 'Segoe UI', sans-serif; display: block; margin-bottom: 10px;
         }
 
+        .warning-box {
+            background: #fff7ed; border: 1px solid #fed7aa;
+            border-radius: 8px; padding: 18px 20px; margin: 20px 0;
+        }
+        .warning-box .warning-label { font-weight: 700; color: #c2410c; display: block; margin-bottom: 6px; }
+
         .dist-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 24px;
-            margin: 24px 0;
-            position: relative;
-            overflow: hidden;
+            border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;
+            margin: 24px 0; position: relative; overflow: hidden;
         }
         .dist-card::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0; bottom: 0;
-            width: 5px;
-            background: var(--primary-color);
-            border-radius: 12px 0 0 12px;
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 5px; background: var(--primary-color); border-radius: 12px 0 0 12px;
         }
         .dist-card.blue::before { background: #2563eb; }
         .dist-card.green::before { background: #10b981; }
@@ -94,103 +63,45 @@
         .dist-card.orange::before { background: #f59e0b; }
 
         .dist-tag {
-            display: inline-block;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            padding: 3px 10px;
-            border-radius: 999px;
-            margin-bottom: 10px;
+            display: inline-block; font-size: 0.72rem; font-weight: 700;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 999px; margin-bottom: 10px;
         }
         .dist-tag.red { background: #fee2e2; color: #991b1b; }
         .dist-tag.blue { background: #dbeafe; color: #1e40af; }
         .dist-tag.green { background: #dcfce7; color: #166534; }
-        .dist-tag.purple { background: #ede9fe; color: #5b21b6; }
-        .dist-tag.orange { background: #fef3c7; color: #92400e; }
 
-        .params-row {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin: 12px 0;
-        }
+        .params-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
         .param-chip {
-            background: #f1f5f9;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 0.88rem;
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            border-radius: 6px; padding: 6px 12px; font-size: 0.88rem;
         }
         .param-chip strong { color: var(--primary-color); }
 
         .analogy-box {
             background: linear-gradient(135deg, #fdf4ff 0%, #faf5ff 100%);
-            border: 1px solid #e9d5ff;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
+            border: 1px solid #e9d5ff; border-radius: 10px; padding: 20px; margin: 20px 0;
         }
-        .analogy-box .analogy-label {
-            font-weight: 700;
-            color: #7c3aed;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .warning-box {
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 8px;
-            padding: 18px 20px;
-            margin: 20px 0;
-        }
-        .warning-box .warning-label {
-            font-weight: 700;
-            color: #c2410c;
-            display: block;
-            margin-bottom: 6px;
-        }
+        .analogy-box .analogy-label { font-weight: 700; color: #7c3aed; display: block; margin-bottom: 8px; }
 
         .decision-tree {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 24px;
-            margin: 20px 0;
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 10px; padding: 24px; margin: 20px 0;
         }
         .decision-tree h4 { margin: 0 0 16px; color: #475569; }
         .decision-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px dashed #e2e8f0;
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 0; border-bottom: 1px dashed #e2e8f0;
         }
         .decision-row:last-child { border-bottom: none; }
         .decision-condition {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 0.9rem;
-            flex: 1;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 6px 12px; font-size: 0.9rem; flex: 1;
         }
         .decision-arrow { color: #94a3b8; font-size: 1.2rem; }
-        .decision-dist {
-            font-weight: 700;
-            color: var(--primary-color);
-            font-size: 0.95rem;
-            min-width: 120px;
-        }
+        .decision-dist { font-weight: 700; color: var(--primary-color); font-size: 0.95rem; min-width: 120px; }
 
-        .chart-caption {
-            text-align: center;
-            font-size: 0.88rem;
-            color: #64748b;
-            margin-top: -10px;
-            margin-bottom: 20px;
-        }
+        .chart-caption { text-align: center; font-size: 0.88rem; color: #64748b; margin-top: -10px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -198,8 +109,13 @@
     <header>
         <h1>Distribuições de Probabilidade</h1>
         <p class="subtitle">Como modelar o comportamento inteiro de uma variável aleatória</p>
-        <p style="font-size:0.85rem; color:#94a3b8;">📚 Artigo 4c de 8 — Bloco: Fundação Estatística &nbsp;| <a href="probbayes.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4b: Independência e Bayes</a></p>
-        <p style="margin-top:10px;"><a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a></p>
+        <p style="font-size:0.85rem; color:#94a3b8;">
+            📚 Artigo 4c de 8 — Bloco: Fundação Estatística &nbsp;|
+            <a href="probbayes.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4b: Independência e Bayes</a>
+        </p>
+        <p style="margin-top:10px;">
+            <a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a>
+        </p>
     </header>
 
     <!-- HISTÓRIA DE ABERTURA -->
@@ -219,7 +135,7 @@
         <p>Nos artigos anteriores, calculamos probabilidades de eventos específicos: \(P(\text{Atraso}) = 10\%\), \(P(\text{Atraso} \mid \text{Alerta}) = 28\%\). Uma distribuição vai além: ela descreve a probabilidade de <em>todos</em> os resultados possíveis de uma variável aleatória de uma só vez.</p>
 
         <div class="analogy-box">
-            <span class="analogy-label">🧠 Analogia para o vídeo</span>
+            <span class="analogy-label">🧠 Analogia para fixar</span>
             <p>Imagine uma urna com bolas numeradas. A probabilidade de tirar o número 5 é um cálculo pontual. A <strong>distribuição</strong> é a lista completa de todas as bolas e suas probabilidades — o retrato inteiro da urna, não apenas um sorteio.</p>
         </div>
 
@@ -230,8 +146,6 @@
             <p><strong>Variável discreta</strong>: assume valores contáveis (0, 1, 2, 3...). Para cada valor \(k\), faz sentido calcular \(P(X = k)\) diretamente. A soma de todas as probabilidades é 1.</p>
             <p><strong>Variável contínua</strong>: assume valores em um intervalo contínuo (como tempo, peso, temperatura). A probabilidade de um valor <em>exato</em> é sempre zero — \(P(X = 2{,}73184...) = 0\). O que importa é a probabilidade de cair em um <strong>intervalo</strong>: \(P(a \le X \le b)\). Essa probabilidade é a <strong>área sob a curva</strong>.</p>
         </div>
-
-        
     </section>
 
     <!-- SEÇÃO 2 — DISTRIBUIÇÕES DISCRETAS -->
@@ -340,44 +254,11 @@
             <canvas id="discreteChart"></canvas>
         </div>
         <p class="chart-caption">Binomial(n=20, p=0,1) vs. Poisson(λ=2) — ambas com média 2. Para n grande e p pequeno, as formas convergem.</p>
-
-        
     </section>
 
-    <!-- SEÇÃO 3 — TCL -->
+    <!-- SEÇÃO 3 — DISTRIBUIÇÕES CONTÍNUAS -->
     <section>
-        <h2>3. O Teorema Central do Limite: A Ponte para a Normal</h2>
-
-        <p>Antes de falar sobre distribuições contínuas, precisamos entender <em>por que</em> a Normal aparece tanto. A resposta é o <strong>Teorema Central do Limite (TCL)</strong>.</p>
-
-        <div class="formula-card">
-            <span class="formula-label">Teorema Central do Limite</span>
-            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; margin-bottom:8px;">
-                Dada uma população com média μ e variância σ², a distribuição da <strong>média amostral</strong> \(\bar{X}\) de amostras de tamanho n converge para:
-            </div>
-            $$\bar{X} \xrightarrow{d} \mathcal{N}\!\left(\mu,\ \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
-        </div>
-
-        <p>Em palavras: <strong>independentemente de como os dados individuais se distribuem</strong>, se você calcular a média de amostras suficientemente grandes, essa média vai se comportar como uma Normal. Isso vale para dados com distribuição Poisson, Binomial, assimétrica — qualquer uma.</p>
-
-        <div class="step-box">
-            <div class="step-number">n</div>
-            <div class="step-content">
-                <strong>Quão grande é "suficientemente grande"?</strong>
-                Uma regra prática amplamente usada: n ≥ 30. Para distribuições muito assimétricas, pode ser necessário n maior. Para distribuições já próximas da Normal, n menor já funciona.
-            </div>
-        </div>
-
-        <div class="complexity-box">
-            <span class="complexity-title">🔬 Por que o TCL é tão importante?</span>
-            <p>Ele é a base para boa parte da <strong>inferência estatística</strong>: intervalos de confiança, testes de hipótese, comparação de médias entre grupos. Mesmo que os dados originais não sejam normais, a <em>média</em> de amostras grandes se comporta como Normal — e isso permite usar as fórmulas da Normal para fazer inferências.</p>
-            <p>Na FlashLog: os tempos de entrega são assimétricos (muitos rápidos, alguns muito lentos). Mas se você calcular a média de 50 entregas por dia ao longo de meses, essa média diária vai se distribuir normalmente. Isso permite calcular intervalos de confiança para a média.</p>
-        </div>
-    </section>
-
-    <!-- SEÇÃO 4 — DISTRIBUIÇÕES CONTÍNUAS -->
-    <section>
-        <h2>4. Distribuições Contínuas</h2>
+        <h2>3. Distribuições Contínuas</h2>
         <p>Usadas para variáveis de <strong>medição</strong> — tempo, peso, temperatura, distância, retorno financeiro. A probabilidade é sempre calculada como <strong>área sob a curva</strong>.</p>
 
         <!-- NORMAL -->
@@ -489,8 +370,40 @@
             <canvas id="continuousChart"></canvas>
         </div>
         <p class="chart-caption">Normal(μ=0, σ=1), Exponencial(λ=1) e Uniforme(0,1) — três formas completamente diferentes de distribuir probabilidade no contínuo.</p>
+    </section>
 
-        
+    <!-- SEÇÃO 4 — TCL -->
+    <section>
+        <h2>4. O Teorema Central do Limite: A Ponte para a Normal</h2>
+
+        <p>Agora que você conhece a distribuição Normal, podemos entender <em>por que</em> ela aparece tanto. A resposta é o <strong>Teorema Central do Limite (TCL)</strong>.</p>
+
+        <div class="formula-card">
+            <span class="formula-label">Teorema Central do Limite</span>
+            <div style="color:#f1f5f9; font-family:'Segoe UI',sans-serif; margin-bottom:8px;">
+                Dada uma população com média μ e <strong>variância finita</strong> σ², a distribuição da <strong>média amostral</strong> \(\bar{X}\) de amostras de tamanho n converge para:
+            </div>
+            $$\bar{X} \xrightarrow{d} \mathcal{N}\!\left(\mu,\ \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
+            <div style="color:#94a3b8; font-size:0.88rem; margin-top:10px; font-family:'Segoe UI',sans-serif;">
+                Condição necessária: a população deve ter variância finita (σ² < ∞). Distribuições com caudas infinitamente gordas (como a Cauchy) violam o TCL.
+            </div>
+        </div>
+
+        <p>Em palavras: <strong>independentemente de como os dados individuais se distribuem</strong>, se você calcular a média de amostras suficientemente grandes, essa média vai se comportar como uma Normal. Isso vale para dados com distribuição Poisson, Binomial, assimétrica — qualquer uma (desde que tenha variância finita).</p>
+
+        <div class="step-box">
+            <div class="step-number">n</div>
+            <div class="step-content">
+                <strong>Quão grande é "suficientemente grande"?</strong>
+                Uma regra prática amplamente usada: n ≥ 30. Para distribuições muito assimétricas, pode ser necessário n maior. Para distribuições já próximas da Normal, n menor já funciona.
+            </div>
+        </div>
+
+        <div class="complexity-box">
+            <span class="complexity-title">🔬 Por que o TCL é tão importante?</span>
+            <p>Ele é a base para boa parte da <strong>inferência estatística</strong>: intervalos de confiança, testes de hipótese, comparação de médias entre grupos. Mesmo que os dados originais não sejam normais, a <em>média</em> de amostras grandes se comporta como Normal — e isso permite usar as fórmulas da Normal para fazer inferências.</p>
+            <p>Na FlashLog: os tempos de entrega são assimétricos (muitos rápidos, alguns muito lentos). Mas se você calcular a média de 50 entregas por dia ao longo de meses, essa média diária vai se distribuir normalmente. Isso permite calcular intervalos de confiança para a média — tema do artigo de Inferência.</p>
+        </div>
     </section>
 
     <!-- SEÇÃO 5 — ASSIMETRIA E CURTOSE -->
@@ -527,8 +440,6 @@
             </tbody>
         </table>
 
-        
-
         <h3>Curtose (Kurtosis)</h3>
         <p>Mede o peso das <strong>caudas</strong> em relação à Normal. Alta curtose = caudas gordas = maior chance de valores extremos.</p>
 
@@ -550,7 +461,7 @@
         </div>
     </section>
 
-    <!-- SEÇÃO 6 — GUIA PARA ESCOLHER DISTRIBUIÇÃO -->
+    <!-- SEÇÃO 6 — GUIA PARA ESCOLHER -->
     <section>
         <h2>6. Como Escolher uma Distribuição</h2>
         <p>Você não precisa decorar dezenas de distribuições. Comece pelo tipo de variável e pelas características dos seus dados:</p>
@@ -595,6 +506,53 @@
         </div>
     </section>
 
+    <!-- SEÇÃO 7 — FECHAMENTO DO PROBLEMA -->
+    <section>
+        <h2>7. Voltando ao Problema: Mais de 8 Atrasos Amanhã?</h2>
+        <p>Agora temos todas as ferramentas para responder a pergunta de abertura.</p>
+
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>Modelagem</strong>
+                50 entregas, p = 0,10 de atraso cada, independentes. \(X \sim B(50, 0{,}10)\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <strong>Parâmetros</strong>
+                \(E[X] = 50 \times 0{,}10 = 5\) atrasos esperados. \(\sigma = \sqrt{50 \times 0{,}10 \times 0{,}90} \approx 2{,}1\).
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <strong>Cálculo</strong>
+                \(P(X > 8) = 1 - P(X \le 8)\). Usando a distribuição Binomial acumulada:
+                $$P(X > 8) = 1 - \sum_{k=0}^{8} \binom{50}{k} (0{,}10)^k (0{,}90)^{50-k} \approx 1 - 0{,}942 = 0{,}058 = 5{,}8\%$$
+            </div>
+        </div>
+        <div class="step-box">
+            <div class="step-number">4</div>
+            <div class="step-content">
+                <strong>Decisão</strong>
+                Há ~6% de chance de mais de 8 atrasos. A FlashLog pode usar isso para dimensionar o time de contingência: se 5,8% de risco é aceitável, 8 é o limite de alerta. Se querem mais segurança, podem baixar o limiar para 7 (risco ~10%) ou 6 (risco ~17%).
+            </div>
+        </div>
+
+        <div class="example-block">
+            <span class="example-label">Ferramentas usadas neste artigo</span>
+            <ul style="margin:0; padding-left:20px;">
+                <li><strong>Bernoulli</strong> — para modelar cada entrega individual (atrasa ou não).</li>
+                <li><strong>Binomial</strong> — para contar o total de atrasos em 50 entregas.</li>
+                <li><strong>Poisson</strong> — para modelar atrasos por hora quando a taxa é conhecida.</li>
+                <li><strong>Normal</strong> — para modelar tempos de entrega contínuos e aplicar a regra 68-95-99,7.</li>
+                <li><strong>TCL</strong> — para justificar o uso da Normal em médias amostrais, mesmo quando os dados individuais não são normais.</li>
+            </ul>
+        </div>
+    </section>
+
     <!-- RESUMO -->
     <section>
         <div class="highlight-box" style="border-color:#db4a2b; background-color:#eff6ff;">
@@ -603,8 +561,8 @@
                 <li><strong>Distribuição</strong> = retrato completo de uma variável aleatória. Não só um valor, mas todos os valores e suas probabilidades.</li>
                 <li><strong>Discreta vs. contínua</strong>: em discretas, \(P(X=k)\) faz sentido. Em contínuas, apenas \(P(a \le X \le b)\) = área sob a curva.</li>
                 <li><strong>Bernoulli</strong> → 0/1. <strong>Binomial</strong> → n tentativas. <strong>Poisson</strong> → contagem por intervalo.</li>
-                <li><strong>TCL</strong>: médias de amostras grandes convergem para a Normal, qualquer que seja a distribuição original.</li>
                 <li><strong>Normal</strong> → fenômenos somados, erros, médias. <strong>Exponencial</strong> → tempo entre eventos. <strong>Uniforme</strong> → máxima ignorância.</li>
+                <li><strong>TCL</strong>: médias de amostras grandes convergem para a Normal, desde que a variância da população seja finita.</li>
                 <li><strong>Assimetria e curtose</strong> complementam média e variância. Caudas gordas = mais risco de extremos do que a Normal prevê.</li>
                 <li>Toda distribuição é uma aproximação. Valide com histogramas antes de assumir qualquer modelo.</li>
             </ul>
@@ -626,8 +584,6 @@
         <ul>
             <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Capítulos sobre distribuições discretas e contínuas, com exercícios e soluções.</li>
             <li><strong>"Probabilidade: Um Curso Moderno com Aplicações"</strong> — Sheldon Ross. Referência técnica completa para distribuições.</li>
-            
-            
         </ul>
     </section>
 
@@ -665,8 +621,7 @@
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: { legend: { position: 'top' } },
             scales: {
                 x: { title: { display: true, text: 'k (número de eventos)' } },
@@ -696,8 +651,7 @@
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: { legend: { position: 'top' } },
             scales: {
                 x: { title: { display: true, text: 'x' }, ticks: { maxTicksLimit: 12 } },
@@ -748,13 +702,13 @@
             text: "O Teorema Central do Limite afirma que:",
             options: [
                 "Todos os dados coletados em amostras grandes seguem a distribuição Normal.",
-                "A média amostral converge para uma distribuição Normal conforme n cresce, independentemente da distribuição original.",
+                "A média amostral converge para uma distribuição Normal conforme n cresce, desde que a variância da população seja finita.",
                 "A variância amostral é sempre igual à variância populacional.",
                 "Amostras grandes têm média zero.",
                 "Dados com assimetria nunca convergem para a Normal."
             ],
             correct: 1,
-            feedback: "Exato! O TCL não diz que os dados individuais seguem Normal — diz que a MÉDIA de muitas amostras segue Normal. Isso é a base para intervalos de confiança e testes de hipótese."
+            feedback: "Exato! O TCL não diz que os dados individuais seguem Normal — diz que a MÉDIA de muitas amostras segue Normal. A condição é que a população tenha variância finita."
         },
         {
             text: "Atrasos ocorrem a uma taxa de λ=3 por hora (Poisson). Qual distribuição modela o TEMPO entre dois atrasos consecutivos?",
@@ -778,7 +732,7 @@
                 "A distribuição é simétrica em torno da média."
             ],
             correct: 1,
-            feedback: "Exato! Na Exponencial, 'cada momento começa do zero'. Se você espera 10 minutos sem um evento, a probabilidade de esperar mais 10 é a mesma de quando começou. Isso é realista para falhas eletrônicas aleatórias, mas não para processos com desgaste."
+            feedback: "Exato! Na Exponencial, 'cada momento começa do zero'. Se você espera 10 minutos sem um evento, a probabilidade de esperar mais 10 é a mesma de quando começou."
         },
         {
             text: "Uma distribuição com assimetria positiva tem:",
@@ -790,7 +744,7 @@
                 "Variância igual à média."
             ],
             correct: 2,
-            feedback: "Correto! Na assimetria positiva, a cauda se estende para valores altos (direita), puxando a média acima da mediana. Exemplos: renda, preços de imóveis, tempos de espera."
+            feedback: "Correto! Na assimetria positiva, a cauda se estende para valores altos (direita), puxando a média acima da mediana."
         },
         {
             text: "Qual distribuição usar para modelar a nota de um dado (1 a 6) se não há razão para preferir nenhum número?",
@@ -814,69 +768,59 @@
                 "A distribuição é sempre Binomial."
             ],
             correct: 2,
-            feedback: "Exato! Caudas gordas = mais probabilidade nos extremos. Se você modela esses dados com Normal, você subestima o risco de eventos raros mas severos. Muito relevante em finanças e engenharia."
+            feedback: "Exato! Caudas gordas = mais probabilidade nos extremos. Se você modela esses dados com Normal, você subestima o risco de eventos raros mas severos."
         },
         {
-            text: "Qual afirmação sobre escolher uma distribuição é MAIS correta?",
+            text: "Na FlashLog, com 50 entregas e p=0,10, P(X > 8) ≈ 5,8%. Isso significa:",
             options: [
-                "Você deve sempre usar a Normal — ela se aplica a tudo com n grande.",
-                "Toda distribuição é uma aproximação; escolha a que melhor captura as características do fenômeno e valide com os dados.",
-                "A Poisson e a Binomial são intercambiáveis em qualquer situação.",
-                "Só use distribuições teóricas se os dados forem perfeitos.",
-                "O histograma não é necessário se você sabe a média e a variância."
+                "8 atrasos é impossível.",
+                "Há cerca de 6% de chance de um dia com mais de 8 atrasos — útil para dimensionar contingência.",
+                "A Binomial não se aplica nesse caso.",
+                "O TCL foi usado para essa conta.",
+                "A taxa base é 5,8%."
             ],
             correct: 1,
-            feedback: "Exato! Modelos são simplificações úteis, não verdades absolutas. A escolha deve ser guiada pelo tipo de variável, pelo processo gerador de dados, e validada visualmente com histogramas e Q-Q plots."
+            feedback: "Exato! Esse cálculo permite à FlashLog definir limiares de alerta e dimensionar equipes com base em probabilidades concretas."
         }
     ];
 
     function renderQuiz() {
         const root = document.getElementById('quiz-root');
         questions.forEach((q, index) => {
-            const card = document.createElement('div');
-            card.className = 'question-card';
-            const title = document.createElement('span');
-            title.className = 'question-text';
-            title.innerText = `${index + 1}. ${q.text}`;
-            card.appendChild(title);
-            const optionsDiv = document.createElement('div');
-            optionsDiv.className = 'options';
-            const feedbackDiv = document.createElement('div');
-            feedbackDiv.className = 'feedback';
+            const card = document.createElement('div'); card.className = 'question-card';
+            const title = document.createElement('span'); title.className = 'question-text';
+            title.innerText = `${index + 1}. ${q.text}`; card.appendChild(title);
+            const optDiv = document.createElement('div'); optDiv.className = 'options';
+            const fbDiv = document.createElement('div'); fbDiv.className = 'feedback';
             q.options.forEach((opt, i) => {
-                const btn = document.createElement('button');
-                btn.className = 'option-btn';
+                const btn = document.createElement('button'); btn.className = 'option-btn';
                 btn.innerText = opt;
                 btn.onclick = () => {
-                    optionsDiv.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+                    optDiv.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
                     if (i === q.correct) {
                         btn.classList.add('correct');
-                        feedbackDiv.innerText = "✅ " + q.feedback;
-                        feedbackDiv.style.backgroundColor = "#dcfce7";
-                        feedbackDiv.style.color = "#064e3b";
+                        fbDiv.innerText = "✅ " + q.feedback;
+                        fbDiv.style.backgroundColor = "#dcfce7"; fbDiv.style.color = "#064e3b";
                     } else {
                         btn.classList.add('incorrect');
-                        optionsDiv.querySelectorAll('.option-btn')[q.correct].classList.add('correct');
-                        feedbackDiv.innerText = "❌ Incorreto. " + q.feedback;
-                        feedbackDiv.style.backgroundColor = "#fee2e2";
-                        feedbackDiv.style.color = "#7f1d1d";
+                        optDiv.querySelectorAll('.option-btn')[q.correct].classList.add('correct');
+                        fbDiv.innerText = "❌ Incorreto. " + q.feedback;
+                        fbDiv.style.backgroundColor = "#fee2e2"; fbDiv.style.color = "#7f1d1d";
                     }
-                    feedbackDiv.classList.add('show');
+                    fbDiv.classList.add('show');
                 };
-                optionsDiv.appendChild(btn);
+                optDiv.appendChild(btn);
             });
-            card.appendChild(optionsDiv);
-            card.appendChild(feedbackDiv);
-            root.appendChild(card);
+            card.appendChild(optDiv); card.appendChild(fbDiv); root.appendChild(card);
         });
     }
     renderQuiz();
 </script>
 
 <div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
-    <a href="distribuicoes.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
+    <a href="distribuicaodeprob.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
     <span style="color:#94a3b8;"> | </span>
-    <a href="../en/blogs/distribuicoes.html" style="color:#475569;">🇺🇸 EN</a>
+    <a href="../en/blogs/probabilidadedistribuicoes.html" style="color:#475569;">🇺🇸 EN</a>
 </div>
 </body>
 </html>

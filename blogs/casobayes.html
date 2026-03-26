@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caso Bayes — SaúdeCheck</title>
+    <meta name="description" content="Um problema de negócio real para aplicar o Teorema de Bayes: a startup SaúdeCheck e o dilema do teste rápido de dengue.">
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <h1>Caso SaúdeCheck</h1>
+        <p class="subtitle">Um teste rápido, uma decisão cara — e a matemática que decide</p>
+        <p style="font-size:0.85rem; color:#94a3b8;">
+            📚 Problema de Negócio — Bloco: Fundação Estatística &nbsp;|
+            <a href="probbayes.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 6: Teorema de Bayes</a>
+        </p>
+    </header>
+
+    <!-- ═══════════════════════════════════════════════════
+         O CONTEXTO
+         ═══════════════════════════════════════════════════ -->
+    <section>
+        <div class="story-box">
+            <h3>🏥 A Empresa</h3>
+            <p>A <strong>SaúdeCheck</strong> é uma healthtech brasileira que desenvolveu um teste rápido para detecção precoce de dengue — sem laboratório, resultado em 15 minutos, aplicável em UBSs, farmácias e mutirões de saúde. O produto chegou no momento certo: o Brasil registra picos sazonais de dengue todos os anos, e a triagem ágil pode salvar vidas ao direcionar tratamento antes da fase crítica.</p>
+            <p>Mas o time de produto enfrenta um dilema que nenhuma planilha de vendas resolve sozinha:</p>
+            <p style="font-size:1.1rem; font-weight:700; color:#1e293b; font-style:normal; margin:16px 0; padding:16px; background:#fff; border-radius:8px; border-left:4px solid var(--primary-color);">
+                "Quando o teste dá positivo, qual a chance real de que o paciente tem dengue?"
+            </p>
+            <p>Para responder, precisamos de mais do que sensibilidade e especificidade do teste. Precisamos de <strong>Bayes</strong>.</p>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         O PROBLEMA
+         ═══════════════════════════════════════════════════ -->
+    <section>
+        <h2>O Problema de Negócio</h2>
+
+        <p>A SaúdeCheck conduziu triagem em <strong>100.000 pacientes</strong> durante o pico sazonal de dengue em um município brasileiro. O médico que recebe o resultado precisa decidir, na hora:</p>
+
+        <div class="term-grid">
+            <div class="term-card" style="border-left:4px solid #ef4444;">
+                <strong>Falso Positivo → Custo alto</strong>
+                Paciente saudável classificado como dengue: internação desnecessária, medicação inadequada, ansiedade, custo hospitalar, e um leito ocupado por alguém que não precisa.
+            </div>
+            <div class="term-card" style="border-left:4px solid #f59e0b;">
+                <strong>Falso Negativo → Risco alto</strong>
+                Paciente com dengue classificado como saudável: sem acompanhamento, risco de evolução para dengue hemorrágica, retorno tardio ao sistema de saúde — quando já pode ser tarde.
+            </div>
+            <div class="term-card" style="border-left:4px solid #10b981;">
+                <strong>Decisão correta → Valor real</strong>
+                Tratamento imediato para quem precisa, liberação para quem não precisa. O produto só tem valor se o médico souber <em>o quanto confiar</em> no resultado positivo.
+            </div>
+        </div>
+
+        <p>O time de produto precisa responder três perguntas para comunicar o valor real do teste ao mercado médico:</p>
+
+        <ol style="margin-top:8px; padding-left:20px; line-height:2.2;">
+            <li><strong>Qual é a taxa base de dengue na população triada?</strong></li>
+            <li><strong>Dado um teste positivo, qual a probabilidade real de dengue?</strong></li>
+            <li><strong>O teste positivo é suficiente para iniciar tratamento, ou precisa de confirmação?</strong></li>
+        </ol>
+
+        <div class="highlight-box">
+            <span class="highlight-title">💡 Por que esse problema é diferente do FlashLog</span>
+            <p>No caso da FlashLog, a taxa base de atraso era de <strong>10%</strong> — relativamente alta. Aqui, dengue afeta cerca de <strong>5%</strong> da população triada durante o pico. Essa diferença vai mudar radicalmente o valor preditivo do teste — mesmo com desempenho técnico excelente. É o efeito da taxa base em ação.</p>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         OS DADOS
+         ═══════════════════════════════════════════════════ -->
+    <section>
+        <h2>Os Dados do Teste</h2>
+
+        <p>A SaúdeCheck validou o teste em estudo clínico e publicou as seguintes estatísticas técnicas:</p>
+
+        <div class="term-grid">
+            <div class="term-card">
+                <strong>Sensibilidade — \(P(+ \mid \text{Dengue})\)</strong>
+                O teste detecta <strong>90%</strong> dos casos reais de dengue. Em 100 pacientes doentes, 90 testam positivo e 10 escapam.
+            </div>
+            <div class="term-card">
+                <strong>Taxa de falso positivo — \(P(+ \mid \text{Sem Dengue})\)</strong>
+                Em pacientes <em>sem</em> dengue, o teste ainda dispara positivo em <strong>12%</strong> dos casos — por reação cruzada com outras arboviroses ou febre viral inespecífica.
+            </div>
+            <div class="term-card">
+                <strong>Prevalência local — \(P(\text{Dengue})\)</strong>
+                No município e período triados, <strong>5%</strong> da população apresentava dengue ativa — confirmado por PCR independente na amostra de validação.
+            </div>
+        </div>
+
+        <p>Com base nessa prevalência e na base de 100.000 pacientes, os dados reais ficam assim:</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Teste Positivo (+)</th>
+                        <th>Teste Negativo (−)</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Com Dengue</strong></td>
+                        <td>4.500</td>
+                        <td>500</td>
+                        <td>5.000</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sem Dengue</strong></td>
+                        <td>11.400</td>
+                        <td>83.600</td>
+                        <td>95.000</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Total</strong></td>
+                        <td>15.900</td>
+                        <td>84.100</td>
+                        <td>100.000</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="warning-box">
+            <span class="warning-label">⚠️ Antes de calcular: observe a tabela</span>
+            <p>Note que o total de positivos é <strong>15.900</strong>. Desses, apenas <strong>4.500</strong> têm dengue de verdade. Isso já entrega o punch line — mas a matemática de Bayes vai explicar <em>por que</em> isso acontece, mesmo com 90% de sensibilidade.</p>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         AS PERGUNTAS
+         ═══════════════════════════════════════════════════ -->
+    <section>
+        <h2>As Três Perguntas</h2>
+
+        <p>Você tem a tabela. Você tem os dados do teste. Agora resolva:</p>
+
+        <div class="step-box">
+            <div class="step-number">1</div>
+            <div class="step-content">
+                <strong>Pergunta 1 — A taxa base</strong>
+                Qual a probabilidade de um paciente triado ter dengue, antes de qualquer resultado de teste? Calcule \(P(\text{Dengue})\).
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">2</div>
+            <div class="step-content">
+                <strong>Pergunta 2 — O valor preditivo positivo</strong>
+                Dado que o teste deu positivo, qual a probabilidade real de que o paciente tem dengue? Calcule \(P(\text{Dengue} \mid +)\) pelo Teorema de Bayes e verifique pela tabela.
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">3</div>
+            <div class="step-content">
+                <strong>Pergunta 3 — A decisão</strong>
+                O resultado positivo é suficiente para iniciar tratamento imediato, ou o médico deve solicitar confirmação? Considere o custo de falso positivo versus falso negativo na sua argumentação.
+                <div class="example-block" style="margin-top:12px; margin-bottom:0;">
+                    <span class="example-label">Contexto extra</span>
+                    O tratamento profilático para dengue grave custa R$ 800 por paciente. A internação por dengue não tratada custa em média R$ 4.200. Como esses números entram na decisão?
+                </div>
+            </div>
+        </div>
+
+        <div class="step-box">
+            <div class="step-number">★</div>
+            <div class="step-content">
+                <strong>Bônus — O teste negativo</strong>
+                Quando o teste dá negativo, qual a probabilidade de o paciente estar realmente livre de dengue? Calcule \(P(\text{Sem Dengue} \mid -)\) e interprete. O médico pode dar alta com confiança?
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         GABARITO
+         ═══════════════════════════════════════════════════ -->
+    <section>
+        <h2>Gabarito</h2>
+
+        <p style="color:#64748b; font-style:italic;">Tente antes de expandir. Os números são calculados pela tabela e verificados por Bayes.</p>
+
+        <div class="answer-card">
+            <h4>Resposta 1 — Taxa base</h4>
+            <span class="theory-tag">📐 Definição frequentista</span>
+            $$P(\text{Dengue}) = \frac{5.000}{100.000} = 5\%$$
+            <p>Apenas 1 em cada 20 pacientes triados tem dengue de fato. A maioria dos que chegam ao posto de saúde com sintomas vagos não tem a doença — o que vai contaminar o valor preditivo do teste.</p>
+        </div>
+
+        <div class="answer-card">
+            <h4>Resposta 2 — Valor Preditivo Positivo (VPP)</h4>
+            <span class="theory-tag">📐 Teorema de Bayes</span>
+
+            <p><strong>Pela tabela:</strong></p>
+            $$P(\text{Dengue} \mid +) = \frac{4.500}{15.900} \approx 28{,}3\%$$
+
+            <p style="margin-top:12px;"><strong>Verificação por Bayes expandido:</strong></p>
+            $$P(\text{Dengue} \mid +) = \frac{P(+ \mid \text{Dengue}) \cdot P(\text{Dengue})}{P(+ \mid \text{Dengue}) \cdot P(\text{Dengue}) + P(+ \mid \neg\text{Dengue}) \cdot P(\neg\text{Dengue})}$$
+            $$= \frac{0{,}90 \times 0{,}05}{0{,}90 \times 0{,}05 + 0{,}12 \times 0{,}95} = \frac{0{,}045}{0{,}045 + 0{,}114} = \frac{0{,}045}{0{,}159} \approx 28{,}3\% \checkmark$$
+
+            <div class="warning-box" style="margin-top:16px;">
+                <span class="warning-label">⚠️ O resultado contra-intuitivo</span>
+                <p>Com <strong>90% de sensibilidade</strong>, a maioria das pessoas assume que "positivo = dengue". A matemática mostra que, com taxa base de 5%, apenas <strong>28,3%</strong> dos positivos têm dengue de verdade. Mais de <strong>7 em cada 10</strong> positivos são falsos alarmes.</p>
+                <p>Isso não é um defeito do teste — é o efeito implacável da taxa base. Compare com o FlashLog: taxa base de 10% levou a VPP de 28%. Aqui, taxa base de 5% leva ao mesmo VPP de 28% — mas a proporção de falsos positivos no total de alertas é ainda maior.</p>
+            </div>
+        </div>
+
+        <div class="answer-card">
+            <h4>Resposta 3 — A Decisão</h4>
+            <span class="theory-tag">📐 Análise de decisão sob incerteza</span>
+
+            <p>Com VPP de 28,3%, um teste positivo isolado <strong>não deve ser suficiente</strong> para internação ou tratamento agressivo. O raciocínio:</p>
+
+            <div class="term-grid">
+                <div class="term-card" style="border-left:4px solid #ef4444;">
+                    <strong>Custo de agir no falso positivo</strong>
+                    R$ 800 × 11.400 falsos positivos = <strong>R$ 9,12 milhões</strong> em tratamentos desnecessários.
+                </div>
+                <div class="term-card" style="border-left:4px solid #f59e0b;">
+                    <strong>Custo de ignorar o falso negativo</strong>
+                    R$ 4.200 × 500 casos perdidos = <strong>R$ 2,1 milhões</strong> em internações evitáveis.
+                </div>
+            </div>
+
+            <p style="margin-top:16px;"><strong>Recomendação baseada em dados:</strong></p>
+            <ul>
+                <li>Teste positivo → <strong>isolamento imediato + hidratação</strong> (baixo custo, baixo risco) enquanto aguarda confirmação por NS1 ou PCR.</li>
+                <li><strong>Não</strong> iniciar tratamento de dengue grave (corticoides, suporte intensivo) apenas com teste rápido positivo.</li>
+                <li>O verdadeiro valor do teste: <strong>triagem de quem priorizar</strong> na fila de confirmação laboratorial, não substituição do diagnóstico.</li>
+            </ul>
+        </div>
+
+        <div class="answer-card">
+            <h4>Resposta Bônus — Valor Preditivo Negativo (VPN)</h4>
+            <span class="theory-tag">📐 Métricas de qualidade de sinal</span>
+            $$P(\text{Sem Dengue} \mid -) = \frac{83.600}{84.100} \approx 99{,}4\%$$
+            <p>Quando o teste é <strong>negativo</strong>, a probabilidade de o paciente estar realmente livre de dengue é de 99,4%. Aqui o teste brilha: o resultado negativo é extremamente confiável. O médico pode dar alta com tranquilidade — desde que os sintomas sejam compatíveis.</p>
+
+            <div class="highlight-box" style="margin-top:16px;">
+                <span class="highlight-title">💡 A assimetria do sinal</span>
+                <p>O teste da SaúdeCheck é <strong>ótimo para excluir dengue</strong> (VPN 99,4%) mas <strong>fraco para confirmar dengue</strong> (VPP 28,3%). Esse é um perfil típico de teste de triagem: alta sensibilidade para não deixar casos escaparem, custo em falsos positivos. A decisão clínica precisa conhecer essa assimetria.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════
+         CONEXÃO COM TEORIA
+         ═══════════════════════════════════════════════════ -->
+    <section>
+        <div class="highlight-box" style="background:#eff6ff; border-color:#93c5fd;">
+            <span class="highlight-title" style="color:#1d4ed8;">📐 Teoria aplicada neste caso</span>
+            <ul style="margin-top:10px;">
+                <li><strong>Taxa base / Prior:</strong> \(P(\text{Dengue}) = 5\%\) — o ponto de partida antes do teste.</li>
+                <li><strong>Verossimilhança:</strong> \(P(+ \mid \text{Dengue}) = 90\%\) — o quão bem o teste detecta quem tem a doença.</li>
+                <li><strong>Evidência total:</strong> \(P(+) = 15,9\%\) — a frequência base do teste positivo na população.</li>
+                <li><strong>Posterior / VPP:</strong> \(P(\text{Dengue} \mid +) \approx 28,3\%\) — a resposta real que o médico precisa.</li>
+                <li><strong>VPN:</strong> \(P(\neg\text{Dengue} \mid -) \approx 99,4\%\) — confiança no negativo.</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- PRÓXIMO -->
+    <section>
+        <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
+            <span class="complexity-title">📚 Para ir mais fundo</span>
+            <p>Este caso usa exatamente o mesmo arcabouço do <a href="probbayes.html" target="_blank" rel="noopener"><strong>Artigo 6 — Teorema de Bayes</strong></a>. Se os cálculos acima ainda parecem mágica, comece pela teoria e depois volte aqui.</p>
+        </div>
+    </section>
+
+</div>
+
+<div style="position:fixed;left:20px;bottom:20px;z-index:999;background:#fff;border:1px solid #e2e8f0;border-radius:999px;padding:10px 14px;box-shadow:0 8px 20px rgba(0,0,0,0.15);font-weight:600;font-size:0.88rem;">
+    <a href="casobayes.html" style="color:#db4a2b;text-decoration:underline;text-underline-offset:3px;">🇧🇷 PT</a>
+    <span style="color:#94a3b8;"> | </span>
+    <span style="color:#94a3b8;">🇺🇸 EN em breve</span>
+</div>
+</body>
+</html>
