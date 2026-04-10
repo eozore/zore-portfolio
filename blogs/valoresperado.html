@@ -10,70 +10,6 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .step-box {
-            display: flex; gap: 16px; align-items: flex-start;
-            background: #f8fafc; border: 1px solid #e2e8f0;
-            border-radius: 10px; padding: 18px 20px; margin: 14px 0;
-        }
-        .step-number {
-            background: var(--primary-color); color: white; font-weight: 700;
-            font-size: 1rem; min-width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0; margin-top: 2px;
-        }
-        .step-content { flex: 1; }
-        .step-content strong { display: block; margin-bottom: 4px; color: #1e293b; }
-
-        .example-block {
-            background: #f0f9ff; border-left: 4px solid #38bdf8;
-            padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0;
-        }
-        .example-block .example-label {
-            font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
-            text-transform: uppercase; color: #0284c7; display: block; margin-bottom: 8px;
-        }
-
-        .formula-card {
-            background: #1e293b; color: #e2e8f0; border-radius: 10px;
-            padding: 20px 24px; margin: 20px 0;
-        }
-        .formula-card .formula-label {
-            font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
-            color: #94a3b8; font-family: 'Segoe UI', sans-serif; display: block; margin-bottom: 10px;
-        }
-
-        .warning-box {
-            background: #fff7ed; border: 1px solid #fed7aa;
-            border-radius: 8px; padding: 18px 20px; margin: 20px 0;
-        }
-        .warning-box .warning-label { font-weight: 700; color: #c2410c; display: block; margin-bottom: 6px; }
-
-        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
-        @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
-
-        .concept-card {
-            border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;
-            position: relative; overflow: hidden;
-        }
-        .concept-card::before {
-            content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-            width: 4px; background: var(--primary-color);
-        }
-        .concept-card.blue::before { background: #2563eb; }
-        .concept-card h4 { margin: 0 0 8px; font-size: 1rem; color: #1e293b; }
-        .concept-card p { font-size: 0.9rem; color: #475569; margin: 0; line-height: 1.6; }
-
-        .prop-row {
-            display: flex; gap: 12px; align-items: baseline;
-            padding: 12px 0; border-bottom: 1px dashed #e2e8f0;
-        }
-        .prop-row:last-child { border-bottom: none; }
-        .prop-formula { font-weight: 600; color: #db4a2b; min-width: 200px; font-family: serif; font-size: 1rem; }
-        .prop-desc { font-size: 0.9rem; color: #475569; }
-
-        .chart-caption { text-align: center; font-size: 0.88rem; color: #64748b; margin-top: -10px; margin-bottom: 20px; }
-    </style>
 </head>
 <body>
 <div class="container">
@@ -82,8 +18,8 @@
         <h1>Valor Esperado e Variância</h1>
         <p class="subtitle">Os dois números que resumem qualquer distribuição de probabilidade</p>
         <p style="font-size:0.85rem; color:#94a3b8;">
-            📚 Artigo 4b de 8 — Bloco: Fundação Estatística &nbsp;|
-            <a href="teoriadeprob.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 4a: Probabilidade</a>
+            📚 Artigo 3 de 25 — Bloco: Fundação Estatística &nbsp;|
+            <a href="estatisticabasica.html" target="_blank" rel="noopener" style="color:#94a3b8;">← Artigo 2: Estatísticas Básicas</a>
         </p>
         <p style="margin-top:10px;">
             <a href="https://www.youtube.com/@eozore" target="_blank" rel="noopener" style="color:#db4a2b; font-weight:600;">▶ Ver no YouTube</a>

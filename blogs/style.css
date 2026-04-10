@@ -262,3 +262,49 @@ table tbody tr { border-bottom: 1px solid #ddd; }
     .term-grid { grid-template-columns: 1fr; }
     .bayes-flow { flex-direction: column; }
 }
+
+/* ─── Two-column layout ───────────────────────────────────── */
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+@media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ─── Concept cards (valoresperado, inferencia) ───────────── */
+
+.concept-card {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;
+    position: relative; overflow: hidden;
+}
+.concept-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px; background: var(--primary-color);
+}
+.concept-card.blue::before { background: #2563eb; }
+.concept-card.green::before { background: #10b981; }
+.concept-card h4 { margin: 0 0 8px; font-size: 1rem; color: #1e293b; }
+.concept-card p { font-size: 0.9rem; color: #475569; margin: 0; line-height: 1.6; }
+
+/* ─── Property rows (valoresperado) ───────────────────────── */
+
+.prop-row {
+    display: flex; gap: 12px; align-items: baseline;
+    padding: 12px 0; border-bottom: 1px dashed #e2e8f0;
+}
+.prop-row:last-child { border-bottom: none; }
+.prop-formula { font-weight: 600; color: #db4a2b; min-width: 200px; font-family: serif; font-size: 1rem; }
+.prop-desc { font-size: 0.9rem; color: #475569; }
+
+/* ─── Metric grid (inferencia) ────────────────────────────── */
+
+.metric-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px; margin: 24px 0;
+}
+.metric-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 18px; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+.metric-card strong { display: block; color: #1e293b; margin-bottom: 8px; }
+
+/* ─── Chart caption ───────────────────────────────────────── */
+
+.chart-caption { text-align: center; font-size: 0.88rem; color: #64748b; margin-top: -10px; margin-bottom: 20px; }
