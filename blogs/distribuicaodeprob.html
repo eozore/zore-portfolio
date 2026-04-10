@@ -108,7 +108,7 @@
             <div class="formula-card">
                 <span class="formula-label">Bernoulli(p)</span>
                 <div style="margin-top:4px;">
-                    $P(X = k) = p^k (1-p)^{1-k}, \quad k \in \{0, 1\}$
+                    $$P(X = k) = p^k (1-p)^{1-k}, \quad k \in \{0, 1\}$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     Só dois resultados possíveis. \(p\) é a chance de sucesso; \(1-p\) é a chance de fracasso.
@@ -154,7 +154,7 @@
             <div class="formula-card">
                 <span class="formula-label">Binomial(n, p)</span>
                 <div style="margin-top:4px;">
-                    $P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}, \quad k = 0, 1, \ldots, n$
+                    $$P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}, \quad k = 0, 1, \ldots, n$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     O coeficiente \(\binom{n}{k} = \frac{n!}{k!(n-k)!}\) conta de quantas formas \(k\) sucessos podem se arranjar em \(n\) tentativas.
@@ -201,7 +201,7 @@
                 <div class="step-number">3</div>
                 <div class="step-content">
                     <strong>A pergunta: P(X > 40) = ?</strong>
-                    $P(X > 40) = 1 - P(X \le 40) = 1 - \sum_{k=0}^{40} \binom{200}{k} (0{,}159)^k (0{,}841)^{200-k} \approx 1 - 0{,}950 = 5{,}0\%$
+                    $$P(X > 40) = 1 - P(X \le 40) = 1 - \sum_{k=0}^{40} \binom{200}{k} (0{,}159)^k (0{,}841)^{200-k} \approx 1 - 0{,}950 = 5{,}0\%$$
                 </div>
             </div>
             <div class="step-box">
@@ -235,7 +235,7 @@
             <div class="formula-card">
                 <span class="formula-label">Poisson(λ)</span>
                 <div style="margin-top:4px;">
-                    $P(X = k) = \frac{e^{-\lambda} \lambda^k}{k!}, \quad k = 0, 1, 2, \ldots$
+                    $$P(X = k) = \frac{e^{-\lambda} \lambda^k}{k!}, \quad k = 0, 1, 2, \ldots$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     \(\lambda\) (lambda) é a taxa média de eventos no intervalo. \(e \approx 2{,}718\) é o número de Euler.
@@ -272,7 +272,7 @@
                     <div class="step-number">2</div>
                     <div class="step-content">
                         <strong>Cálculo</strong>
-                        $P(X = 0) = \frac{e^{-3} \cdot 3^0}{0!} = e^{-3} \approx 0{,}050 = 5{,}0\%$
+                        $$P(X = 0) = \frac{e^{-3} \cdot 3^0}{0!} = e^{-3} \approx 0{,}050 = 5{,}0\%$$
                     </div>
                 </div>
                 <div class="step-box">
@@ -326,7 +326,7 @@
             <div class="formula-card">
                 <span class="formula-label">Normal(μ, σ²) — função densidade</span>
                 <div style="margin-top:4px;">
-                    $f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\left(-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2\right)$
+                    $$f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\left(-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2\right)$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     \(\mu\) é o centro da curva (média). \(\sigma\) é a largura (desvio padrão). A área total sob a curva é sempre 1.
@@ -384,7 +384,7 @@
             <div class="formula-card">
                 <span class="formula-label">Z-score — quantos desvios da média</span>
                 <div style="margin-top:4px;">
-                    $Z = \frac{X - \mu}{\sigma}$
+                    $$Z = \frac{X - \mu}{\sigma}$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     Converte qualquer Normal para a Normal Padrão \(\mathcal{N}(0, 1)\). Permite comparar valores em escalas diferentes e usar tabelas padronizadas.
@@ -399,7 +399,7 @@
                     <div class="step-number">1</div>
                     <div class="step-content">
                         <strong>Padronizar</strong>
-                        $Z = \frac{20 - 15}{3} = 1{,}67$
+                        $$Z = \frac{20 - 15}{3} = 1{,}67$$
                     </div>
                 </div>
                 <div class="step-box">
@@ -434,7 +434,7 @@
             <div class="formula-card">
                 <span class="formula-label">Exponencial(λ) — função densidade</span>
                 <div style="margin-top:4px;">
-                    $f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$
+                    $$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     A acumulada tem forma fechada: \(P(X \le t) = 1 - e^{-\lambda t}\). Isso facilita muito os cálculos.
@@ -471,7 +471,7 @@
                     <div class="step-number">2</div>
                     <div class="step-content">
                         <strong>Chance de passar 30 min sem positivo</strong>
-                        $P(X > 0{,}5) = e^{-3 \times 0{,}5} = e^{-1{,}5} \approx 22{,}3\%$
+                        $$P(X > 0{,}5) = e^{-3 \times 0{,}5} = e^{-1{,}5} \approx 22{,}3\%$$
                     </div>
                 </div>
             </div>
@@ -479,7 +479,7 @@
             <div class="complexity-box">
                 <span class="complexity-title">🔬 A propriedade de ausência de memória</span>
                 <p>A Exponencial tem uma propriedade única e contraintuitiva: o tempo já esperado não influencia o tempo restante.</p>
-                $P(X > s + t \mid X > s) = P(X > t)$
+                $$P(X > s + t \mid X > s) = P(X > t)$$
                 <p>Se já faz 20 minutos desde o último positivo, a chance de passar mais 20 minutos sem outro é a mesma de quando começou. O "histórico" não importa — cada momento começa do zero.</p>
                 <p style="margin-top:8px;"><strong>Quando não usar:</strong> Se o processo tem "memória" (desgaste, fadiga, acúmulo), a Exponencial não é adequada. Use Weibull ou Gamma.</p>
             </div>
@@ -499,7 +499,7 @@
             <div class="formula-card">
                 <span class="formula-label">Uniforme(a, b)</span>
                 <div style="margin-top:4px;">
-                    $f(x) = \frac{1}{b-a}, \quad a \leq x \leq b$
+                    $$f(x) = \frac{1}{b-a}, \quad a \leq x \leq b$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     Todos os valores no intervalo \([a, b]\) são igualmente prováveis. É a distribuição de máxima ignorância.
@@ -555,7 +555,7 @@
                     Dada uma população com média \(\mu\) e variância finita \(\sigma^2\), a distribuição da média amostral \(\bar{X}\) de amostras de tamanho \(n\) converge para:
                 </div>
                 <div style="margin-top:4px;">
-                    $\bar{X} \xrightarrow{d} \mathcal{N}\!\left(\mu,\ \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$
+                    $$\bar{X} \xrightarrow{d} \mathcal{N}\!\left(\mu,\ \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
                     Condição necessária: a população deve ter variância finita (\(\sigma^2 < \infty\)). Distribuições com caudas infinitamente gordas (como a Cauchy) violam o TCL.
