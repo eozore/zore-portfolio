@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Distribuições de Probabilidade — O Retrato Completo da Incerteza</title>
     <meta name="description"
-        content="Bernoulli, Binomial, Poisson, Normal, Exponencial e Uniforme — com fórmulas, gráficos interativos e um guia prático para escolher a distribuição certa, aplicados ao caso da SaúdeCheck.">
+        content="Binomial, Poisson, Normal e Exponencial — fórmulas, gráficos interativos e um guia prático para escolher a distribuição certa, aplicados a um caso real de previsão de receita.">
     <link rel="alternate" href="distribuicaodeprob.html" hreflang="pt-BR">
     <link rel="alternate" href="../en/blogs/probabilidadedistribuicoes.html" hreflang="en">
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -31,125 +31,59 @@
         </header>
 
         <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 0 — O PROBLEMA
+         PARTE 1 — O PROBLEMA
          ═══════════════════════════════════════════════════ -->
         <section>
             <div class="story-box">
-                <h3>🏥 O Problema de Negócio</h3>
-                <p>A <strong>SaúdeCheck</strong> resolveu o problema do infectologista: o teste rápido de dengue tem VPP de 28% e VPN de 99,4%. A estratégia ficou clara — usar o teste como <strong>triagem</strong>, não como confirmação.</p>
-                <p>Mas agora o time de operações trouxe uma nova pergunta. A SaúdeCheck vai distribuir 200 kits para um posto de saúde durante o pico sazonal. Cada kit custa R$12 e o posto atende ~200 pacientes por dia. O gerente de operações precisa responder:</p>
+                <h3>💰 O Problema de Negócio</h3>
+                <p>A <strong>NovaPay</strong> é uma fintech de pagamentos que processa transações de pequenos lojistas. A cada transação aprovada, cobra uma taxa fixa de R$1,50. O time financeiro precisa projetar a receita do próximo mês para fechar o orçamento.</p>
+                <p>O histórico mostra que cada lojista faz em média 120 transações por mês, e a NovaPay tem 300 lojistas ativos. Mas nem toda transação é aprovada — a taxa de aprovação é de 82%. O CFO fez a pergunta que travou a reunião:</p>
                 <p style="font-size:1.1rem; font-weight:700; color:#1e293b; font-style:normal; margin:20px 0; padding:16px; background:#fff; border-radius:8px; border-left:4px solid var(--primary-color);">
-                    "Se 5% dos pacientes têm dengue e o teste tem 12% de falso positivo, quantos kits vão dar positivo amanhã? Qual a chance de precisarmos de mais de 40 encaminhamentos para confirmação?"
+                    "Qual a chance de a receita mensal ficar abaixo de R$40.000? E qual o intervalo que cobre 95% dos cenários?"
                 </p>
-                <p>Essa pergunta não se resolve com uma probabilidade pontual. Ela exige saber o <strong>comportamento completo</strong> da variável "número de positivos" — todos os valores possíveis e suas chances. Isso é uma <strong>distribuição de probabilidade</strong>.</p>
+                <p>Essa pergunta não se resolve com uma média. Ela exige saber o <strong>comportamento completo</strong> da variável "receita mensal" — todos os valores possíveis e suas chances. Isso é uma distribuição de probabilidade. Vamos primeiro entender a teoria e depois voltar para resolver o problema da NovaPay.</p>
             </div>
         </section>
 
         <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 1 — O QUE É UMA DISTRIBUIÇÃO
+         PARTE 2 — TEORIA: O QUE É UMA DISTRIBUIÇÃO
          ═══════════════════════════════════════════════════ -->
         <section>
             <h2>1. O Que É uma Distribuição de Probabilidade</h2>
 
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                No artigo anterior, calculamos \(P(\text{Dengue} \mid +) = 28{,}3\%\) — uma probabilidade pontual para um único paciente. Agora a SaúdeCheck precisa modelar o que acontece com <strong>200 pacientes de uma vez</strong>. Para isso, precisamos de uma função que descreva todas as possibilidades — não só uma.
-            </div>
+            <p>Uma distribuição de probabilidade é uma <strong>função que atribui uma probabilidade a cada resultado possível</strong> de uma variável aleatória. Em vez de responder "qual a chance de X?", ela responde "qual a chance de cada valor que X pode assumir?" — de uma vez só.</p>
 
-            <p>Nos artigos anteriores, trabalhamos com probabilidades de eventos isolados: \(P(\text{Atraso}) = 10\%\), \(P(\text{Dengue} \mid +) = 28\%\). Uma distribuição vai além: ela descreve a probabilidade de <em>todos</em> os resultados possíveis de uma variável aleatória de uma só vez.</p>
+            <p>Pense assim: uma probabilidade pontual é uma foto. Uma distribuição é o filme inteiro.</p>
 
             <div class="term-grid">
                 <div class="term-card">
                     <strong>Probabilidade pontual</strong>
-                    "Qual a chance de exatamente 30 positivos amanhã?" — um número.
+                    "Qual a chance de exatamente 100 aprovações?" — uma resposta.
                 </div>
                 <div class="term-card">
                     <strong>Distribuição</strong>
-                    "Qual a chance de 0, 1, 2, ..., 200 positivos?" — o retrato completo. Inclui todas as probabilidades pontuais de uma vez.
+                    "Qual a chance de 0, 1, 2, ..., 120 aprovações?" — todas as respostas ao mesmo tempo. O mapa completo da incerteza.
                 </div>
             </div>
 
-            <h3>A divisão fundamental: discreta vs. contínua</h3>
-
-            <div class="term-grid">
-                <div class="term-card" style="border-left: 4px solid #2563eb;">
-                    <strong>Variável discreta</strong>
-                    Assume valores contáveis: 0, 1, 2, 3... Para cada valor \(k\), faz sentido calcular \(P(X = k)\) diretamente. A soma de todas as probabilidades é 1.
-                    <p style="margin-top:8px; font-size:0.88rem; color:#64748b;">Exemplo: número de testes positivos em um dia.</p>
-                </div>
-                <div class="term-card" style="border-left: 4px solid #db4a2b;">
-                    <strong>Variável contínua</strong>
-                    Assume valores em um intervalo: tempo, peso, temperatura. A probabilidade de um valor <em>exato</em> é sempre zero — \(P(X = 2{,}73184...) = 0\). O que importa é a probabilidade de cair em um <strong>intervalo</strong>: \(P(a \le X \le b)\) = área sob a curva.
-                    <p style="margin-top:8px; font-size:0.88rem; color:#64748b;">Exemplo: tempo até o resultado do teste sair.</p>
-                </div>
-            </div>
-
-            <div class="highlight-box">
-                <span class="highlight-title">💡 A regra de ouro</span>
-                <p>Se você pode <strong>contar</strong> os resultados → discreta. Se você precisa <strong>medir</strong> → contínua. Essa distinção determina qual família de distribuições usar e como calcular probabilidades.</p>
-            </div>
+            <h3>Para que serve</h3>
+            <p>Com uma distribuição, você responde qualquer pergunta sobre a variável:</p>
+            <ul>
+                <li>Qual o valor mais provável? → o <strong>pico</strong> da distribuição.</li>
+                <li>Qual a chance de ficar abaixo de um limite? → a <strong>área acumulada</strong> até aquele ponto.</li>
+                <li>Qual o intervalo que cobre 95% dos cenários? → os limites que deixam 2,5% de cada lado.</li>
+                <li>Quão espalhados são os resultados? → a <strong>largura</strong> (variância).</li>
+            </ul>
+            
         </section>
 
         <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 2 — BERNOULLI
+         PARTE 3 — AS 4 DISTRIBUIÇÕES EM DETALHE
          ═══════════════════════════════════════════════════ -->
         <section>
-            <h2>2. Bernoulli — O Átomo</h2>
+            <h2>2. Binomial — Contando Sucessos</h2>
 
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                Cada paciente que chega ao posto é um experimento: o teste dá positivo ou não. Antes de contar quantos positivos teremos em 200 pacientes, precisamos modelar o que acontece com <strong>um único paciente</strong>. Esse é o papel da Bernoulli.
-            </div>
-
-            <p>A distribuição mais simples possível: <strong>um único experimento com dois resultados</strong> — sucesso (1) ou fracasso (0). É o átomo de todas as distribuições discretas.</p>
-
-            <div class="formula-card">
-                <span class="formula-label">Bernoulli(p)</span>
-                <div style="margin-top:4px;">
-                    $$P(X = k) = p^k (1-p)^{1-k}, \quad k \in \{0, 1\}$$
-                </div>
-                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    Só dois resultados possíveis. \(p\) é a chance de sucesso; \(1-p\) é a chance de fracasso.
-                </div>
-            </div>
-
-            <div class="term-grid" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="term-card">
-                    <strong>Parâmetro</strong>
-                    \(p\) = P(sucesso)
-                </div>
-                <div class="term-card">
-                    <strong>Valor Esperado</strong>
-                    \(E[X] = p\)
-                </div>
-                <div class="term-card">
-                    <strong>Variância</strong>
-                    \(Var(X) = p(1-p)\)
-                </div>
-            </div>
-
-            <div class="example-block">
-                <span class="example-label">Aplicação — SaúdeCheck</span>
-                Sabemos que a chance de um teste dar positivo (verdadeiro ou falso positivo) é \(P(+) = 15{,}9\%\) — calculamos isso no artigo anterior usando a Lei da Probabilidade Total. Então, para um único paciente:
-                <p style="margin-top:8px;">\(X \sim \text{Bernoulli}(0{,}159)\). \(E[X] = 0{,}159\). \(Var(X) = 0{,}159 \times 0{,}841 = 0{,}134\).</p>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 3 — BINOMIAL
-         ═══════════════════════════════════════════════════ -->
-        <section>
-            <h2>3. Binomial — Repetindo o Experimento</h2>
-
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                O posto atende 200 pacientes. Cada um é uma Bernoulli independente com \(p = 0{,}159\). A pergunta do gerente — "quantos positivos amanhã?" — é exatamente o que a Binomial responde: o número total de sucessos em \(n\) tentativas independentes.
-            </div>
-
-            <p>O que acontece quando você <strong>repete a Bernoulli \(n\) vezes de forma independente</strong> e conta o total de sucessos? Isso é a Binomial.</p>
+            <p>Modela o <strong>número de sucessos em \(n\) tentativas independentes</strong>, cada uma com probabilidade \(p\) de sucesso. É a generalização natural de repetir uma Bernoulli várias vezes.</p>
 
             <div class="formula-card">
                 <span class="formula-label">Binomial(n, p)</span>
@@ -157,80 +91,32 @@
                     $$P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}, \quad k = 0, 1, \ldots, n$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    O coeficiente \(\binom{n}{k} = \frac{n!}{k!(n-k)!}\) conta de quantas formas \(k\) sucessos podem se arranjar em \(n\) tentativas.
+                    \(\binom{n}{k} = \frac{n!}{k!(n-k)!}\) conta de quantas formas \(k\) sucessos podem se arranjar em \(n\) tentativas.
                 </div>
             </div>
 
             <div class="term-grid" style="grid-template-columns: repeat(4, 1fr);">
-                <div class="term-card">
-                    <strong>Parâmetros</strong>
-                    \(n\) = tentativas<br>\(p\) = P(sucesso)
-                </div>
-                <div class="term-card">
-                    <strong>Valor Esperado</strong>
-                    \(E[X] = np\)
-                </div>
-                <div class="term-card">
-                    <strong>Variância</strong>
-                    \(Var(X) = np(1-p)\)
-                </div>
-                <div class="term-card">
-                    <strong>Desvio Padrão</strong>
-                    \(\sigma = \sqrt{np(1-p)}\)
-                </div>
+                <div class="term-card"><strong>Parâmetros</strong> \(n\) = tentativas<br>\(p\) = P(sucesso)</div>
+                <div class="term-card"><strong>E[X]</strong> \(np\)</div>
+                <div class="term-card"><strong>Var(X)</strong> \(np(1-p)\)</div>
+                <div class="term-card"><strong>Quando usar</strong> Número de sucessos em tentativas fixas e independentes</div>
             </div>
 
-            <h3>Passo a passo — respondendo o gerente</h3>
-
-            <div class="step-box">
-                <div class="step-number">1</div>
-                <div class="step-content">
-                    <strong>Modelagem</strong>
-                    200 pacientes, cada um com \(p = 0{,}159\) de testar positivo, independentes. \(X \sim B(200,\ 0{,}159)\).
-                </div>
+            <div class="chart-container">
+                <canvas id="binomialChart"></canvas>
             </div>
-            <div class="step-box">
-                <div class="step-number">2</div>
-                <div class="step-content">
-                    <strong>Parâmetros</strong>
-                    \(E[X] = 200 \times 0{,}159 = 31{,}8\) positivos esperados.<br>
-                    \(\sigma = \sqrt{200 \times 0{,}159 \times 0{,}841} = \sqrt{26{,}7} \approx 5{,}2\).
-                </div>
-            </div>
-            <div class="step-box">
-                <div class="step-number">3</div>
-                <div class="step-content">
-                    <strong>A pergunta: P(X > 40) = ?</strong>
-                    $$P(X > 40) = 1 - P(X \le 40) = 1 - \sum_{k=0}^{40} \binom{200}{k} (0{,}159)^k (0{,}841)^{200-k} \approx 1 - 0{,}950 = 5{,}0\%$$
-                </div>
-            </div>
-            <div class="step-box">
-                <div class="step-number">4</div>
-                <div class="step-content">
-                    <strong>Decisão</strong>
-                    Há ~5% de chance de mais de 40 positivos. O gerente pode dimensionar a capacidade de encaminhamento: se 5% de risco é aceitável, 40 é o limite. Se quer mais margem, planeja para 45 (risco < 1%).
-                </div>
-            </div>
+            <p class="chart-caption">Binomial com n=20 para diferentes valores de p. Note como p desloca o pico e a simetria.</p>
 
             <div class="warning-box">
                 <span class="warning-label">⚠️ Premissa crítica: independência</span>
-                <p>A Binomial exige que cada teste seja <strong>independente</strong>. Se houver um lote defeituoso de kits que aumenta a taxa de falso positivo em cadeia, a Binomial subestima a variabilidade real. Sempre questione se a premissa faz sentido para o seu problema.</p>
+                <p>A Binomial exige que cada tentativa seja <strong>independente</strong>. Se o resultado de uma afeta a próxima (falha em cadeia, contágio), a Binomial subestima a variabilidade real.</p>
             </div>
         </section>
 
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 4 — POISSON
-         ═══════════════════════════════════════════════════ -->
         <section>
-            <h2>4. Poisson — Contando Eventos no Tempo</h2>
+            <h2>3. Poisson — Eventos no Tempo</h2>
 
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                O posto de saúde não recebe todos os 200 pacientes de uma vez — eles chegam ao longo do dia. O coordenador quer saber: <em>"Se recebemos em média 3 casos positivos por hora, qual a chance de termos 0 positivos na próxima hora?"</em> Quando o foco muda de "tentativas fixas" para "taxa por intervalo", a Poisson entra em cena.
-            </div>
-
-            <p>A Poisson modela o <strong>número de eventos em um intervalo fixo</strong> (por hora, por dia, por quilômetro) quando os eventos ocorrem de forma aleatória e a uma <em>taxa média</em> constante.</p>
+            <p>Modela o <strong>número de eventos em um intervalo fixo</strong> (por hora, por dia, por km) quando os eventos ocorrem de forma aleatória a uma taxa média constante \(\lambda\).</p>
 
             <div class="formula-card">
                 <span class="formula-label">Poisson(λ)</span>
@@ -238,316 +124,221 @@
                     $$P(X = k) = \frac{e^{-\lambda} \lambda^k}{k!}, \quad k = 0, 1, 2, \ldots$$
                 </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    \(\lambda\) (lambda) é a taxa média de eventos no intervalo. \(e \approx 2{,}718\) é o número de Euler.
+                    \(\lambda\) é a taxa média de eventos no intervalo. \(e \approx 2{,}718\).
                 </div>
             </div>
 
-            <div class="term-grid" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="term-card">
-                    <strong>Parâmetro</strong>
-                    \(\lambda\) = taxa média
-                </div>
-                <div class="term-card">
-                    <strong>Valor Esperado</strong>
-                    \(E[X] = \lambda\)
-                </div>
-                <div class="term-card">
-                    <strong>Variância</strong>
-                    \(Var(X) = \lambda\) <em>(igual à média)</em>
-                </div>
-            </div>
-
-            <div class="answer-card">
-                <h4>Pergunta do coordenador: P(0 positivos na próxima hora) = ?</h4>
-                <span class="theory-tag">📐 Usa: Poisson com λ = 3</span>
-
-                <div class="step-box">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <strong>Modelagem</strong>
-                        Positivos chegam a uma taxa média de 3 por hora. \(X \sim \text{Poisson}(3)\).
-                    </div>
-                </div>
-                <div class="step-box">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <strong>Cálculo</strong>
-                        $$P(X = 0) = \frac{e^{-3} \cdot 3^0}{0!} = e^{-3} \approx 0{,}050 = 5{,}0\%$$
-                    </div>
-                </div>
-                <div class="step-box">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <strong>Interpretação</strong>
-                        Apenas 5% de chance de uma hora inteira sem nenhum positivo. O coordenador não pode contar com "horas tranquilas" para compensar picos.
-                    </div>
-                </div>
-            </div>
-
-            <div class="highlight-box">
-                <span class="highlight-title">💡 Poisson como limite da Binomial</span>
-                <p>Quando \(n\) é muito grande e \(p\) é muito pequeno (eventos raros), a Binomial converge para a Poisson com \(\lambda = np\). Na SaúdeCheck: se o posto atendesse 10.000 pacientes com \(p = 0{,}0005\) de reação adversa ao kit, \(X \sim \text{Poisson}(5)\) seria mais prático que \(B(10.000,\ 0{,}0005)\).</p>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 5 — GRÁFICO DISCRETAS
-         ═══════════════════════════════════════════════════ -->
-        <section>
-            <h2>5. Visualizando as Discretas</h2>
-
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                O gráfico abaixo compara a Binomial (200 pacientes, p=0,159) com a Poisson (λ=31,8). Quando \(n\) é grande, as duas formas convergem — o que justifica usar a Poisson como aproximação rápida em cenários de larga escala.
+            <div class="term-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="term-card"><strong>Parâmetro</strong> \(\lambda\) = taxa média</div>
+                <div class="term-card"><strong>E[X]</strong> \(\lambda\)</div>
+                <div class="term-card"><strong>Var(X)</strong> \(\lambda\) <em>(= média)</em></div>
+                <div class="term-card"><strong>Quando usar</strong> Contagem de eventos por intervalo, taxa constante</div>
             </div>
 
             <div class="chart-container">
-                <canvas id="discreteChart"></canvas>
+                <canvas id="poissonChart"></canvas>
             </div>
-            <p style="text-align:center; font-size:0.88rem; color:#64748b; margin-top:-10px; margin-bottom:20px;">
-                Binomial(n=200, p=0,159) vs. Poisson(λ=31,8) — ambas com média ≈ 32. Para n grande, as formas convergem.
-            </p>
+            <p class="chart-caption">Poisson para diferentes valores de λ. Conforme λ cresce, a distribuição se aproxima de uma Normal.</p>
+
+            <div class="highlight-box">
+                <span class="highlight-title">💡 Poisson como limite da Binomial</span>
+                <p>Quando \(n\) é grande e \(p\) é pequeno (eventos raros), \(B(n, p) \approx \text{Poisson}(np)\). É mais prático calcular com Poisson nesses casos.</p>
+            </div>
         </section>
 
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 6 — NORMAL
-         ═══════════════════════════════════════════════════ -->
         <section>
-            <h2>6. Normal — A Curva que Aparece em Todo Lugar</h2>
+            <h2>4. Normal — A Curva do Sino</h2>
 
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                O teste rápido da SaúdeCheck leva em média 15 minutos para dar resultado, com variação de ±3 minutos. O posto precisa estimar quanto tempo reservar por paciente. Se os tempos seguem uma Normal, a regra 68-95-99,7 responde isso sem conta nenhuma.
-            </div>
-
-            <p>A distribuição mais famosa de todas. Simétrica em torno da média, com formato de "sino". Aparece naturalmente quando um valor é a <strong>soma de muitos fatores pequenos e independentes</strong> — e o Teorema Central do Limite (seção 8) explica por quê.</p>
+            <p>A distribuição mais importante da estatística. Simétrica em torno da média, com formato de sino. Aparece naturalmente quando um valor é a <strong>soma de muitos fatores pequenos e independentes</strong> — o Teorema Central do Limite (seção 7) explica por quê.</p>
 
             <div class="formula-card">
                 <span class="formula-label">Normal(μ, σ²) — função densidade</span>
                 <div style="margin-top:4px;">
                     $$f(x) = \frac{1}{\sigma\sqrt{2\pi}} \exp\!\left(-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2\right)$$
                 </div>
+            </div>
+
+            <div class="term-grid" style="grid-template-columns: repeat(4, 1fr);">
+                <div class="term-card"><strong>Parâmetros</strong> \(\mu\) = média<br>\(\sigma\) = desvio padrão</div>
+                <div class="term-card"><strong>E[X]</strong> \(\mu\)</div>
+                <div class="term-card"><strong>Var(X)</strong> \(\sigma^2\)</div>
+                <div class="term-card"><strong>Quando usar</strong> Somas de fatores independentes, médias amostrais, erros de medição</div>
+            </div>
+
+            <h3>A Regra Empírica (68-95-99,7)</h3>
+            <div class="table-wrap">
+                <table class="compare-table">
+                    <thead><tr><th>Intervalo</th><th>Proporção</th><th>Interpretação</th></tr></thead>
+                    <tbody>
+                        <tr><td>\(\mu \pm 1\sigma\)</td><td>≈ 68%</td><td>A maioria dos dados está a 1 desvio da média</td></tr>
+                        <tr><td>\(\mu \pm 2\sigma\)</td><td>≈ 95%</td><td>Quase tudo está a 2 desvios da média</td></tr>
+                        <tr><td>\(\mu \pm 3\sigma\)</td><td>≈ 99,7%</td><td>Valores além de 3σ são muito raros</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Z-score — padronização</h3>
+            <div class="formula-card">
+                <span class="formula-label">Z-score</span>
+                <div style="margin-top:4px;">
+                    $$Z = \frac{X - \mu}{\sigma}$$
+                </div>
                 <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    \(\mu\) é o centro da curva (média). \(\sigma\) é a largura (desvio padrão). A área total sob a curva é sempre 1.
+                    Converte qualquer Normal para \(\mathcal{N}(0, 1)\). Diz "a quantos desvios padrões da média estou?"
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="normalChart"></canvas>
+            </div>
+            <p class="chart-caption">Normal com diferentes σ. Menor σ = curva mais estreita e alta. Maior σ = mais espalhada.</p>
+        </section>
+
+        <section>
+            <h2>5. Exponencial — Tempo Entre Eventos</h2>
+
+            <p>Modela o <strong>tempo de espera entre eventos</strong> que ocorrem a uma taxa constante. É a versão contínua da Poisson: se eventos ocorrem a \(\lambda\) por hora, o tempo entre eles segue Exponencial(\(\lambda\)).</p>
+
+            <div class="formula-card">
+                <span class="formula-label">Exponencial(λ)</span>
+                <div style="margin-top:4px;">
+                    $$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+                </div>
+                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
+                    Acumulada: \(P(X \le t) = 1 - e^{-\lambda t}\).
                 </div>
             </div>
 
             <div class="term-grid" style="grid-template-columns: repeat(4, 1fr);">
-                <div class="term-card">
-                    <strong>Parâmetros</strong>
-                    \(\mu\) = média<br>\(\sigma\) = desvio padrão
-                </div>
-                <div class="term-card">
-                    <strong>Valor Esperado</strong>
-                    \(E[X] = \mu\)
-                </div>
-                <div class="term-card">
-                    <strong>Variância</strong>
-                    \(Var(X) = \sigma^2\)
-                </div>
-                <div class="term-card">
-                    <strong>Simetria</strong>
-                    Média = Mediana = Moda
-                </div>
+                <div class="term-card"><strong>Parâmetro</strong> \(\lambda\) = taxa</div>
+                <div class="term-card"><strong>E[X]</strong> \(1/\lambda\)</div>
+                <div class="term-card"><strong>Var(X)</strong> \(1/\lambda^2\)</div>
+                <div class="term-card"><strong>Quando usar</strong> Tempo entre eventos, sem memória</div>
             </div>
 
-            <h3>A Regra Empírica (68-95-99,7)</h3>
+            <div class="chart-container">
+                <canvas id="expChart"></canvas>
+            </div>
+            <p class="chart-caption">Exponencial para diferentes λ. Maior taxa = espera mais curta e curva mais íngreme.</p>
+
+            <div class="complexity-box">
+                <span class="complexity-title">🔬 Ausência de memória</span>
+                <p>A Exponencial tem uma propriedade única: o tempo já esperado não influencia o tempo restante.</p>
+                $$P(X > s + t \mid X > s) = P(X > t)$$
+                <p>Se o processo tem "memória" (desgaste, fadiga), a Exponencial não é adequada — use Weibull ou Gamma.</p>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════
+         PARTE 4 — TABELA RESUMO DAS DEMAIS
+         ═══════════════════════════════════════════════════ -->
+        <section>
+            <h2>6. Outras Distribuições Importantes</h2>
+
+            <p>As quatro acima cobrem a maioria dos problemas do dia a dia. Mas existem outras distribuições que aparecem com frequência em estatística e modelagem. A tabela abaixo resume as principais:</p>
 
             <div class="table-wrap">
-                <table class="compare-table">
+                <table>
                     <thead>
-                        <tr><th>Intervalo</th><th>Proporção dos dados</th><th>Aplicação SaúdeCheck</th></tr>
+                        <tr>
+                            <th>Distribuição</th>
+                            <th>Tipo</th>
+                            <th>Aplicabilidade</th>
+                            <th>Parâmetros</th>
+                            <th>E[X]</th>
+                            <th>Var(X)</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>\(\mu \pm 1\sigma\)</td>
-                            <td>≈ 68%</td>
-                            <td>68% dos testes levam entre 12 e 18 minutos</td>
+                            <td><strong>Bernoulli</strong></td>
+                            <td>Discreta</td>
+                            <td>Um único experimento sim/não</td>
+                            <td>\(p\)</td>
+                            <td>\(p\)</td>
+                            <td>\(p(1-p)\)</td>
                         </tr>
                         <tr>
-                            <td>\(\mu \pm 2\sigma\)</td>
-                            <td>≈ 95%</td>
-                            <td>95% levam entre 9 e 21 minutos</td>
+                            <td><strong>Geométrica</strong></td>
+                            <td>Discreta</td>
+                            <td>Tentativas até o primeiro sucesso</td>
+                            <td>\(p\)</td>
+                            <td>\(1/p\)</td>
+                            <td>\((1-p)/p^2\)</td>
                         </tr>
                         <tr>
-                            <td>\(\mu \pm 3\sigma\)</td>
-                            <td>≈ 99,7%</td>
-                            <td>Um teste com 25 minutos está a 3,3σ — evento raro (< 0,1%)</td>
+                            <td><strong>Binomial Negativa</strong></td>
+                            <td>Discreta</td>
+                            <td>Tentativas até o r-ésimo sucesso</td>
+                            <td>\(r, p\)</td>
+                            <td>\(r/p\)</td>
+                            <td>\(r(1-p)/p^2\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Hipergeométrica</strong></td>
+                            <td>Discreta</td>
+                            <td>Amostragem sem reposição (lotes, auditorias)</td>
+                            <td>\(N, K, n\)</td>
+                            <td>\(nK/N\)</td>
+                            <td>\(n\frac{K}{N}\frac{N-K}{N}\frac{N-n}{N-1}\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Uniforme</strong></td>
+                            <td>Contínua</td>
+                            <td>Máxima ignorância — só se sabe o intervalo</td>
+                            <td>\(a, b\)</td>
+                            <td>\((a+b)/2\)</td>
+                            <td>\((b-a)^2/12\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Gamma</strong></td>
+                            <td>Contínua</td>
+                            <td>Tempo até o k-ésimo evento; generaliza a Exponencial</td>
+                            <td>\(\alpha, \beta\)</td>
+                            <td>\(\alpha\beta\)</td>
+                            <td>\(\alpha\beta^2\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Beta</strong></td>
+                            <td>Contínua</td>
+                            <td>Modelar proporções e probabilidades (prior bayesiano)</td>
+                            <td>\(\alpha, \beta\)</td>
+                            <td>\(\frac{\alpha}{\alpha+\beta}\)</td>
+                            <td>\(\frac{\alpha\beta}{(\alpha+\beta)^2(\alpha+\beta+1)}\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Log-Normal</strong></td>
+                            <td>Contínua</td>
+                            <td>Dados positivos e assimétricos (renda, preços, tempo de resposta)</td>
+                            <td>\(\mu, \sigma\)</td>
+                            <td>\(e^{\mu + \sigma^2/2}\)</td>
+                            <td>\((e^{\sigma^2}-1)e^{2\mu+\sigma^2}\)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Weibull</strong></td>
+                            <td>Contínua</td>
+                            <td>Tempo de vida com desgaste (confiabilidade, engenharia)</td>
+                            <td>\(k, \lambda\)</td>
+                            <td>\(\lambda\,\Gamma(1+1/k)\)</td>
+                            <td>\(\lambda^2[\Gamma(1+2/k)-\Gamma^2(1+1/k)]\)</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
-            <h3>Padronização (Z-score)</h3>
-
-            <div class="formula-card">
-                <span class="formula-label">Z-score — quantos desvios da média</span>
-                <div style="margin-top:4px;">
-                    $$Z = \frac{X - \mu}{\sigma}$$
-                </div>
-                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    Converte qualquer Normal para a Normal Padrão \(\mathcal{N}(0, 1)\). Permite comparar valores em escalas diferentes e usar tabelas padronizadas.
-                </div>
-            </div>
-
-            <div class="answer-card">
-                <h4>Qual a chance de um teste levar mais de 20 minutos?</h4>
-                <span class="theory-tag">📐 Usa: Z-score + tabela Normal</span>
-
-                <div class="step-box">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <strong>Padronizar</strong>
-                        $$Z = \frac{20 - 15}{3} = 1{,}67$$
-                    </div>
-                </div>
-                <div class="step-box">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <strong>Consultar</strong>
-                        \(P(Z \le 1{,}67) \approx 0{,}9525\). Logo: \(P(X > 20) = 1 - 0{,}9525 = 4{,}75\%\).
-                    </div>
-                </div>
-                <div class="step-box">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <strong>Decisão</strong>
-                        Menos de 5% dos testes passam de 20 minutos. O posto pode agendar slots de 20 minutos com margem confortável.
-                    </div>
-                </div>
+            <div class="highlight-box">
+                <span class="highlight-title">💡 Não precisa decorar</span>
+                <p>Você não vai usar todas ao mesmo tempo. O importante é saber que existem e reconhecer o padrão: <strong>o tipo de dado e a pergunta determinam a distribuição</strong>. Quando encontrar um problema novo, volte a esta tabela.</p>
             </div>
         </section>
 
         <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 7 — EXPONENCIAL
+         PARTE 5 — TCL
          ═══════════════════════════════════════════════════ -->
         <section>
-            <h2>7. Exponencial — O Tempo Entre Eventos</h2>
+            <h2>7. O Teorema Central do Limite</h2>
 
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                Se positivos chegam a uma taxa de 3 por hora (Poisson), quanto tempo o posto espera entre um positivo e o próximo? A Exponencial é a versão contínua da Poisson: se eventos ocorrem a \(\lambda\) por hora, o tempo entre eles segue uma Exponencial.
-            </div>
-
-            <div class="formula-card">
-                <span class="formula-label">Exponencial(λ) — função densidade</span>
-                <div style="margin-top:4px;">
-                    $$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
-                </div>
-                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    A acumulada tem forma fechada: \(P(X \le t) = 1 - e^{-\lambda t}\). Isso facilita muito os cálculos.
-                </div>
-            </div>
-
-            <div class="term-grid" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="term-card">
-                    <strong>Parâmetro</strong>
-                    \(\lambda\) = taxa de ocorrência
-                </div>
-                <div class="term-card">
-                    <strong>Valor Esperado</strong>
-                    \(E[X] = 1/\lambda\)
-                </div>
-                <div class="term-card">
-                    <strong>Variância</strong>
-                    \(Var(X) = 1/\lambda^2\)
-                </div>
-            </div>
-
-            <div class="answer-card">
-                <h4>Quanto tempo entre dois positivos consecutivos?</h4>
-                <span class="theory-tag">📐 Usa: Exponencial com λ = 3 por hora</span>
-
-                <div class="step-box">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <strong>Tempo médio</strong>
-                        \(E[X] = 1/3\) hora = 20 minutos entre positivos.
-                    </div>
-                </div>
-                <div class="step-box">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <strong>Chance de passar 30 min sem positivo</strong>
-                        $$P(X > 0{,}5) = e^{-3 \times 0{,}5} = e^{-1{,}5} \approx 22{,}3\%$$
-                    </div>
-                </div>
-            </div>
-
-            <div class="complexity-box">
-                <span class="complexity-title">🔬 A propriedade de ausência de memória</span>
-                <p>A Exponencial tem uma propriedade única e contraintuitiva: o tempo já esperado não influencia o tempo restante.</p>
-                $$P(X > s + t \mid X > s) = P(X > t)$$
-                <p>Se já faz 20 minutos desde o último positivo, a chance de passar mais 20 minutos sem outro é a mesma de quando começou. O "histórico" não importa — cada momento começa do zero.</p>
-                <p style="margin-top:8px;"><strong>Quando não usar:</strong> Se o processo tem "memória" (desgaste, fadiga, acúmulo), a Exponencial não é adequada. Use Weibull ou Gamma.</p>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 8 — UNIFORME
-         ═══════════════════════════════════════════════════ -->
-        <section>
-            <h2>8. Uniforme — Máxima Ignorância</h2>
-
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                A SaúdeCheck não sabe em que momento exato do intervalo de 15 minutos o reagente muda de cor. Só sabe que acontece em algum ponto entre o minuto 8 e o minuto 14. Sem mais informação, todos os instantes nesse intervalo são igualmente prováveis — isso é a Uniforme.
-            </div>
-
-            <div class="formula-card">
-                <span class="formula-label">Uniforme(a, b)</span>
-                <div style="margin-top:4px;">
-                    $$f(x) = \frac{1}{b-a}, \quad a \leq x \leq b$$
-                </div>
-                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    Todos os valores no intervalo \([a, b]\) são igualmente prováveis. É a distribuição de máxima ignorância.
-                </div>
-            </div>
-
-            <div class="term-grid" style="grid-template-columns: repeat(2, 1fr);">
-                <div class="term-card">
-                    <strong>Valor Esperado</strong>
-                    \(E[X] = (a+b)/2\)
-                </div>
-                <div class="term-card">
-                    <strong>Variância</strong>
-                    \(Var(X) = (b-a)^2/12\)
-                </div>
-            </div>
-        </section>
-
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 9 — GRÁFICO CONTÍNUAS
-         ═══════════════════════════════════════════════════ -->
-        <section>
-            <h2>9. Visualizando as Contínuas</h2>
-
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                Três formas completamente diferentes de distribuir probabilidade no contínuo. A Normal modela o tempo do teste; a Exponencial modela o intervalo entre positivos; a Uniforme modela o instante de reação do reagente.
-            </div>
-
-            <div class="chart-container">
-                <canvas id="continuousChart"></canvas>
-            </div>
-            <p style="text-align:center; font-size:0.88rem; color:#64748b; margin-top:-10px; margin-bottom:20px;">
-                Normal(μ=0, σ=1), Exponencial(λ=1) e Uniforme(0, 1) — mesma área total (= 1), formas radicalmente diferentes.
-            </p>
-        </section>
-
-        <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 10 — TCL
-         ═══════════════════════════════════════════════════ -->
-        <section>
-            <h2>10. O Teorema Central do Limite</h2>
-
-            <!-- GANCHO -->
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                A SaúdeCheck opera em 50 postos. Cada posto tem uma média diária de positivos diferente. Mas se calcularmos a média de positivos por posto ao longo de 30 dias, essa média vai se comportar como uma Normal — <strong>independentemente de como os dados individuais se distribuem</strong>. Isso é o TCL, e é a razão pela qual a Normal aparece em todo lugar.
-            </div>
+            <p>Agora que você conhece a Normal, podemos entender <em>por que</em> ela aparece tanto.</p>
 
             <div class="formula-card">
                 <span class="formula-label">Teorema Central do Limite</span>
@@ -557,10 +348,9 @@
                 <div style="margin-top:4px;">
                     $$\bar{X} \xrightarrow{d} \mathcal{N}\!\left(\mu,\ \frac{\sigma^2}{n}\right) \quad \text{quando } n \to \infty$$
                 </div>
-                <div style="color:#94a3b8; font-size:0.88rem; margin-top:12px; font-family:'Segoe UI',sans-serif;">
-                    Condição necessária: a população deve ter variância finita (\(\sigma^2 < \infty\)). Distribuições com caudas infinitamente gordas (como a Cauchy) violam o TCL.
-                </div>
             </div>
+
+            <p>Em palavras: <strong>independentemente de como os dados individuais se distribuem</strong>, a soma ou média de muitas observações independentes converge para uma Normal — desde que a variância seja finita.</p>
 
             <div class="step-box">
                 <div class="step-number">n</div>
@@ -570,72 +360,83 @@
                 </div>
             </div>
 
-            <div class="highlight-box">
-                <span class="highlight-title">💡 Por que o TCL é tão importante?</span>
-                <p>Ele é a base para boa parte da <strong>inferência estatística</strong>: intervalos de confiança, testes de hipótese, comparação de médias entre grupos. Mesmo que os dados originais não sejam normais, a <em>média</em> de amostras grandes se comporta como Normal — e isso permite usar as fórmulas da Normal para fazer inferências.</p>
-                <p style="margin-top:8px;">Na SaúdeCheck: o número de positivos por dia em cada posto é assimétrico (muitos dias com ~32, alguns com picos de 45+). Mas a média mensal por posto vai se distribuir normalmente. Isso permite calcular intervalos de confiança para a média — tema do Bloco 2.</p>
-            </div>
-
             <div class="warning-box">
                 <span class="warning-label">⚠️ O TCL não diz que os dados são normais</span>
-                <p>Erro comum: "minha amostra é grande, então os dados seguem Normal". Errado. O TCL diz que a <strong>média amostral</strong> converge para Normal — não os dados individuais. Os dados podem ser completamente assimétricos; é a média de muitas amostras que se normaliza.</p>
+                <p>Erro comum: "minha amostra é grande, então os dados seguem Normal". Errado. O TCL diz que a <strong>soma ou média amostral</strong> converge para Normal — não os dados individuais. Os dados podem ser completamente assimétricos; é a agregação que se normaliza.</p>
             </div>
         </section>
 
         <!-- ═══════════════════════════════════════════════════
-         SEÇÃO 11 — COMO ESCOLHER
+         PARTE 6 — APLICAÇÃO: RESOLVENDO O PROBLEMA
          ═══════════════════════════════════════════════════ -->
         <section>
-            <h2>11. Como Escolher a Distribuição Certa</h2>
+            <h2>8. Resolvendo o Problema da NovaPay</h2>
 
-            <div class="example-block">
-                <span class="example-label">Conexão com o problema</span>
-                A SaúdeCheck usou Bernoulli, Binomial, Poisson, Normal e Exponencial — cada uma para uma pergunta diferente. O guia abaixo resume quando usar cada uma, para que você não precise decorar — apenas pergunte ao dado.
+            <p>Agora temos todas as ferramentas. Vamos voltar ao problema do CFO e resolver passo a passo.</p>
+
+            <div class="answer-card">
+                <h4>Passo 1 — Modelar um lojista (Binomial)</h4>
+                <span class="theory-tag">📐 Usa: Binomial (§2)</span>
+
+                <p>Cada lojista faz 120 transações com \(p = 0{,}82\) de aprovação:</p>
+                <p>\(X_i \sim B(120,\ 0{,}82)\). \(E[X_i] = 120 \times 0{,}82 = 98{,}4\) aprovações. \(\sigma_i = \sqrt{120 \times 0{,}82 \times 0{,}18} \approx 4{,}2\).</p>
+                <p>Receita por lojista: \(R_i = 1{,}50 \times X_i\). \(E[R_i] = 1{,}50 \times 98{,}4 = \text{R\$}147{,}60\).</p>
             </div>
 
-            <div class="table-wrap">
-                <table class="compare-table">
-                    <thead>
-                        <tr><th>Sua pergunta</th><th>Distribuição</th><th>Exemplo SaúdeCheck</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Resultado é sim/não?</td>
-                            <td><strong>Bernoulli(p)</strong></td>
-                            <td>Um paciente testa positivo ou não</td>
-                        </tr>
-                        <tr>
-                            <td>Quantos sucessos em n tentativas?</td>
-                            <td><strong>Binomial(n, p)</strong></td>
-                            <td>Quantos positivos em 200 pacientes</td>
-                        </tr>
-                        <tr>
-                            <td>Quantos eventos por intervalo?</td>
-                            <td><strong>Poisson(λ)</strong></td>
-                            <td>Quantos positivos por hora</td>
-                        </tr>
-                        <tr>
-                            <td>Quanto tempo entre eventos?</td>
-                            <td><strong>Exponencial(λ)</strong></td>
-                            <td>Tempo entre dois positivos consecutivos</td>
-                        </tr>
-                        <tr>
-                            <td>Soma de muitos fatores? Médias?</td>
-                            <td><strong>Normal(μ, σ)</strong></td>
-                            <td>Tempo de processamento do teste</td>
-                        </tr>
-                        <tr>
-                            <td>Só sei o intervalo, sem preferência?</td>
-                            <td><strong>Uniforme(a, b)</strong></td>
-                            <td>Instante de reação do reagente</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="answer-card">
+                <h4>Passo 2 — Agregar 300 lojistas (TCL → Normal)</h4>
+                <span class="theory-tag">📐 Usa: Teorema Central do Limite (§7)</span>
+
+                <p>A receita total é a soma de 300 contribuições independentes. Pelo TCL, essa soma se distribui normalmente:</p>
+
+                <div class="step-box">
+                    <div class="step-number">μ</div>
+                    <div class="step-content">
+                        <strong>Receita esperada</strong>
+                        $$E[R_{\text{total}}] = 300 \times 147{,}60 = \text{R\$}44.280$$
+                    </div>
+                </div>
+                <div class="step-box">
+                    <div class="step-number">σ</div>
+                    <div class="step-content">
+                        <strong>Desvio padrão da receita total</strong>
+                        $$\sigma_{\text{total}} = 1{,}50 \times 4{,}2 \times \sqrt{300} \approx \text{R\$}109 \times \sqrt{300} \approx \text{R\$}2.130$$
+                    </div>
+                </div>
+
+                <p style="margin-top:12px;">Logo: \(R_{\text{total}} \sim \mathcal{N}(44.280,\ 2.130^2)\).</p>
             </div>
 
-            <div class="warning-box">
-                <span class="warning-label">⚠️ Toda distribuição é uma aproximação</span>
-                <p>Nenhum conjunto de dados reais segue perfeitamente uma distribuição teórica. O que você está fazendo é escolher um <em>modelo útil</em> — que captura as características essenciais e permite fazer cálculos e previsões razoáveis. Valide sempre com histograma, Q-Q plot ou testes de aderência quando a precisão for crítica.</p>
+            <div class="answer-card">
+                <h4>Passo 3 — Responder o CFO</h4>
+                <span class="theory-tag">📐 Usa: Z-score + Normal (§4)</span>
+
+                <div class="step-box">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <strong>Padronizar</strong>
+                        $$Z = \frac{40.000 - 44.280}{2.130} = -2{,}01$$
+                    </div>
+                </div>
+                <div class="step-box">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <strong>Consultar</strong>
+                        \(P(Z \le -2{,}01) \approx 0{,}022\). Logo: \(P(\text{Receita} < 40.000) \approx 2{,}2\%\).
+                    </div>
+                </div>
+                <div class="step-box">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <strong>Intervalo de 95%</strong>
+                        $$\mu \pm 1{,}96\sigma = 44.280 \pm 1{,}96 \times 2.130 = [\text{R\$}40.105;\ \text{R\$}48.455]$$
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight-box" style="border-color:#10b981;">
+                <span class="highlight-title">✅ Resposta para o CFO</span>
+                <p>A receita esperada é <strong>R$44.280</strong>. Há apenas <strong>2,2% de chance</strong> de ficar abaixo de R$40.000. O intervalo que cobre 95% dos cenários vai de <strong>R$40.105 a R$48.455</strong>. O CFO pode usar R$40.000 como piso conservador no orçamento.</p>
             </div>
         </section>
 
@@ -648,26 +449,26 @@
 
                 <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Conceitos</p>
                 <ul>
-                    <li><strong>Distribuição</strong> = retrato completo de uma variável aleatória. Não só um valor, mas todos os valores e suas probabilidades.</li>
-                    <li><strong>Discreta vs. contínua</strong>: em discretas, \(P(X=k)\) faz sentido. Em contínuas, apenas \(P(a \le X \le b)\) = área sob a curva.</li>
-                    <li><strong>TCL</strong>: médias de amostras grandes convergem para a Normal, desde que a variância da população seja finita. Isso não significa que os dados individuais são normais.</li>
+                    <li><strong>Distribuição</strong> = função que atribui probabilidade a cada resultado possível de uma variável aleatória.</li>
+                    <li><strong>Discreta</strong>: \(P(X=k)\) faz sentido. <strong>Contínua</strong>: apenas \(P(a \le X \le b)\) = área sob a curva.</li>
+                    <li><strong>TCL</strong>: somas e médias de amostras grandes convergem para a Normal (variância finita).</li>
                 </ul>
 
                 <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Fórmulas</p>
                 <ul>
-                    <li><strong>Bernoulli:</strong> \(P(X=k) = p^k(1-p)^{1-k}\)</li>
                     <li><strong>Binomial:</strong> \(P(X=k) = \binom{n}{k}p^k(1-p)^{n-k}\)</li>
                     <li><strong>Poisson:</strong> \(P(X=k) = e^{-\lambda}\lambda^k / k!\)</li>
                     <li><strong>Normal:</strong> \(f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}\)</li>
-                    <li><strong>Exponencial:</strong> \(f(x) = \lambda e^{-\lambda x}\), \(P(X \le t) = 1 - e^{-\lambda t}\)</li>
+                    <li><strong>Exponencial:</strong> \(f(x) = \lambda e^{-\lambda x}\), acumulada: \(1 - e^{-\lambda t}\)</li>
                     <li><strong>Z-score:</strong> \(Z = (X - \mu) / \sigma\)</li>
                 </ul>
 
                 <p style="font-weight:600; color:#1e293b; margin-top:16px; margin-bottom:6px;">Decisão</p>
                 <ul>
-                    <li>Comece pelo tipo de variável: <strong>contar → discreta</strong>; <strong>medir → contínua</strong>.</li>
-                    <li>Valide com histograma antes de assumir qualquer modelo.</li>
-                    <li>Toda distribuição é uma aproximação útil — não uma verdade absoluta.</li>
+                    <li><strong>Contar</strong> sucessos em tentativas fixas → Binomial.</li>
+                    <li><strong>Contar</strong> eventos por intervalo → Poisson.</li>
+                    <li><strong>Medir</strong> somas, médias, erros → Normal.</li>
+                    <li><strong>Medir</strong> tempo entre eventos → Exponencial.</li>
                 </ul>
             </div>
         </section>
@@ -676,7 +477,7 @@
         <section>
             <div class="complexity-box" style="border-color:#bae6fd; background-color:#f0f9ff;">
                 <span class="complexity-title">➡️ O Que Vem a Seguir</span>
-                <p>Você agora sabe como distribuições descrevem o comportamento completo de variáveis aleatórias. O próximo passo é entender <strong>como coletar dados de forma válida</strong> para que essas distribuições realmente representem a realidade. No próximo artigo — <a href="#"><strong>Amostragem e Estimação Pontual</strong></a> — veremos por que uma pesquisa eleitoral pode errar mesmo com 10.000 respostas, e o que diferencia uma amostra boa de uma amostra enviesada.</p>
+                <p>Você agora sabe como distribuições descrevem o comportamento completo de variáveis aleatórias. O próximo passo é entender <strong>como coletar dados de forma válida</strong> para que essas distribuições realmente representem a realidade. No próximo artigo — <a href="#"><strong>Amostragem e Estimação Pontual</strong></a> — veremos por que uma pesquisa eleitoral pode errar mesmo com 10.000 respostas.</p>
             </div>
         </section>
 
@@ -684,200 +485,119 @@
         <section class="references">
             <h3>📚 Para Se Aprofundar</h3>
             <ul>
-                <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Capítulos 3–5 cobrem todas as distribuições deste artigo com exercícios e soluções.</li>
-                <li><strong>"Probabilidade: Um Curso Moderno com Aplicações"</strong> — Sheldon Ross. Referência técnica completa para distribuições discretas e contínuas.</li>
-                <li><strong>"The Signal and the Noise"</strong> — Nate Silver. Exemplos práticos de como escolher distribuições em previsões do mundo real.</li>
+                <li><strong>"Introduction to Probability"</strong> — Blitzstein & Hwang. Capítulos 3–5 cobrem todas as distribuições deste artigo.</li>
+                <li><strong>"Probabilidade: Um Curso Moderno com Aplicações"</strong> — Sheldon Ross. Referência técnica completa.</li>
+                <li><strong>"The Signal and the Noise"</strong> — Nate Silver. Distribuições em previsões do mundo real.</li>
             </ul>
         </section>
 
         <!-- QUIZ -->
         <section class="quiz-container">
             <h2>🧠 Teste Seu Conhecimento</h2>
-            <p style="margin-bottom:20px;">Use os dados da SaúdeCheck para responder.</p>
+            <p style="margin-bottom:20px;">10 perguntas para fixar os conceitos.</p>
             <div id="quiz-root"></div>
         </section>
     </div>
 
     <script>
-        /* ── Gráfico Discretas ── */
+        /* ── Gráfico Binomial ── */
         function logFact(n) { let r = 0; for (let i = 2; i <= n; i++) r += Math.log(i); return r; }
-        function binomialPMF(n, p, k) {
+        function binomPMF(n, p, k) {
             if (k < 0 || k > n) return 0;
             return Math.exp(logFact(n) - logFact(k) - logFact(n - k) + k * Math.log(p) + (n - k) * Math.log(1 - p));
         }
-        function poissonPMF(lambda, k) {
-            return Math.exp(-lambda + k * Math.log(lambda) - logFact(k));
-        }
-
-        const dLabels = Array.from({length: 31}, (_, i) => i + 15);
-        const binomData = dLabels.map(k => binomialPMF(200, 0.159, k));
-        const poissonData = dLabels.map(k => poissonPMF(31.8, k));
-
-        new Chart(document.getElementById('discreteChart').getContext('2d'), {
+        const bLabels = Array.from({length: 21}, (_, i) => i);
+        new Chart(document.getElementById('binomialChart').getContext('2d'), {
             type: 'bar',
             data: {
-                labels: dLabels,
+                labels: bLabels,
                 datasets: [
-                    { label: 'Binomial(n=200, p=0,159)', data: binomData, backgroundColor: 'rgba(219,74,43,0.65)', borderColor: '#db4a2b', borderWidth: 1, borderRadius: 4 },
-                    { label: 'Poisson(λ=31,8)', data: poissonData, backgroundColor: 'rgba(37,99,235,0.45)', borderColor: '#2563eb', borderWidth: 1, borderRadius: 4 }
+                    { label: 'p=0,3', data: bLabels.map(k => binomPMF(20, 0.3, k)), backgroundColor: 'rgba(37,99,235,0.5)', borderColor: '#2563eb', borderWidth: 1, borderRadius: 3 },
+                    { label: 'p=0,5', data: bLabels.map(k => binomPMF(20, 0.5, k)), backgroundColor: 'rgba(219,74,43,0.5)', borderColor: '#db4a2b', borderWidth: 1, borderRadius: 3 },
+                    { label: 'p=0,82', data: bLabels.map(k => binomPMF(20, 0.82, k)), backgroundColor: 'rgba(16,185,129,0.5)', borderColor: '#10b981', borderWidth: 1, borderRadius: 3 }
                 ]
             },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
-                scales: {
-                    x: { title: { display: true, text: 'k (número de positivos)' } },
-                    y: { title: { display: true, text: 'P(X = k)' }, beginAtZero: true }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } },
+                scales: { x: { title: { display: true, text: 'k' } }, y: { title: { display: true, text: 'P(X=k)' }, beginAtZero: true } } }
         });
 
-        /* ── Gráfico Contínuas ── */
-        const cLabels = [], normalData = [], expData = [], uniformData = [];
-        for (let i = -4; i <= 4; i += 0.08) {
-            cLabels.push(i.toFixed(2));
-            normalData.push((1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * i * i));
-            expData.push(i >= 0 ? Math.exp(-i) : null);
-            uniformData.push(i >= 0 && i <= 1 ? 1.0 : null);
-        }
-
-        new Chart(document.getElementById('continuousChart').getContext('2d'), {
-            type: 'line',
+        /* ── Gráfico Poisson ── */
+        function poisPMF(lam, k) { return Math.exp(-lam + k * Math.log(lam) - logFact(k)); }
+        const pLabels = Array.from({length: 16}, (_, i) => i);
+        new Chart(document.getElementById('poissonChart').getContext('2d'), {
+            type: 'bar',
             data: {
-                labels: cLabels,
+                labels: pLabels,
                 datasets: [
-                    { label: 'Normal(μ=0, σ=1)', data: normalData, borderColor: '#db4a2b', backgroundColor: 'rgba(219,74,43,0.1)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2.5 },
-                    { label: 'Exponencial(λ=1)', data: expData, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
-                    { label: 'Uniforme(0,1)', data: uniformData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0, pointRadius: 0, borderWidth: 2.5 }
+                    { label: 'λ=1', data: pLabels.map(k => poisPMF(1, k)), backgroundColor: 'rgba(37,99,235,0.5)', borderColor: '#2563eb', borderWidth: 1, borderRadius: 3 },
+                    { label: 'λ=4', data: pLabels.map(k => poisPMF(4, k)), backgroundColor: 'rgba(219,74,43,0.5)', borderColor: '#db4a2b', borderWidth: 1, borderRadius: 3 },
+                    { label: 'λ=8', data: pLabels.map(k => poisPMF(8, k)), backgroundColor: 'rgba(16,185,129,0.5)', borderColor: '#10b981', borderWidth: 1, borderRadius: 3 }
                 ]
             },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'top' } },
-                scales: {
-                    x: { title: { display: true, text: 'x' }, ticks: { maxTicksLimit: 12 } },
-                    y: { title: { display: true, text: 'f(x) — densidade' }, beginAtZero: true }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } },
+                scales: { x: { title: { display: true, text: 'k' } }, y: { title: { display: true, text: 'P(X=k)' }, beginAtZero: true } } }
+        });
+
+        /* ── Gráfico Normal ── */
+        const nLabels = [], n1 = [], n2 = [], n3 = [];
+        for (let x = -5; x <= 5; x += 0.1) {
+            nLabels.push(x.toFixed(1));
+            function nd(mu, s) { return (1/(s*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*((x-mu)/s)**2); }
+            n1.push(nd(0, 0.5)); n2.push(nd(0, 1)); n3.push(nd(0, 2));
+        }
+        new Chart(document.getElementById('normalChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: nLabels,
+                datasets: [
+                    { label: 'σ=0,5', data: n1, borderColor: '#2563eb', fill: false, tension: 0.4, pointRadius: 0, borderWidth: 2.5 },
+                    { label: 'σ=1', data: n2, borderColor: '#db4a2b', fill: false, tension: 0.4, pointRadius: 0, borderWidth: 2.5 },
+                    { label: 'σ=2', data: n3, borderColor: '#10b981', fill: false, tension: 0.4, pointRadius: 0, borderWidth: 2.5 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } },
+                scales: { x: { title: { display: true, text: 'x' }, ticks: { maxTicksLimit: 12 } }, y: { title: { display: true, text: 'f(x)' }, beginAtZero: true } } }
+        });
+
+        /* ── Gráfico Exponencial ── */
+        const eLabels = [], e1 = [], e2 = [], e3 = [];
+        for (let x = 0; x <= 5; x += 0.05) {
+            eLabels.push(x.toFixed(2));
+            e1.push(0.5 * Math.exp(-0.5 * x));
+            e2.push(1 * Math.exp(-1 * x));
+            e3.push(3 * Math.exp(-3 * x));
+        }
+        new Chart(document.getElementById('expChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: eLabels,
+                datasets: [
+                    { label: 'λ=0,5', data: e1, borderColor: '#2563eb', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+                    { label: 'λ=1', data: e2, borderColor: '#db4a2b', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+                    { label: 'λ=3', data: e3, borderColor: '#10b981', fill: false, tension: 0.3, pointRadius: 0, borderWidth: 2.5 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } },
+                scales: { x: { title: { display: true, text: 'x' }, ticks: { maxTicksLimit: 12 } }, y: { title: { display: true, text: 'f(x)' }, beginAtZero: true } } }
         });
 
         /* ── Quiz ── */
         const questions = [
-            {
-                text: "Qual é a diferença fundamental entre uma distribuição discreta e uma contínua?",
-                options: [
-                    "Discretas têm média; contínuas não têm.",
-                    "Em discretas, P(X=k) é calculável diretamente. Em contínuas, P(X=x)=0 e probabilidades são calculadas por intervalos (área).",
-                    "Discretas são sempre simétricas; contínuas são assimétricas.",
-                    "Não há diferença prática — são apenas notações diferentes."
-                ],
-                correct: 1,
-                feedback: "Exato! Em variáveis contínuas, a probabilidade de qualquer valor exato é zero. O que faz sentido é P(a ≤ X ≤ b), calculada como área sob a curva."
-            },
-            {
-                text: "Na SaúdeCheck, 200 pacientes com P(+)=0,159. Qual distribuição modela o número de positivos?",
-                options: [
-                    "Bernoulli(0,159)",
-                    "Poisson(31,8)",
-                    "Binomial(200, 0,159)",
-                    "Normal(31,8; 26,7)"
-                ],
-                correct: 2,
-                feedback: "Correto! Binomial(n, p) modela o número de sucessos em n tentativas independentes. Aqui n=200 e p=0,159."
-            },
-            {
-                text: "Qual é o valor esperado e a variância de uma Poisson com λ=5?",
-                options: [
-                    "E[X]=5, Var(X)=25",
-                    "E[X]=5, Var(X)=5",
-                    "E[X]=1/5, Var(X)=1/25",
-                    "E[X]=5, Var(X)=√5"
-                ],
-                correct: 1,
-                feedback: "Correto! Na Poisson, média e variância são iguais: E[X] = Var(X) = λ. Essa igualdade é uma propriedade única da Poisson."
-            },
-            {
-                text: "O Teorema Central do Limite afirma que:",
-                options: [
-                    "Todos os dados coletados em amostras grandes seguem a Normal.",
-                    "A média amostral converge para uma Normal conforme n cresce, desde que a variância da população seja finita.",
-                    "A variância amostral é sempre igual à variância populacional.",
-                    "Dados com assimetria nunca convergem para a Normal."
-                ],
-                correct: 1,
-                feedback: "Exato! O TCL não diz que os dados individuais seguem Normal — diz que a MÉDIA de muitas amostras segue Normal."
-            },
-            {
-                text: "Positivos chegam a λ=3 por hora (Poisson). Qual distribuição modela o TEMPO entre dois positivos?",
-                options: [
-                    "Poisson(3)",
-                    "Normal(1/3, 1/9)",
-                    "Exponencial(λ=3)",
-                    "Binomial(3, 1/3)"
-                ],
-                correct: 2,
-                feedback: "Correto! Se eventos ocorrem a taxa λ (Poisson), o tempo entre eventos segue Exponencial(λ). Tempo médio = 1/λ = 20 minutos."
-            },
-            {
-                text: "A propriedade de 'ausência de memória' da Exponencial significa:",
-                options: [
-                    "A distribuição não tem variância.",
-                    "P(X > s+t | X > s) = P(X > t) — o tempo já decorrido não afeta o tempo restante.",
-                    "A média é sempre igual à mediana.",
-                    "Valores passados determinam valores futuros."
-                ],
-                correct: 1,
-                feedback: "Exato! Na Exponencial, cada momento começa do zero. O histórico não importa."
-            },
-            {
-                text: "Na SaúdeCheck, P(X > 40) ≈ 5,0% com Binomial(200, 0,159). Isso significa:",
-                options: [
-                    "40 positivos é impossível.",
-                    "Há cerca de 5% de chance de um dia com mais de 40 positivos — útil para dimensionar encaminhamentos.",
-                    "A Binomial não se aplica nesse caso.",
-                    "A taxa base é 3,9%."
-                ],
-                correct: 1,
-                feedback: "Exato! Esse cálculo permite à SaúdeCheck dimensionar a capacidade de encaminhamento com base em probabilidades concretas."
-            },
-            {
-                text: "Tempo do teste segue N(15, 3²). Qual a chance de levar mais de 20 minutos?",
-                options: [
-                    "≈ 50%",
-                    "≈ 4,75%",
-                    "≈ 15%",
-                    "≈ 0,3%"
-                ],
-                correct: 1,
-                feedback: "Correto! Z = (20-15)/3 = 1,67. P(Z > 1,67) ≈ 4,75%. Menos de 5% dos testes passam de 20 minutos."
-            },
-            {
-                text: "Quando a Poisson é uma boa aproximação da Binomial?",
-                options: [
-                    "Sempre que n > 10.",
-                    "Quando n é grande e p é pequeno (eventos raros), com λ = np.",
-                    "Quando p > 0,5.",
-                    "Nunca — são distribuições completamente diferentes."
-                ],
-                correct: 1,
-                feedback: "Correto! Para n grande e p pequeno, Binomial(n,p) ≈ Poisson(np). É mais prático calcular com Poisson nesses casos."
-            },
-            {
-                text: "Qual distribuição usar quando só se sabe o intervalo [a, b] e não há preferência por nenhum valor?",
-                options: [
-                    "Normal(a, b)",
-                    "Exponencial(1/(b-a))",
-                    "Uniforme(a, b)",
-                    "Poisson((a+b)/2)"
-                ],
-                correct: 2,
-                feedback: "Correto! A Uniforme é a distribuição de máxima ignorância — todos os valores no intervalo são igualmente prováveis."
-            }
+            { text: "O que é uma distribuição de probabilidade?", options: ["A média de um conjunto de dados.", "Uma função que atribui probabilidade a cada resultado possível de uma variável aleatória.", "Um gráfico de barras dos dados observados.", "A variância de uma amostra."], correct: 1, feedback: "Uma distribuição mapeia todos os resultados possíveis às suas probabilidades — é o retrato completo da incerteza." },
+            { text: "Qual a diferença entre discreta e contínua?", options: ["Discretas não têm variância.", "Em discretas, P(X=k) faz sentido. Em contínuas, P(X=x)=0 e usamos área sob a curva.", "Contínuas só existem para variáveis positivas.", "Não há diferença prática."], correct: 1, feedback: "Em contínuas, a probabilidade de um valor exato é zero. Calculamos P(a ≤ X ≤ b) como área." },
+            { text: "120 transações com p=0,82. Qual distribuição modela o número de aprovações?", options: ["Poisson(98,4)", "Bernoulli(0,82)", "Binomial(120, 0,82)", "Normal(98,4; 17,7)"], correct: 2, feedback: "Binomial(n, p) modela o número de sucessos em n tentativas independentes." },
+            { text: "Na Poisson, E[X] e Var(X) são:", options: ["Diferentes — Var é sempre maior.", "Iguais — ambos valem λ.", "E[X] = λ², Var = λ.", "Depende de n."], correct: 1, feedback: "Na Poisson, E[X] = Var(X) = λ. Essa igualdade é uma propriedade única." },
+            { text: "O TCL afirma que:", options: ["Dados grandes seguem Normal.", "A soma ou média amostral converge para Normal conforme n cresce (variância finita).", "A variância amostral é sempre igual à populacional.", "Dados assimétricos nunca convergem."], correct: 1, feedback: "O TCL vale para a soma/média, não para os dados individuais." },
+            { text: "Eventos ocorrem a λ=4/min (Poisson). O tempo entre eventos segue:", options: ["Poisson(4)", "Normal(0,25)", "Exponencial(λ=4)", "Binomial(4, 0,25)"], correct: 2, feedback: "Se eventos seguem Poisson(λ), o tempo entre eles segue Exponencial(λ). Tempo médio = 1/λ." },
+            { text: "A ausência de memória da Exponencial significa:", options: ["Não tem variância.", "P(X > s+t | X > s) = P(X > t) — tempo decorrido não afeta o restante.", "Média = mediana.", "Valores passados determinam futuros."], correct: 1, feedback: "Cada momento começa do zero. O histórico não importa." },
+            { text: "Na NovaPay, P(Receita < R$40.000) ≈ 2,2%. Isso é útil porque:", options: ["Prova que R$40.000 é impossível.", "Permite ao CFO usar R$40.000 como piso conservador no orçamento.", "Invalida o modelo Normal.", "Mostra que a taxa base é 2,2%."], correct: 1, feedback: "O cálculo transforma incerteza em decisão orçamentária concreta." },
+            { text: "Quando a Poisson aproxima bem a Binomial?", options: ["Sempre que n > 10.", "Quando n é grande e p é pequeno, com λ = np.", "Quando p > 0,5.", "Nunca."], correct: 1, feedback: "Para n grande e p pequeno, Binomial(n,p) ≈ Poisson(np)." },
+            { text: "Qual distribuição usar quando só se sabe o intervalo [a, b] sem preferência?", options: ["Normal(a, b)", "Exponencial(1/(b-a))", "Uniforme(a, b)", "Poisson((a+b)/2)"], correct: 2, feedback: "A Uniforme é a distribuição de máxima ignorância — todos os valores no intervalo são igualmente prováveis." }
         ];
 
         function renderQuiz() {
             const root = document.getElementById('quiz-root');
-            questions.forEach((q, index) => {
+            questions.forEach(function(q, index) {
                 const card = document.createElement('div'); card.className = 'question-card';
                 const title = document.createElement('span'); title.className = 'question-text';
                 title.innerText = (index + 1) + '. ' + q.text; card.appendChild(title);
@@ -895,7 +615,7 @@
                         } else {
                             btn.classList.add('incorrect');
                             optDiv.querySelectorAll('.option-btn')[q.correct].classList.add('correct');
-                            fbDiv.innerText = '❌ Incorreto. ' + q.feedback;
+                            fbDiv.innerText = '❌ ' + q.feedback;
                             fbDiv.style.backgroundColor = '#fee2e2'; fbDiv.style.color = '#7f1d1d';
                         }
                         fbDiv.classList.add('show');
@@ -914,5 +634,4 @@
         <a href="../en/blogs/probabilidadedistribuicoes.html" style="color:#475569;">🇺🇸 EN</a>
     </div>
 </body>
-
 </html>
