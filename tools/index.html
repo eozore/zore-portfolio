@@ -2,16 +2,17 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Tools – Victor Zoré</title>
-    <meta name="description" content="Ferramentas gratuitas criadas por Victor Zoré. Teleprompter online com controle de velocidade, tamanho de fonte e modo espelho.">
+    <meta name="description" content="Teleprompter online com velocidade, tamanho de fonte e modo espelho.">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 
     <style>
+        /* ── TOKENS ─────────────────────────────────────────── */
         :root {
             --primary:    #db4a2b;
             --accent:     #f5a962;
@@ -20,295 +21,401 @@
             --surface2:   #f5f3f0;
             --border:     #e8e3d8;
             --text:       #2d2d2d;
-            --text-light: #6C757D;
+            --muted:      #6C757D;
             --font:       'Inter', sans-serif;
-            --radius:     12px;
+            --r:          12px;
+            --header-h:   58px;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
+        /* ── RESET ──────────────────────────────────────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
 
         body {
             font-family: var(--font);
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
+            min-height: 100svh;
+            overscroll-behavior: none;
         }
 
-        /* ── HEADER ─────────────────────────────────────── */
+        /* ── HEADER ─────────────────────────────────────────── */
         .header {
             position: sticky; top: 0;
-            background: rgba(250,249,247,.95);
-            backdrop-filter: blur(10px);
+            height: var(--header-h);
+            background: rgba(250,249,247,.96);
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
-            padding: 15px 0;
-            z-index: 1000;
+            z-index: 100;
+            /* safe area for notch/Dynamic Island */
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
         }
-        .header__container {
-            max-width: 1140px; margin: 0 auto; padding: 0 20px;
-            display: flex; justify-content: space-between; align-items: center;
+        .header__inner {
+            max-width: 1200px; margin: 0 auto;
+            padding: 0 24px;
+            height: 100%;
+            display: flex; align-items: center; justify-content: space-between;
         }
-        .header__logo { font-size: 1.5rem; font-weight: 700; color: var(--primary); text-decoration: none; }
-        .header__nav ul { display: flex; list-style: none; gap: 30px; }
-        .header__nav a { font-weight: 500; color: var(--text); text-decoration: none; transition: color .3s; }
-        .header__nav a:hover, .header__nav a.active { color: var(--primary); }
+        .header__logo {
+            font-size: 1.4rem; font-weight: 700;
+            color: var(--primary); text-decoration: none;
+        }
+        .header__nav ul { display: flex; list-style: none; gap: 28px; }
+        .header__nav a {
+            font-weight: 500; font-size: .95rem;
+            color: var(--text); text-decoration: none;
+            transition: color .2s;
+            /* at least 44px tap target */
+            display: inline-block; padding: 10px 0;
+        }
+        .header__nav a:hover,
+        .header__nav a.active { color: var(--primary); }
 
-        /* ── PAGE HERO ───────────────────────────────────── */
+        /* ── PAGE HERO ──────────────────────────────────────── */
         .page-hero {
             background: var(--surface);
             border-bottom: 1px solid var(--border);
-            padding: 60px 0 50px;
+            padding: 40px 24px 36px;
             text-align: center;
         }
-        .page-hero .badge {
-            display: inline-block;
-            background: rgba(219,74,43,.1);
-            color: var(--primary);
-            font-size: .8rem; font-weight: 700; letter-spacing: .08em;
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(219,74,43,.1); color: var(--primary);
+            font-size: .75rem; font-weight: 700; letter-spacing: .08em;
             padding: 5px 14px; border-radius: 999px;
-            margin-bottom: 18px; text-transform: uppercase;
+            margin-bottom: 14px; text-transform: uppercase;
         }
-        .page-hero h1 { font-size: 2.8rem; color: var(--primary); margin-bottom: 12px; }
-        .page-hero p  { font-size: 1.1rem; color: var(--text-light); max-width: 520px; margin: 0 auto; }
+        .page-hero h1 { font-size: 2.4rem; color: var(--primary); margin-bottom: 10px; line-height: 1.2; }
+        .page-hero p  { font-size: 1rem; color: var(--muted); max-width: 480px; margin: 0 auto; }
 
-        /* ── LAYOUT ──────────────────────────────────────── */
-        .tools-section { padding: 60px 0 80px; }
-        .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+        /* ── TOOL SHELL ─────────────────────────────────────── */
+        .tools-section {
+            padding: 32px 0 56px;
+            padding-left:  env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
 
         .tool-wrapper {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
+            border-radius: var(--r);
             overflow: hidden;
-            box-shadow: 0 4px 24px rgba(0,0,0,.06);
+            box-shadow: 0 4px 28px rgba(0,0,0,.07);
         }
 
+        /* tool title bar */
         .tool-header {
             display: flex; align-items: center; gap: 14px;
-            padding: 22px 28px;
-            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
             background: var(--surface2);
+            border-bottom: 1px solid var(--border);
         }
         .tool-icon {
-            width: 46px; height: 46px; border-radius: 10px;
+            width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
             background: linear-gradient(135deg, var(--primary), var(--accent));
             display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 1.3rem; flex-shrink: 0;
+            color: #fff; font-size: 1.2rem;
         }
-        .tool-header h2 { font-size: 1.3rem; color: var(--text); margin: 0; }
-        .tool-header p  { font-size: .88rem; color: var(--text-light); margin: 2px 0 0; }
+        .tool-header h2 { font-size: 1.2rem; color: var(--text); line-height: 1.3; margin: 0; }
+        .tool-header p  { font-size: .83rem; color: var(--muted); margin: 3px 0 0; }
 
-        /* ── TELEPROMPTER BODY ───────────────────────────── */
-        .tp-body { display: flex; flex-direction: column; gap: 0; }
+        /* ── SPLIT LAYOUT (iPad landscape + desktop) ─────────── */
+        /*
+         * Breakpoint logic:
+         *   ≥ 900px  → side-by-side: left panel fixed 360px, right = display
+         *   < 900px  → stacked (portrait phone/tablet)
+         */
+        .tp-split {
+            display: flex;
+            min-height: 540px;
+        }
 
-        /* Controls bar */
+        /* LEFT PANEL */
+        .tp-panel-left {
+            width: 360px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* RIGHT PANEL – display */
+        .tp-panel-right {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── CONTROLS ───────────────────────────────────────── */
         .tp-controls {
-            display: flex; flex-wrap: wrap; align-items: flex-end;
-            gap: 20px 28px;
-            padding: 22px 28px;
+            padding: 20px 20px 16px;
             border-bottom: 1px solid var(--border);
             background: #faf9f7;
+            display: flex; flex-direction: column; gap: 18px;
         }
 
-        .ctrl-group { display: flex; flex-direction: column; gap: 6px; min-width: 160px; }
-        .ctrl-group label {
-            font-size: .78rem; font-weight: 700; letter-spacing: .06em;
-            text-transform: uppercase; color: var(--text-light);
-            display: flex; align-items: center; gap: 7px;
-        }
-        .ctrl-group label i { font-size: .9rem; color: var(--primary); }
+        .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
 
-        .ctrl-row { display: flex; align-items: center; gap: 10px; }
-        .ctrl-row input[type=range] {
-            -webkit-appearance: none; appearance: none;
-            width: 140px; height: 5px;
-            border-radius: 3px;
-            background: linear-gradient(to right, var(--primary) var(--pct,50%), var(--border) var(--pct,50%));
-            outline: none; cursor: pointer;
+        .ctrl-label {
+            font-size: .72rem; font-weight: 700; letter-spacing: .07em;
+            text-transform: uppercase; color: var(--muted);
+            display: flex; align-items: center; gap: 6px;
         }
-        .ctrl-row input[type=range]::-webkit-slider-thumb {
+        .ctrl-label i { color: var(--primary); font-size: .85rem; }
+
+        .ctrl-row { display: flex; align-items: center; gap: 12px; }
+
+        /* Range — touch-friendly, webkit-safe */
+        input[type="range"] {
             -webkit-appearance: none;
-            width: 18px; height: 18px;
+            appearance: none;
+            flex: 1;
+            height: 6px;
+            border-radius: 4px;
+            background: linear-gradient(
+                to right,
+                var(--primary) var(--pct, 22%),
+                var(--border)  var(--pct, 22%)
+            );
+            outline: none;
+            cursor: pointer;
+            touch-action: pan-x;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 26px; height: 26px;
             border-radius: 50%;
             background: var(--primary);
             border: 3px solid #fff;
-            box-shadow: 0 2px 6px rgba(219,74,43,.35);
-            cursor: grab;
+            box-shadow: 0 2px 8px rgba(219,74,43,.35);
+            cursor: pointer;
         }
-        .ctrl-row input[type=range]:active::-webkit-slider-thumb { cursor: grabbing; }
+        input[type="range"]::-moz-range-thumb {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 3px solid #fff;
+            cursor: pointer;
+        }
 
         .ctrl-val {
-            min-width: 38px; text-align: center;
-            font-weight: 700; font-size: .95rem; color: var(--primary);
+            min-width: 44px; text-align: right;
+            font-weight: 700; font-size: .9rem; color: var(--primary);
         }
 
-        /* Toggle switch */
-        .toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-        .toggle-label span { font-size: .9rem; font-weight: 600; color: var(--text); }
-        .toggle-switch {
-            position: relative; width: 46px; height: 26px;
-        }
+        /* Toggle */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+        .toggle-row span { font-size: .9rem; font-weight: 600; color: var(--text); }
+        .toggle-switch { position: relative; width: 50px; height: 28px; flex-shrink: 0; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .toggle-slider {
             position: absolute; inset: 0;
             background: var(--border); border-radius: 999px;
-            transition: background .25s;
+            transition: background .22s;
+            cursor: pointer;
         }
         .toggle-slider::before {
             content: '';
             position: absolute; left: 3px; top: 3px;
-            width: 20px; height: 20px;
-            border-radius: 50%;
-            background: #fff;
+            width: 22px; height: 22px;
+            border-radius: 50%; background: #fff;
             box-shadow: 0 1px 4px rgba(0,0,0,.2);
-            transition: transform .25s;
+            transition: transform .22s;
         }
         .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
-        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
 
-        /* Action buttons */
+        /* ── ACTION BUTTONS ─────────────────────────────────── */
         .tp-actions {
-            display: flex; flex-wrap: wrap; gap: 10px;
-            padding: 18px 28px;
+            padding: 16px 20px;
             border-bottom: 1px solid var(--border);
-            background: var(--surface);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
+        .tp-actions .btn--wide { grid-column: 1 / -1; }
 
         .btn {
-            display: inline-flex; align-items: center; gap: 8px;
-            padding: 10px 20px; border-radius: 8px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            min-height: 46px; /* 44px touch target */
+            padding: 10px 16px; border-radius: 9px;
             font-family: var(--font); font-weight: 600; font-size: .9rem;
-            border: none; cursor: pointer; transition: all .25s;
+            border: none; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: opacity .2s, transform .15s, box-shadow .2s;
+            user-select: none;
         }
+        .btn:active { opacity: .82; transform: scale(.97); }
+
         .btn--primary { background: var(--primary); color: #fff; }
-        .btn--primary:hover { background: #c2401f; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(219,74,43,.3); }
+        .btn--primary:not(:disabled):hover { box-shadow: 0 4px 14px rgba(219,74,43,.35); }
         .btn--ghost {
             background: transparent; color: var(--text);
             border: 1.5px solid var(--border);
         }
-        .btn--ghost:hover { border-color: var(--primary); color: var(--primary); }
+        .btn--ghost:not(:disabled):hover { border-color: var(--primary); color: var(--primary); }
         .btn--accent { background: var(--accent); color: #fff; }
-        .btn--accent:hover { background: #e8953d; transform: translateY(-1px); }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
 
-        /* Textarea */
-        .tp-input-area { padding: 28px; border-bottom: 1px solid var(--border); }
+        /* ── TEXTAREA ───────────────────────────────────────── */
+        .tp-input-area {
+            flex: 1;
+            padding: 16px 20px 20px;
+            display: flex; flex-direction: column;
+        }
         .tp-input-area textarea {
-            width: 100%; min-height: 160px;
-            font-family: var(--font); font-size: 1rem; line-height: 1.7;
-            color: var(--text); background: var(--surface2);
-            border: 1.5px solid var(--border); border-radius: 10px;
-            padding: 18px 20px; resize: vertical; outline: none;
-            transition: border-color .25s;
+            flex: 1;
+            min-height: 160px;
+            width: 100%;
+            font-family: var(--font);
+            /* 16px prevents iOS auto-zoom on focus */
+            font-size: 16px;
+            line-height: 1.65;
+            color: var(--text);
+            background: var(--surface2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            resize: none;
+            outline: none;
+            transition: border-color .22s;
+            -webkit-overflow-scrolling: touch;
         }
         .tp-input-area textarea:focus { border-color: var(--primary); }
-        .tp-input-area textarea::placeholder { color: #b5b0a8; }
+        .tp-input-area textarea::placeholder { color: #bbb6ae; }
 
-        /* ── DISPLAY ─────────────────────────────────────── */
+        /* ── DISPLAY ────────────────────────────────────────── */
         .tp-display-wrap {
+            flex: 1;
             position: relative;
             background: #111;
-            border-radius: 0 0 var(--radius) var(--radius);
+            display: flex; flex-direction: column;
+            border-radius: 0 0 var(--r) 0;
             overflow: hidden;
-        }
-        .tp-display-wrap::before {
-            content: '';
-            position: absolute; top: 0; left: 0; right: 0;
-            height: 80px;
-            background: linear-gradient(to bottom, #111 0%, transparent 100%);
-            z-index: 2; pointer-events: none;
-        }
-        .tp-display-wrap::after {
-            content: '';
-            position: absolute; bottom: 0; left: 0; right: 0;
-            height: 80px;
-            background: linear-gradient(to top, #111 0%, transparent 100%);
-            z-index: 2; pointer-events: none;
+            min-height: 300px;
         }
 
-        /* Focus line */
+        /* fade edges */
+        .tp-display-wrap::before,
+        .tp-display-wrap::after {
+            content: '';
+            position: absolute; left: 0; right: 0;
+            height: 90px; z-index: 2; pointer-events: none;
+        }
+        .tp-display-wrap::before {
+            top: 0;
+            background: linear-gradient(to bottom, #111, transparent);
+        }
+        .tp-display-wrap::after {
+            bottom: 0;
+            background: linear-gradient(to top, #111, transparent);
+        }
+
+        /* focus line */
         .tp-focus-line {
             position: absolute; left: 0; right: 0;
             top: 50%; transform: translateY(-50%);
-            height: 3px;
-            background: linear-gradient(to right, transparent, var(--primary), var(--accent), var(--primary), transparent);
-            z-index: 3; pointer-events: none;
-            opacity: .6;
+            height: 2px;
+            background: linear-gradient(
+                to right,
+                transparent 0%, var(--primary) 30%,
+                var(--accent) 50%, var(--primary) 70%, transparent 100%
+            );
+            z-index: 3; pointer-events: none; opacity: .55;
         }
+
+        /* status pill */
+        .tp-status {
+            position: absolute; top: 16px; right: 16px; z-index: 4;
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,.12);
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+            padding: 5px 13px; border-radius: 999px;
+            font-size: .78rem; color: rgba(255,255,255,.85); font-weight: 600;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; transition: background .3s; }
+        .dot.running { background: #22c55e; animation: pulse 1.2s infinite; }
+        .dot.paused  { background: var(--accent); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
         .tp-display {
-            height: 360px;
+            flex: 1;
             overflow: hidden;
-            padding: 100px 60px;
-            position: relative;
+            padding: 100px 48px;
         }
-
-        .tp-scroll-inner {
-            transition: transform .1s linear;
-        }
-
+        .tp-scroll-inner { will-change: transform; }
         .tp-text {
             color: #fff;
-            line-height: 1.6;
-            font-size: 2rem; /* default, overridden by JS */
+            font-size: 2rem;
             font-weight: 500;
+            line-height: 1.6;
             text-align: center;
             white-space: pre-wrap;
         }
-        .tp-text.mirrored {
-            transform: scaleX(-1);
-        }
+        .tp-text.mirrored { transform: scaleX(-1); }
 
-        /* Status pill */
-        .tp-status {
-            position: absolute; top: 18px; right: 20px;
-            z-index: 4;
-            display: flex; align-items: center; gap: 7px;
-            background: rgba(255,255,255,.1);
-            backdrop-filter: blur(6px);
-            padding: 5px 13px; border-radius: 999px;
-            font-size: .8rem; color: rgba(255,255,255,.8); font-weight: 600;
-        }
-        .tp-status .dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: #555; transition: background .3s;
-        }
-        .tp-status .dot.running { background: #22c55e; animation: pulse 1.2s infinite; }
-        .tp-status .dot.paused  { background: var(--accent); }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: .4; }
-        }
-
-        /* ── FOOTER ──────────────────────────────────────── */
+        /* ── FOOTER ─────────────────────────────────────────── */
         .footer {
             border-top: 1px solid var(--border);
-            padding: 30px 0;
+            padding: 26px 24px;
             background: var(--surface2);
             text-align: center;
+            padding-bottom: calc(26px + env(safe-area-inset-bottom));
         }
-        .footer p { color: var(--text-light); font-size: .9rem; margin: 0; }
+        .footer p { color: var(--muted); font-size: .88rem; margin: 0; }
         .footer a  { color: var(--primary); font-weight: 600; text-decoration: none; }
 
-        /* ── RESPONSIVE ──────────────────────────────────── */
-        @media (max-width: 768px) {
+        /* ── RESPONSIVE ─────────────────────────────────────── */
+
+        /* iPad portrait & small tablets (600–899px) */
+        @media (max-width: 899px) {
+            .tp-split { flex-direction: column; min-height: auto; }
+            .tp-panel-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+            .tp-panel-right { min-height: 340px; }
+            .tp-display-wrap { border-radius: 0 0 var(--r) var(--r); }
+            .tp-display { padding: 80px 32px; }
+        }
+
+        /* Phones (< 600px) */
+        @media (max-width: 599px) {
             .header__nav { display: none; }
-            .page-hero h1 { font-size: 2rem; }
-            .tp-controls { gap: 16px 18px; padding: 18px; }
-            .ctrl-row input[type=range] { width: 110px; }
-            .tp-display { height: 280px; padding: 80px 20px; }
-            .tp-text { font-size: 1.4rem !important; }
-            .tp-actions { padding: 14px 18px; }
-            .tp-input-area { padding: 18px; }
-            .tool-header { padding: 18px; }
+            .page-hero { padding: 28px 16px 24px; }
+            .page-hero h1 { font-size: 1.9rem; }
+            .container { padding: 0 12px; }
+            .tp-actions { grid-template-columns: 1fr 1fr; }
+            .tp-display { padding: 60px 16px; }
+            .tp-text { font-size: 1.5rem !important; }
+        }
+
+        /* iPad landscape & desktop (≥ 900px): ensure display fills height */
+        @media (min-width: 900px) {
+            .tp-split { align-items: stretch; }
+            .tp-panel-left { overflow-y: auto; }
+            .tp-display-wrap {
+                position: absolute;
+                inset: 0;
+                border-radius: 0 0 var(--r) 0;
+            }
+            .tp-panel-right { position: relative; }
         }
     </style>
 </head>
 <body>
 
-<!-- ── HEADER ──────────────────────────────────────────── -->
+<!-- HEADER -->
 <header class="header">
-    <div class="header__container">
+    <div class="header__inner">
         <a href="../index.html" class="header__logo">éozoré.</a>
         <nav class="header__nav">
             <ul>
@@ -321,203 +428,197 @@
     </div>
 </header>
 
-<!-- ── PAGE HERO ───────────────────────────────────────── -->
+<!-- PAGE HERO -->
 <section class="page-hero">
-    <div class="badge"><i class="fa-solid fa-wrench"></i> &nbsp;Ferramentas</div>
+    <div class="badge"><i class="fa-solid fa-wrench"></i> Ferramentas</div>
     <h1>Tools</h1>
     <p>Pequenas ferramentas construídas para uso próprio e agora disponíveis para todo mundo.</p>
 </section>
 
-<!-- ── TOOLS ───────────────────────────────────────────── -->
+<!-- TOOL -->
 <section class="tools-section">
     <div class="container">
-
         <div class="tool-wrapper">
 
-            <!-- Tool header -->
             <div class="tool-header">
                 <div class="tool-icon"><i class="fa-solid fa-film"></i></div>
                 <div>
                     <h2>Teleprompter</h2>
-                    <p>Cole seu roteiro, ajuste velocidade, fonte e modo espelho — e grave.</p>
+                    <p>Cole seu roteiro, ajuste os parâmetros e grave.</p>
                 </div>
             </div>
 
-            <div class="tp-body">
+            <div class="tp-split">
 
-                <!-- Controls -->
-                <div class="tp-controls">
+                <!-- LEFT: controls + textarea -->
+                <div class="tp-panel-left">
 
-                    <!-- Speed -->
-                    <div class="ctrl-group">
-                        <label><i class="fa-solid fa-gauge-high"></i> Velocidade</label>
-                        <div class="ctrl-row">
-                            <input type="range" id="speedRange" min="1" max="10" value="3"
-                                   oninput="updateControl(this, 'speedVal', '')">
-                            <span class="ctrl-val" id="speedVal">3</span>
+                    <div class="tp-controls">
+
+                        <!-- Speed -->
+                        <div class="ctrl-group">
+                            <span class="ctrl-label">
+                                <i class="fa-solid fa-gauge-high"></i> Velocidade
+                            </span>
+                            <div class="ctrl-row">
+                                <input type="range" id="speedRange" min="1" max="10" value="3"
+                                       oninput="updateRange(this,'speedVal','')">
+                                <span class="ctrl-val" id="speedVal">3</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Font size -->
-                    <div class="ctrl-group">
-                        <label><i class="fa-solid fa-text-height"></i> Tamanho</label>
-                        <div class="ctrl-row">
-                            <input type="range" id="fontRange" min="16" max="72" value="32" step="2"
-                                   oninput="updateControl(this, 'fontVal', 'px')">
-                            <span class="ctrl-val" id="fontVal">32px</span>
+                        <!-- Font size -->
+                        <div class="ctrl-group">
+                            <span class="ctrl-label">
+                                <i class="fa-solid fa-text-height"></i> Tamanho da letra
+                            </span>
+                            <div class="ctrl-row">
+                                <input type="range" id="fontRange" min="16" max="72" value="32" step="2"
+                                       oninput="updateRange(this,'fontVal','px')">
+                                <span class="ctrl-val" id="fontVal">32px</span>
+                            </div>
                         </div>
+
+                        <!-- Mirror -->
+                        <div class="ctrl-group">
+                            <span class="ctrl-label">
+                                <i class="fa-solid fa-left-right"></i> Letras invertidas
+                            </span>
+                            <div class="toggle-row">
+                                <span id="mirrorLabel">Desligado</span>
+                                <label class="toggle-switch" aria-label="Modo espelho">
+                                    <input type="checkbox" id="mirrorToggle" onchange="applyMirror()">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                    </div><!-- /.tp-controls -->
+
+                    <div class="tp-actions">
+                        <button class="btn btn--primary" id="playBtn" onclick="play()">
+                            <i class="fa-solid fa-play"></i> Play
+                        </button>
+                        <button class="btn btn--ghost" id="pauseBtn" onclick="pause()" disabled>
+                            <i class="fa-solid fa-pause"></i> Pausar
+                        </button>
+                        <button class="btn btn--ghost" onclick="stop()">
+                            <i class="fa-solid fa-stop"></i> Parar
+                        </button>
+                        <button class="btn btn--accent" onclick="goFullscreen()">
+                            <i class="fa-solid fa-expand"></i> Tela cheia
+                        </button>
                     </div>
 
-                    <!-- Mirror toggle -->
-                    <div class="ctrl-group" style="min-width:auto;">
-                        <label><i class="fa-solid fa-left-right"></i> Espelho</label>
-                        <label class="toggle-label">
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="mirrorToggle" onchange="applyMirror()">
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <span id="mirrorLabel">Desligado</span>
-                        </label>
-                    </div>
-
-                </div>
-
-                <!-- Action buttons -->
-                <div class="tp-actions">
-                    <button class="btn btn--primary" id="playBtn" onclick="play()">
-                        <i class="fa-solid fa-play"></i> Play
-                    </button>
-                    <button class="btn btn--ghost" id="pauseBtn" onclick="pause()" disabled>
-                        <i class="fa-solid fa-pause"></i> Pausar
-                    </button>
-                    <button class="btn btn--ghost" onclick="stop()">
-                        <i class="fa-solid fa-stop"></i> Parar
-                    </button>
-                    <button class="btn btn--accent" onclick="fullscreen()">
-                        <i class="fa-solid fa-expand"></i> Tela cheia
-                    </button>
-                </div>
-
-                <!-- Text input -->
-                <div class="tp-input-area">
-                    <textarea id="scriptInput" placeholder="Cole o seu roteiro aqui…&#10;&#10;O texto aparecerá na tela do teleprompter abaixo.">Bem-vindo ao teleprompter!
+                    <div class="tp-input-area">
+                        <textarea id="scriptInput"
+                            placeholder="Cole o seu roteiro aqui…&#10;&#10;O texto aparecerá no painel ao lado.">Bem-vindo ao teleprompter!
 
 Cole aqui o texto que você quer ler durante a gravação.
 
-Você pode ajustar a velocidade de rolagem, o tamanho da fonte e ativar o modo espelho para uso com um beamsplitter.
+Ajuste a velocidade de rolagem, o tamanho da fonte e ative o modo de letras invertidas para uso com um beamsplitter.
 
 Pressione Play quando estiver pronto.</textarea>
-                </div>
-
-                <!-- Display -->
-                <div class="tp-display-wrap" id="displayWrap">
-                    <div class="tp-focus-line"></div>
-                    <div class="tp-status">
-                        <span class="dot" id="statusDot"></span>
-                        <span id="statusLabel">Pronto</span>
                     </div>
-                    <div class="tp-display" id="tpDisplay">
-                        <div class="tp-scroll-inner" id="scrollInner">
-                            <div class="tp-text" id="tpText"></div>
+
+                </div><!-- /.tp-panel-left -->
+
+                <!-- RIGHT: display -->
+                <div class="tp-panel-right">
+                    <div class="tp-display-wrap" id="displayWrap">
+                        <div class="tp-focus-line"></div>
+                        <div class="tp-status">
+                            <span class="dot" id="statusDot"></span>
+                            <span id="statusLabel">Pronto</span>
+                        </div>
+                        <div class="tp-display" id="tpDisplay">
+                            <div class="tp-scroll-inner" id="scrollInner">
+                                <div class="tp-text" id="tpText"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </div><!-- /.tp-panel-right -->
 
-            </div><!-- /.tp-body -->
+            </div><!-- /.tp-split -->
         </div><!-- /.tool-wrapper -->
-
     </div>
 </section>
 
-<!-- ── FOOTER ───────────────────────────────────────────── -->
 <footer class="footer">
     <p>© 2025 <a href="../index.html">Victor Zoré</a>. Todos os direitos reservados.</p>
 </footer>
 
 <script>
-// ── State ────────────────────────────────────────────────
-let scrollY    = 0;
-let rafId      = null;
-let isRunning  = false;
-let isPaused   = false;
+/* ── state ── */
+let tpScrollY = 0, rafId = null, isRunning = false, isPaused = false;
 
-// ── Helpers ──────────────────────────────────────────────
-function updateControl(el, valId, suffix) {
+/* ── range helper ── */
+function updateRange(el, valId, suffix) {
     const min = +el.min, max = +el.max, val = +el.value;
     const pct = ((val - min) / (max - min)) * 100;
     el.style.setProperty('--pct', pct + '%');
     document.getElementById(valId).textContent = val + suffix;
-
     if (el.id === 'fontRange') {
         document.getElementById('tpText').style.fontSize = val + 'px';
     }
 }
 
+/* ── mirror ── */
 function applyMirror() {
     const on = document.getElementById('mirrorToggle').checked;
     document.getElementById('tpText').classList.toggle('mirrored', on);
     document.getElementById('mirrorLabel').textContent = on ? 'Ligado' : 'Desligado';
 }
 
+/* ── status ── */
 function setStatus(state) {
-    const dot   = document.getElementById('statusDot');
-    const label = document.getElementById('statusLabel');
-    dot.className   = 'dot ' + state;
-    label.textContent = state === 'running' ? 'Rolando' :
-                        state === 'paused'  ? 'Pausado' : 'Pronto';
+    const dot = document.getElementById('statusDot');
+    const lbl = document.getElementById('statusLabel');
+    dot.className = 'dot ' + state;
+    lbl.textContent = state === 'running' ? 'Rolando'
+                    : state === 'paused'  ? 'Pausado'
+                    : 'Pronto';
 }
 
+/* ── sync text ── */
 function syncText() {
     const raw = document.getElementById('scriptInput').value;
     document.getElementById('tpText').textContent = raw;
-    // Apply current font size
     const fs = document.getElementById('fontRange').value;
     document.getElementById('tpText').style.fontSize = fs + 'px';
 }
 
-// ── Scroll loop ──────────────────────────────────────────
+/* ── tick ── */
 function tick() {
     const speed = +document.getElementById('speedRange').value;
-    // pixels per frame: maps 1-10 → 0.3 - 3.5
-    const pxPerFrame = 0.3 + (speed - 1) * (3.2 / 9);
-    scrollY += pxPerFrame;
+    const ppf = 0.3 + (speed - 1) * (3.2 / 9);
+    tpScrollY += ppf;
 
     const inner   = document.getElementById('scrollInner');
     const display = document.getElementById('tpDisplay');
     const maxScroll = inner.scrollHeight - display.clientHeight + 100;
 
-    if (scrollY >= maxScroll) {
-        scrollY = maxScroll;
-        stop();
-        return;
-    }
-    inner.style.transform = `translateY(-${scrollY}px)`;
+    if (tpScrollY >= maxScroll) { tpScrollY = maxScroll; stop(); return; }
+    inner.style.transform = `translateY(-${tpScrollY}px)`;
     rafId = requestAnimationFrame(tick);
 }
 
-// ── Controls ─────────────────────────────────────────────
+/* ── controls ── */
 function play() {
     if (isRunning && !isPaused) return;
-
     syncText();
-
-    if (!isPaused) { scrollY = 0; }
-    isPaused  = false;
-    isRunning = true;
-
+    if (!isPaused) tpScrollY = 0;
+    isPaused = false; isRunning = true;
     document.getElementById('playBtn').disabled  = true;
     document.getElementById('pauseBtn').disabled = false;
     setStatus('running');
-
     rafId = requestAnimationFrame(tick);
 }
 
 function pause() {
     if (!isRunning) return;
     cancelAnimationFrame(rafId);
-    isPaused  = true;
-    isRunning = false;
-
+    isPaused = true; isRunning = false;
     document.getElementById('playBtn').disabled  = false;
     document.getElementById('pauseBtn').disabled = true;
     setStatus('paused');
@@ -525,34 +626,25 @@ function pause() {
 
 function stop() {
     cancelAnimationFrame(rafId);
-    isRunning = false;
-    isPaused  = false;
-    scrollY   = 0;
-
+    isRunning = false; isPaused = false; tpScrollY = 0;
     document.getElementById('scrollInner').style.transform = 'translateY(0)';
     document.getElementById('playBtn').disabled  = false;
     document.getElementById('pauseBtn').disabled = true;
     setStatus('');
 }
 
-function fullscreen() {
+function goFullscreen() {
     const el = document.getElementById('displayWrap');
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el);
 }
 
-// ── Init ─────────────────────────────────────────────────
-(function init() {
-    // Sync sliders visual fill on load
-    ['speedRange','fontRange'].forEach(id => {
-        const el  = document.getElementById(id);
-        const valId = id === 'speedRange' ? 'speedVal' : 'fontVal';
-        const sfx   = id === 'fontRange'  ? 'px' : '';
-        updateControl(el, valId, sfx);
-    });
+/* ── init ── */
+(function () {
+    updateRange(document.getElementById('speedRange'), 'speedVal', '');
+    updateRange(document.getElementById('fontRange'),  'fontVal',  'px');
     syncText();
 })();
 </script>
-
 </body>
 </html>
