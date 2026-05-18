@@ -1,650 +1,342 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Tools – Victor Zoré</title>
-    <meta name="description" content="Teleprompter online com velocidade, tamanho de fonte e modo espelho.">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tools – Victor Zoré</title>
+<meta name="description" content="Teleprompter online – velocidade, tamanho e modo espelho.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<style>
+/* tokens */
+:root {
+  --red:#db4a2b; --amber:#f5a962;
+  --bg:#e4e0d7; --white:#fff; --surface:#f5f3f0;
+  --border:#e8e3d8; --text:#2d2d2d; --muted:#6C757D;
+  --font:'Inter',sans-serif; --r:12px;
+}
+*{margin:0;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+/* header */
+.hdr{position:-webkit-sticky;position:sticky;top:0;background:rgba(250,249,247,.96);border-bottom:1px solid var(--border);z-index:100;padding:0 24px;}
+.hdr-inner{max-width:1200px;margin:0 auto;height:58px;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:space-between;justify-content:space-between;}
+.logo{font-size:1.4rem;font-weight:700;color:var(--red);text-decoration:none;}
+.nav ul{display:-webkit-flex;display:flex;list-style:none;gap:26px;}
+.nav a{font-weight:500;font-size:.95rem;color:var(--text);text-decoration:none;}
+.nav a:hover,.nav a.on{color:var(--red);}
 
-    <style>
-        /* ── TOKENS ─────────────────────────────────────────── */
-        :root {
-            --primary:    #db4a2b;
-            --accent:     #f5a962;
-            --bg:         #e4e0d7;
-            --surface:    #ffffff;
-            --surface2:   #f5f3f0;
-            --border:     #e8e3d8;
-            --text:       #2d2d2d;
-            --muted:      #6C757D;
-            --font:       'Inter', sans-serif;
-            --r:          12px;
-            --header-h:   58px;
-        }
+/* hero */
+.hero{background:var(--white);border-bottom:1px solid var(--border);padding:40px 24px 34px;text-align:center;}
+.badge{display:inline-block;background:rgba(219,74,43,.1);color:var(--red);font-size:.75rem;font-weight:700;letter-spacing:.08em;padding:5px 14px;border-radius:999px;margin-bottom:14px;text-transform:uppercase;}
+.hero h1{font-size:2.4rem;color:var(--red);margin-bottom:10px;line-height:1.2;}
+.hero p{font-size:1rem;color:var(--muted);max-width:480px;margin:0 auto;}
 
-        /* ── RESET ──────────────────────────────────────────── */
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+/* section */
+.sect{padding:32px 0 56px;}
+.wrap{max-width:1200px;margin:0 auto;padding:0 20px;}
 
-        html {
-            -webkit-text-size-adjust: 100%;
-            text-size-adjust: 100%;
-        }
+/* card */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;-webkit-box-shadow:0 4px 24px rgba(0,0,0,.07);box-shadow:0 4px 24px rgba(0,0,0,.07);}
 
-        body {
-            font-family: var(--font);
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100svh;
-            overscroll-behavior: none;
-        }
+/* tool header */
+.th{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:14px;padding:20px 24px;background:var(--surface);border-bottom:1px solid var(--border);}
+.ti{width:44px;height:44px;border-radius:10px;-webkit-flex-shrink:0;flex-shrink:0;background:-webkit-linear-gradient(315deg,var(--red),var(--amber));background:linear-gradient(135deg,var(--red),var(--amber));display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;color:#fff;font-size:1.2rem;}
+.th h2{font-size:1.2rem;color:var(--text);margin:0;}
+.th p{font-size:.83rem;color:var(--muted);margin:3px 0 0;}
 
-        /* ── HEADER ─────────────────────────────────────────── */
-        .header {
-            position: sticky; top: 0;
-            height: var(--header-h);
-            background: rgba(250,249,247,.96);
-            -webkit-backdrop-filter: blur(12px);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
-            z-index: 100;
-            /* safe area for notch/Dynamic Island */
-            padding-left: env(safe-area-inset-left);
-            padding-right: env(safe-area-inset-right);
-        }
-        .header__inner {
-            max-width: 1200px; margin: 0 auto;
-            padding: 0 24px;
-            height: 100%;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .header__logo {
-            font-size: 1.4rem; font-weight: 700;
-            color: var(--primary); text-decoration: none;
-        }
-        .header__nav ul { display: flex; list-style: none; gap: 28px; }
-        .header__nav a {
-            font-weight: 500; font-size: .95rem;
-            color: var(--text); text-decoration: none;
-            transition: color .2s;
-            /* at least 44px tap target */
-            display: inline-block; padding: 10px 0;
-        }
-        .header__nav a:hover,
-        .header__nav a.active { color: var(--primary); }
+/* split */
+.split{display:-webkit-flex;display:flex;min-height:520px;}
+.panel-l{width:360px;-webkit-flex-shrink:0;flex-shrink:0;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;border-right:1px solid var(--border);-webkit-overflow-scrolling:touch;overflow-y:auto;}
+.panel-r{-webkit-flex:1;flex:1;min-width:0;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;position:relative;}
 
-        /* ── PAGE HERO ──────────────────────────────────────── */
-        .page-hero {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 40px 24px 36px;
-            text-align: center;
-        }
-        .badge {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: rgba(219,74,43,.1); color: var(--primary);
-            font-size: .75rem; font-weight: 700; letter-spacing: .08em;
-            padding: 5px 14px; border-radius: 999px;
-            margin-bottom: 14px; text-transform: uppercase;
-        }
-        .page-hero h1 { font-size: 2.4rem; color: var(--primary); margin-bottom: 10px; line-height: 1.2; }
-        .page-hero p  { font-size: 1rem; color: var(--muted); max-width: 480px; margin: 0 auto; }
+/* controls */
+.ctrls{padding:20px 20px 16px;border-bottom:1px solid var(--border);background:#faf9f7;}
+.cg{display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:8px;margin-bottom:18px;}
+.cg:last-child{margin-bottom:0;}
+.clabel{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:6px;}
+.clabel i{color:var(--red);font-size:.85rem;}
+.crow{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:12px;}
 
-        /* ── TOOL SHELL ─────────────────────────────────────── */
-        .tools-section {
-            padding: 32px 0 56px;
-            padding-left:  env(safe-area-inset-left);
-            padding-right: env(safe-area-inset-right);
-        }
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+/* range — safari 9 safe */
+input[type="range"]{-webkit-appearance:none;appearance:none;-webkit-flex:1;flex:1;height:6px;border-radius:4px;background:#e8e3d8;outline:none;cursor:pointer;touch-action:pan-x;}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--red);border:3px solid #fff;-webkit-box-shadow:0 2px 8px rgba(219,74,43,.35);box-shadow:0 2px 8px rgba(219,74,43,.35);cursor:pointer;}
+.cval{min-width:44px;text-align:right;font-weight:700;font-size:.9rem;color:var(--red);}
 
-        .tool-wrapper {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--r);
-            overflow: hidden;
-            box-shadow: 0 4px 28px rgba(0,0,0,.07);
-        }
+/* toggle */
+.trow{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:space-between;justify-content:space-between;}
+.trow span{font-size:.9rem;font-weight:600;color:var(--text);}
+.tsw{position:relative;width:50px;height:28px;-webkit-flex-shrink:0;flex-shrink:0;}
+.tsw input{opacity:0;width:0;height:0;position:absolute;}
+.tsl{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:999px;cursor:pointer;-webkit-transition:background .22s;transition:background .22s;}
+.tsl:before{content:'';position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;-webkit-box-shadow:0 1px 4px rgba(0,0,0,.2);box-shadow:0 1px 4px rgba(0,0,0,.2);-webkit-transition:-webkit-transform .22s;transition:transform .22s;}
+.tsw input:checked + .tsl{background:var(--red);}
+.tsw input:checked + .tsl:before{-webkit-transform:translateX(22px);transform:translateX(22px);}
 
-        /* tool title bar */
-        .tool-header {
-            display: flex; align-items: center; gap: 14px;
-            padding: 20px 24px;
-            background: var(--surface2);
-            border-bottom: 1px solid var(--border);
-        }
-        .tool-icon {
-            width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 1.2rem;
-        }
-        .tool-header h2 { font-size: 1.2rem; color: var(--text); line-height: 1.3; margin: 0; }
-        .tool-header p  { font-size: .83rem; color: var(--muted); margin: 3px 0 0; }
+/* actions — flex wrap, no grid */
+.acts{padding:16px 20px;border-bottom:1px solid var(--border);display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:10px;}
+.btn{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;gap:8px;min-height:46px;padding:10px 14px;border-radius:9px;font-family:var(--font);font-weight:600;font-size:.88rem;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-transition:opacity .2s;transition:opacity .2s;-webkit-flex:1 1 calc(50% - 5px);flex:1 1 calc(50% - 5px);}
+.btn:active{opacity:.8;}
+.btn:disabled{opacity:.38;cursor:default;}
+.bp{background:var(--red);color:#fff;}
+.bg{background:transparent;color:var(--text);border:1.5px solid var(--border);}
+.ba{background:var(--amber);color:#fff;}
+.bw{-webkit-flex:1 1 100%;flex:1 1 100%;}
 
-        /* ── SPLIT LAYOUT (iPad landscape + desktop) ─────────── */
-        /*
-         * Breakpoint logic:
-         *   ≥ 900px  → side-by-side: left panel fixed 360px, right = display
-         *   < 900px  → stacked (portrait phone/tablet)
-         */
-        .tp-split {
-            display: flex;
-            min-height: 540px;
-        }
+/* textarea */
+.ipa{-webkit-flex:1;flex:1;padding:16px 20px 20px;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;}
+.ipa textarea{-webkit-flex:1;flex:1;min-height:160px;width:100%;font-family:var(--font);font-size:16px;line-height:1.65;color:var(--text);background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:14px;resize:none;outline:none;-webkit-overflow-scrolling:touch;-webkit-transition:border-color .22s;transition:border-color .22s;}
+.ipa textarea:focus{border-color:var(--red);}
+.ipa textarea::-webkit-input-placeholder{color:#bbb6ae;}
 
-        /* LEFT PANEL */
-        .tp-panel-left {
-            width: 360px;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid var(--border);
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
+/* display */
+.dw{position:absolute;top:0;left:0;right:0;bottom:0;background:#111;overflow:hidden;}
+.dw:before,.dw:after{content:'';position:absolute;left:0;right:0;height:80px;z-index:2;pointer-events:none;}
+.dw:before{top:0;background:-webkit-linear-gradient(top,#111,transparent);background:linear-gradient(to bottom,#111,transparent);}
+.dw:after{bottom:0;background:-webkit-linear-gradient(bottom,#111,transparent);background:linear-gradient(to top,#111,transparent);}
+.fline{position:absolute;left:0;right:0;top:50%;margin-top:-1px;height:2px;background:-webkit-linear-gradient(left,transparent,var(--red),var(--amber),var(--red),transparent);background:linear-gradient(to right,transparent,var(--red),var(--amber),var(--red),transparent);z-index:3;pointer-events:none;opacity:.55;}
+.stat{position:absolute;top:16px;right:16px;z-index:4;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:7px;background:rgba(255,255,255,.14);padding:5px 13px;border-radius:999px;font-size:.78rem;color:rgba(255,255,255,.85);font-weight:600;}
+.dot{width:8px;height:8px;border-radius:50%;background:#555;-webkit-transition:background .3s;transition:background .3s;}
+.dot.run{background:#22c55e;-webkit-animation:pulse 1.2s infinite;animation:pulse 1.2s infinite;}
+.dot.pau{background:var(--amber);}
+@-webkit-keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.dp{height:100%;overflow:hidden;padding:90px 48px;}
+.si{-webkit-transition:-webkit-transform .05s linear;transition:transform .05s linear;}
+.tx{color:#fff;font-size:2rem;font-weight:500;line-height:1.6;text-align:center;white-space:pre-wrap;}
+.tx.mir{-webkit-transform:scaleX(-1);transform:scaleX(-1);}
 
-        /* RIGHT PANEL – display */
-        .tp-panel-right {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-        }
+/* footer */
+.ft{border-top:1px solid var(--border);padding:26px 24px;background:var(--surface);text-align:center;}
+.ft p{color:var(--muted);font-size:.88rem;margin:0;}
+.ft a{color:var(--red);font-weight:600;text-decoration:none;}
 
-        /* ── CONTROLS ───────────────────────────────────────── */
-        .tp-controls {
-            padding: 20px 20px 16px;
-            border-bottom: 1px solid var(--border);
-            background: #faf9f7;
-            display: flex; flex-direction: column; gap: 18px;
-        }
-
-        .ctrl-group { display: flex; flex-direction: column; gap: 8px; }
-
-        .ctrl-label {
-            font-size: .72rem; font-weight: 700; letter-spacing: .07em;
-            text-transform: uppercase; color: var(--muted);
-            display: flex; align-items: center; gap: 6px;
-        }
-        .ctrl-label i { color: var(--primary); font-size: .85rem; }
-
-        .ctrl-row { display: flex; align-items: center; gap: 12px; }
-
-        /* Range — touch-friendly, webkit-safe */
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            flex: 1;
-            height: 6px;
-            border-radius: 4px;
-            background: linear-gradient(
-                to right,
-                var(--primary) var(--pct, 22%),
-                var(--border)  var(--pct, 22%)
-            );
-            outline: none;
-            cursor: pointer;
-            touch-action: pan-x;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 26px; height: 26px;
-            border-radius: 50%;
-            background: var(--primary);
-            border: 3px solid #fff;
-            box-shadow: 0 2px 8px rgba(219,74,43,.35);
-            cursor: pointer;
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 22px; height: 22px;
-            border-radius: 50%;
-            background: var(--primary);
-            border: 3px solid #fff;
-            cursor: pointer;
-        }
-
-        .ctrl-val {
-            min-width: 44px; text-align: right;
-            font-weight: 700; font-size: .9rem; color: var(--primary);
-        }
-
-        /* Toggle */
-        .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-        .toggle-row span { font-size: .9rem; font-weight: 600; color: var(--text); }
-        .toggle-switch { position: relative; width: 50px; height: 28px; flex-shrink: 0; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider {
-            position: absolute; inset: 0;
-            background: var(--border); border-radius: 999px;
-            transition: background .22s;
-            cursor: pointer;
-        }
-        .toggle-slider::before {
-            content: '';
-            position: absolute; left: 3px; top: 3px;
-            width: 22px; height: 22px;
-            border-radius: 50%; background: #fff;
-            box-shadow: 0 1px 4px rgba(0,0,0,.2);
-            transition: transform .22s;
-        }
-        .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
-        .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
-
-        /* ── ACTION BUTTONS ─────────────────────────────────── */
-        .tp-actions {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .tp-actions .btn--wide { grid-column: 1 / -1; }
-
-        .btn {
-            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-            min-height: 46px; /* 44px touch target */
-            padding: 10px 16px; border-radius: 9px;
-            font-family: var(--font); font-weight: 600; font-size: .9rem;
-            border: none; cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            transition: opacity .2s, transform .15s, box-shadow .2s;
-            user-select: none;
-        }
-        .btn:active { opacity: .82; transform: scale(.97); }
-
-        .btn--primary { background: var(--primary); color: #fff; }
-        .btn--primary:not(:disabled):hover { box-shadow: 0 4px 14px rgba(219,74,43,.35); }
-        .btn--ghost {
-            background: transparent; color: var(--text);
-            border: 1.5px solid var(--border);
-        }
-        .btn--ghost:not(:disabled):hover { border-color: var(--primary); color: var(--primary); }
-        .btn--accent { background: var(--accent); color: #fff; }
-        .btn:disabled { opacity: .4; cursor: not-allowed; }
-
-        /* ── TEXTAREA ───────────────────────────────────────── */
-        .tp-input-area {
-            flex: 1;
-            padding: 16px 20px 20px;
-            display: flex; flex-direction: column;
-        }
-        .tp-input-area textarea {
-            flex: 1;
-            min-height: 160px;
-            width: 100%;
-            font-family: var(--font);
-            /* 16px prevents iOS auto-zoom on focus */
-            font-size: 16px;
-            line-height: 1.65;
-            color: var(--text);
-            background: var(--surface2);
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
-            resize: none;
-            outline: none;
-            transition: border-color .22s;
-            -webkit-overflow-scrolling: touch;
-        }
-        .tp-input-area textarea:focus { border-color: var(--primary); }
-        .tp-input-area textarea::placeholder { color: #bbb6ae; }
-
-        /* ── DISPLAY ────────────────────────────────────────── */
-        .tp-display-wrap {
-            flex: 1;
-            position: relative;
-            background: #111;
-            display: flex; flex-direction: column;
-            border-radius: 0 0 var(--r) 0;
-            overflow: hidden;
-            min-height: 300px;
-        }
-
-        /* fade edges */
-        .tp-display-wrap::before,
-        .tp-display-wrap::after {
-            content: '';
-            position: absolute; left: 0; right: 0;
-            height: 90px; z-index: 2; pointer-events: none;
-        }
-        .tp-display-wrap::before {
-            top: 0;
-            background: linear-gradient(to bottom, #111, transparent);
-        }
-        .tp-display-wrap::after {
-            bottom: 0;
-            background: linear-gradient(to top, #111, transparent);
-        }
-
-        /* focus line */
-        .tp-focus-line {
-            position: absolute; left: 0; right: 0;
-            top: 50%; transform: translateY(-50%);
-            height: 2px;
-            background: linear-gradient(
-                to right,
-                transparent 0%, var(--primary) 30%,
-                var(--accent) 50%, var(--primary) 70%, transparent 100%
-            );
-            z-index: 3; pointer-events: none; opacity: .55;
-        }
-
-        /* status pill */
-        .tp-status {
-            position: absolute; top: 16px; right: 16px; z-index: 4;
-            display: flex; align-items: center; gap: 7px;
-            background: rgba(255,255,255,.12);
-            -webkit-backdrop-filter: blur(6px);
-            backdrop-filter: blur(6px);
-            padding: 5px 13px; border-radius: 999px;
-            font-size: .78rem; color: rgba(255,255,255,.85); font-weight: 600;
-        }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; transition: background .3s; }
-        .dot.running { background: #22c55e; animation: pulse 1.2s infinite; }
-        .dot.paused  { background: var(--accent); }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-
-        .tp-display {
-            flex: 1;
-            overflow: hidden;
-            padding: 100px 48px;
-        }
-        .tp-scroll-inner { will-change: transform; }
-        .tp-text {
-            color: #fff;
-            font-size: 2rem;
-            font-weight: 500;
-            line-height: 1.6;
-            text-align: center;
-            white-space: pre-wrap;
-        }
-        .tp-text.mirrored { transform: scaleX(-1); }
-
-        /* ── FOOTER ─────────────────────────────────────────── */
-        .footer {
-            border-top: 1px solid var(--border);
-            padding: 26px 24px;
-            background: var(--surface2);
-            text-align: center;
-            padding-bottom: calc(26px + env(safe-area-inset-bottom));
-        }
-        .footer p { color: var(--muted); font-size: .88rem; margin: 0; }
-        .footer a  { color: var(--primary); font-weight: 600; text-decoration: none; }
-
-        /* ── RESPONSIVE ─────────────────────────────────────── */
-
-        /* iPad portrait & small tablets (600–899px) */
-        @media (max-width: 899px) {
-            .tp-split { flex-direction: column; min-height: auto; }
-            .tp-panel-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
-            .tp-panel-right { min-height: 340px; }
-            .tp-display-wrap { border-radius: 0 0 var(--r) var(--r); }
-            .tp-display { padding: 80px 32px; }
-        }
-
-        /* Phones (< 600px) */
-        @media (max-width: 599px) {
-            .header__nav { display: none; }
-            .page-hero { padding: 28px 16px 24px; }
-            .page-hero h1 { font-size: 1.9rem; }
-            .container { padding: 0 12px; }
-            .tp-actions { grid-template-columns: 1fr 1fr; }
-            .tp-display { padding: 60px 16px; }
-            .tp-text { font-size: 1.5rem !important; }
-        }
-
-        /* iPad landscape & desktop (≥ 900px): ensure display fills height */
-        @media (min-width: 900px) {
-            .tp-split { align-items: stretch; }
-            .tp-panel-left { overflow-y: auto; }
-            .tp-display-wrap {
-                position: absolute;
-                inset: 0;
-                border-radius: 0 0 var(--r) 0;
-            }
-            .tp-panel-right { position: relative; }
-        }
-    </style>
+/* responsive */
+@media (max-width:899px){
+  .split{-webkit-flex-direction:column;flex-direction:column;min-height:auto;}
+  .panel-l{width:100%;border-right:none;border-bottom:1px solid var(--border);}
+  .panel-r{min-height:340px;}
+  .dw{position:static;height:340px;}
+  .dp{padding:80px 24px;}
+}
+@media (max-width:599px){
+  .nav{display:none;}
+  .hero h1{font-size:1.9rem;}
+  .wrap{padding:0 12px;}
+  .dp{padding:60px 16px;}
+  .tx{font-size:1.4rem !important;}
+}
+</style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header class="header">
-    <div class="header__inner">
-        <a href="../index.html" class="header__logo">éozoré.</a>
-        <nav class="header__nav">
-            <ul>
-                <li><a href="../index.html">Home</a></li>
-                <li><a href="../index.html#projetos">Projetos</a></li>
-                <li><a href="../index.html#blog">Blog</a></li>
-                <li><a href="index.html" class="active">Tools</a></li>
-            </ul>
-        </nav>
-    </div>
+<header class="hdr">
+  <div class="hdr-inner">
+    <a href="../index.html" class="logo">éozoré.</a>
+    <nav class="nav">
+      <ul>
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="../index.html#projetos">Projetos</a></li>
+        <li><a href="../index.html#blog">Blog</a></li>
+        <li><a href="index.html" class="on">Tools</a></li>
+      </ul>
+    </nav>
+  </div>
 </header>
 
-<!-- PAGE HERO -->
-<section class="page-hero">
-    <div class="badge"><i class="fa-solid fa-wrench"></i> Ferramentas</div>
-    <h1>Tools</h1>
-    <p>Pequenas ferramentas construídas para uso próprio e agora disponíveis para todo mundo.</p>
+<section class="hero">
+  <div class="badge"><i class="fa-solid fa-wrench"></i> Ferramentas</div>
+  <h1>Tools</h1>
+  <p>Pequenas ferramentas construídas para uso próprio e agora disponíveis para todo mundo.</p>
 </section>
 
-<!-- TOOL -->
-<section class="tools-section">
-    <div class="container">
-        <div class="tool-wrapper">
+<section class="sect">
+  <div class="wrap">
+    <div class="card">
 
-            <div class="tool-header">
-                <div class="tool-icon"><i class="fa-solid fa-film"></i></div>
-                <div>
-                    <h2>Teleprompter</h2>
-                    <p>Cole seu roteiro, ajuste os parâmetros e grave.</p>
-                </div>
+      <div class="th">
+        <div class="ti"><i class="fa-solid fa-film"></i></div>
+        <div>
+          <h2>Teleprompter</h2>
+          <p>Cole seu roteiro, ajuste os parâmetros e grave.</p>
+        </div>
+      </div>
+
+      <div class="split">
+
+        <!-- LEFT -->
+        <div class="panel-l">
+
+          <div class="ctrls">
+
+            <div class="cg">
+              <span class="clabel"><i class="fa-solid fa-gauge-high"></i> Velocidade</span>
+              <div class="crow">
+                <input type="range" id="spdR" min="1" max="10" value="3" oninput="onRange(this,'spdV','')">
+                <span class="cval" id="spdV">3</span>
+              </div>
             </div>
 
-            <div class="tp-split">
+            <div class="cg">
+              <span class="clabel"><i class="fa-solid fa-text-height"></i> Tamanho da letra</span>
+              <div class="crow">
+                <input type="range" id="fntR" min="16" max="72" value="32" step="2" oninput="onRange(this,'fntV','px')">
+                <span class="cval" id="fntV">32px</span>
+              </div>
+            </div>
 
-                <!-- LEFT: controls + textarea -->
-                <div class="tp-panel-left">
+            <div class="cg">
+              <span class="clabel"><i class="fa-solid fa-left-right"></i> Letras invertidas</span>
+              <div class="trow">
+                <span id="mirLbl">Desligado</span>
+                <label class="tsw">
+                  <input type="checkbox" id="mirCk" onchange="onMirror()">
+                  <span class="tsl"></span>
+                </label>
+              </div>
+            </div>
 
-                    <div class="tp-controls">
+          </div>
 
-                        <!-- Speed -->
-                        <div class="ctrl-group">
-                            <span class="ctrl-label">
-                                <i class="fa-solid fa-gauge-high"></i> Velocidade
-                            </span>
-                            <div class="ctrl-row">
-                                <input type="range" id="speedRange" min="1" max="10" value="3"
-                                       oninput="updateRange(this,'speedVal','')">
-                                <span class="ctrl-val" id="speedVal">3</span>
-                            </div>
-                        </div>
+          <div class="acts">
+            <button class="btn bp" id="btnPlay" onclick="tpPlay()"><i class="fa-solid fa-play"></i> Play</button>
+            <button class="btn bg" id="btnPause" onclick="tpPause()" disabled><i class="fa-solid fa-pause"></i> Pausar</button>
+            <button class="btn bg" onclick="tpStop()"><i class="fa-solid fa-stop"></i> Parar</button>
+            <button class="btn ba" onclick="tpFull()"><i class="fa-solid fa-expand"></i> Tela cheia</button>
+          </div>
 
-                        <!-- Font size -->
-                        <div class="ctrl-group">
-                            <span class="ctrl-label">
-                                <i class="fa-solid fa-text-height"></i> Tamanho da letra
-                            </span>
-                            <div class="ctrl-row">
-                                <input type="range" id="fontRange" min="16" max="72" value="32" step="2"
-                                       oninput="updateRange(this,'fontVal','px')">
-                                <span class="ctrl-val" id="fontVal">32px</span>
-                            </div>
-                        </div>
-
-                        <!-- Mirror -->
-                        <div class="ctrl-group">
-                            <span class="ctrl-label">
-                                <i class="fa-solid fa-left-right"></i> Letras invertidas
-                            </span>
-                            <div class="toggle-row">
-                                <span id="mirrorLabel">Desligado</span>
-                                <label class="toggle-switch" aria-label="Modo espelho">
-                                    <input type="checkbox" id="mirrorToggle" onchange="applyMirror()">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                    </div><!-- /.tp-controls -->
-
-                    <div class="tp-actions">
-                        <button class="btn btn--primary" id="playBtn" onclick="play()">
-                            <i class="fa-solid fa-play"></i> Play
-                        </button>
-                        <button class="btn btn--ghost" id="pauseBtn" onclick="pause()" disabled>
-                            <i class="fa-solid fa-pause"></i> Pausar
-                        </button>
-                        <button class="btn btn--ghost" onclick="stop()">
-                            <i class="fa-solid fa-stop"></i> Parar
-                        </button>
-                        <button class="btn btn--accent" onclick="goFullscreen()">
-                            <i class="fa-solid fa-expand"></i> Tela cheia
-                        </button>
-                    </div>
-
-                    <div class="tp-input-area">
-                        <textarea id="scriptInput"
-                            placeholder="Cole o seu roteiro aqui…&#10;&#10;O texto aparecerá no painel ao lado.">Bem-vindo ao teleprompter!
+          <div class="ipa">
+            <textarea id="script" placeholder="Cole o seu roteiro aqui…">Bem-vindo ao teleprompter!
 
 Cole aqui o texto que você quer ler durante a gravação.
 
-Ajuste a velocidade de rolagem, o tamanho da fonte e ative o modo de letras invertidas para uso com um beamsplitter.
+Ajuste a velocidade, o tamanho da fonte e ative o modo de letras invertidas para uso com beamsplitter.
 
 Pressione Play quando estiver pronto.</textarea>
-                    </div>
+          </div>
 
-                </div><!-- /.tp-panel-left -->
+        </div><!-- /panel-l -->
 
-                <!-- RIGHT: display -->
-                <div class="tp-panel-right">
-                    <div class="tp-display-wrap" id="displayWrap">
-                        <div class="tp-focus-line"></div>
-                        <div class="tp-status">
-                            <span class="dot" id="statusDot"></span>
-                            <span id="statusLabel">Pronto</span>
-                        </div>
-                        <div class="tp-display" id="tpDisplay">
-                            <div class="tp-scroll-inner" id="scrollInner">
-                                <div class="tp-text" id="tpText"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div><!-- /.tp-panel-right -->
+        <!-- RIGHT -->
+        <div class="panel-r">
+          <div class="dw" id="dw">
+            <div class="fline"></div>
+            <div class="stat">
+              <span class="dot" id="dot"></span>
+              <span id="statLbl">Pronto</span>
+            </div>
+            <div class="dp" id="dp">
+              <div class="si" id="si">
+                <div class="tx" id="tx"></div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            </div><!-- /.tp-split -->
-        </div><!-- /.tool-wrapper -->
-    </div>
+      </div><!-- /split -->
+    </div><!-- /card -->
+  </div>
 </section>
 
-<footer class="footer">
-    <p>© 2025 <a href="../index.html">Victor Zoré</a>. Todos os direitos reservados.</p>
+<footer class="ft">
+  <p>© 2025 <a href="../index.html">Victor Zoré</a>. Todos os direitos reservados.</p>
 </footer>
 
 <script>
-/* ── state ── */
-let tpScrollY = 0, rafId = null, isRunning = false, isPaused = false;
+/* state */
+var tpY = 0, raf = null, running = false, paused = false;
 
-/* ── range helper ── */
-function updateRange(el, valId, suffix) {
-    const min = +el.min, max = +el.max, val = +el.value;
-    const pct = ((val - min) / (max - min)) * 100;
-    el.style.setProperty('--pct', pct + '%');
-    document.getElementById(valId).textContent = val + suffix;
-    if (el.id === 'fontRange') {
-        document.getElementById('tpText').style.fontSize = val + 'px';
-    }
+/* range */
+function onRange(el, vid, sfx) {
+  document.getElementById(vid).textContent = el.value + sfx;
+  if (el.id === 'fntR') document.getElementById('tx').style.fontSize = el.value + 'px';
 }
 
-/* ── mirror ── */
-function applyMirror() {
-    const on = document.getElementById('mirrorToggle').checked;
-    document.getElementById('tpText').classList.toggle('mirrored', on);
-    document.getElementById('mirrorLabel').textContent = on ? 'Ligado' : 'Desligado';
+/* mirror — classList.add/remove instead of toggle(name,force) */
+function onMirror() {
+  var on = document.getElementById('mirCk').checked;
+  var tx = document.getElementById('tx');
+  if (on) { tx.className = 'tx mir'; } else { tx.className = 'tx'; }
+  document.getElementById('mirLbl').textContent = on ? 'Ligado' : 'Desligado';
 }
 
-/* ── status ── */
-function setStatus(state) {
-    const dot = document.getElementById('statusDot');
-    const lbl = document.getElementById('statusLabel');
-    dot.className = 'dot ' + state;
-    lbl.textContent = state === 'running' ? 'Rolando'
-                    : state === 'paused'  ? 'Pausado'
-                    : 'Pronto';
+/* status */
+function setStatus(s) {
+  var dot = document.getElementById('dot');
+  var lbl = document.getElementById('statLbl');
+  dot.className = 'dot' + (s ? ' ' + s : '');
+  lbl.textContent = s === 'run' ? 'Rolando' : s === 'pau' ? 'Pausado' : 'Pronto';
 }
 
-/* ── sync text ── */
+/* sync */
 function syncText() {
-    const raw = document.getElementById('scriptInput').value;
-    document.getElementById('tpText').textContent = raw;
-    const fs = document.getElementById('fontRange').value;
-    document.getElementById('tpText').style.fontSize = fs + 'px';
+  var raw = document.getElementById('script').value;
+  document.getElementById('tx').textContent = raw;
+  document.getElementById('tx').style.fontSize = document.getElementById('fntR').value + 'px';
 }
 
-/* ── tick ── */
+/* tick */
 function tick() {
-    const speed = +document.getElementById('speedRange').value;
-    const ppf = 0.3 + (speed - 1) * (3.2 / 9);
-    tpScrollY += ppf;
-
-    const inner   = document.getElementById('scrollInner');
-    const display = document.getElementById('tpDisplay');
-    const maxScroll = inner.scrollHeight - display.clientHeight + 100;
-
-    if (tpScrollY >= maxScroll) { tpScrollY = maxScroll; stop(); return; }
-    inner.style.transform = `translateY(-${tpScrollY}px)`;
-    rafId = requestAnimationFrame(tick);
+  var spd = parseInt(document.getElementById('spdR').value, 10);
+  var ppf = 0.3 + (spd - 1) * (3.2 / 9);
+  tpY += ppf;
+  var si  = document.getElementById('si');
+  var dp  = document.getElementById('dp');
+  var max = si.scrollHeight - dp.clientHeight + 100;
+  if (tpY >= max) { tpY = max; tpStop(); return; }
+  si.style.WebkitTransform = 'translateY(-' + tpY + 'px)';
+  si.style.transform       = 'translateY(-' + tpY + 'px)';
+  raf = window.requestAnimationFrame(tick);
 }
 
-/* ── controls ── */
-function play() {
-    if (isRunning && !isPaused) return;
-    syncText();
-    if (!isPaused) tpScrollY = 0;
-    isPaused = false; isRunning = true;
-    document.getElementById('playBtn').disabled  = true;
-    document.getElementById('pauseBtn').disabled = false;
-    setStatus('running');
-    rafId = requestAnimationFrame(tick);
+/* controls */
+function tpPlay() {
+  if (running && !paused) return;
+  syncText();
+  if (!paused) tpY = 0;
+  paused = false; running = true;
+  document.getElementById('btnPlay').disabled  = true;
+  document.getElementById('btnPause').disabled = false;
+  setStatus('run');
+  raf = window.requestAnimationFrame(tick);
 }
 
-function pause() {
-    if (!isRunning) return;
-    cancelAnimationFrame(rafId);
-    isPaused = true; isRunning = false;
-    document.getElementById('playBtn').disabled  = false;
-    document.getElementById('pauseBtn').disabled = true;
-    setStatus('paused');
+function tpPause() {
+  if (!running) return;
+  window.cancelAnimationFrame(raf);
+  paused = true; running = false;
+  document.getElementById('btnPlay').disabled  = false;
+  document.getElementById('btnPause').disabled = true;
+  setStatus('pau');
 }
 
-function stop() {
-    cancelAnimationFrame(rafId);
-    isRunning = false; isPaused = false; tpScrollY = 0;
-    document.getElementById('scrollInner').style.transform = 'translateY(0)';
-    document.getElementById('playBtn').disabled  = false;
-    document.getElementById('pauseBtn').disabled = true;
-    setStatus('');
+function tpStop() {
+  window.cancelAnimationFrame(raf);
+  running = false; paused = false; tpY = 0;
+  var si = document.getElementById('si');
+  si.style.WebkitTransform = 'translateY(0)';
+  si.style.transform       = 'translateY(0)';
+  document.getElementById('btnPlay').disabled  = false;
+  document.getElementById('btnPause').disabled = true;
+  setStatus('');
 }
 
-function goFullscreen() {
-    const el = document.getElementById('displayWrap');
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) req.call(el);
+function tpFull() {
+  var el = document.getElementById('dw');
+  if      (el.requestFullscreen)       el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
 
-/* ── init ── */
+/* init */
 (function () {
-    updateRange(document.getElementById('speedRange'), 'speedVal', '');
-    updateRange(document.getElementById('fontRange'),  'fontVal',  'px');
-    syncText();
-})();
+  onRange(document.getElementById('spdR'), 'spdV', '');
+  onRange(document.getElementById('fntR'), 'fntV', 'px');
+  syncText();
+}());
 </script>
+
 </body>
 </html>
