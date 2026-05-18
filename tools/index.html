@@ -109,6 +109,17 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;hei
 .tx{color:#fff;font-size:2rem;font-weight:500;line-height:1.6;text-align:center;white-space:pre-wrap;}
 .tx.mir{-webkit-transform:scaleX(-1);transform:scaleX(-1);}
 
+/* countdown overlay */
+.cdown{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(17,17,17,.88);z-index:10;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;}
+.cdown.show{display:-webkit-flex;display:flex;}
+.cnum{font-size:7rem;font-weight:700;color:#fff;line-height:1;-webkit-animation:cscale .9s ease-out forwards;animation:cscale .9s ease-out forwards;}
+@-webkit-keyframes cscale{0%{-webkit-transform:scale(1.4);transform:scale(1.4);opacity:0}40%{opacity:1}100%{-webkit-transform:scale(.7);transform:scale(.7);opacity:0}}
+@keyframes cscale{0%{transform:scale(1.4);opacity:0}40%{opacity:1}100%{transform:scale(.7);opacity:0}}
+
+/* fake fullscreen (iOS Safari doesn't support Fullscreen API for HTML elements) */
+.dw.fakeFS{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;border-radius:0;}
+.dw.fakeFS .dp{padding:100px 48px;}
+
 /* footer */
 .ft{border-top:1px solid var(--border);padding:26px 24px;background:var(--surface);text-align:center;}
 .ft p{color:var(--muted);font-size:.88rem;margin:0;}
@@ -228,11 +239,17 @@ Pressione Play quando estiver pronto.</textarea>
               <span class="dot" id="dot"></span>
               <span id="statLbl">Pronto</span>
             </div>
+            <!-- countdown overlay -->
+            <div class="cdown" id="cdown">
+              <span class="cnum" id="cnum">3</span>
+            </div>
             <div class="dp" id="dp">
               <div class="si" id="si">
                 <div class="tx" id="tx"></div>
               </div>
             </div>
+            <!-- exit fake-fullscreen button -->
+            <button id="exitFS" onclick="exitFull()" style="display:none;position:absolute;top:16px;left:16px;z-index:10000;background:rgba(255,255,255,.15);border:none;border-radius:8px;padding:10px 16px;color:#fff;font-size:.85rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;"><i class="fa-solid fa-compress"></i> Sair</button>
           </div>
         </div>
 
@@ -247,7 +264,7 @@ Pressione Play quando estiver pronto.</textarea>
 
 <script>
 /* state */
-var tpY = 0, raf = null, running = false, paused = false;
+var tpY = 0, raf = null, running = false, paused = false, cdTimer = null;
 
 /* range */
 function onRange(el, vid, sfx) {
@@ -297,11 +314,45 @@ function tpPlay() {
   if (running && !paused) return;
   syncText();
   if (!paused) tpY = 0;
-  paused = false; running = true;
+
+  /* if resuming from pause, start immediately */
+  if (paused) {
+    paused = false; running = true;
+    document.getElementById('btnPlay').disabled  = true;
+    document.getElementById('btnPause').disabled = false;
+    setStatus('run');
+    raf = window.requestAnimationFrame(tick);
+    return;
+  }
+
+  /* fresh start — 3s countdown */
   document.getElementById('btnPlay').disabled  = true;
-  document.getElementById('btnPause').disabled = false;
+  document.getElementById('btnPause').disabled = true;
   setStatus('run');
-  raf = window.requestAnimationFrame(tick);
+  startCountdown(3, function () {
+    paused = false; running = true;
+    document.getElementById('btnPause').disabled = false;
+    raf = window.requestAnimationFrame(tick);
+  });
+}
+
+function startCountdown(n, cb) {
+  var el  = document.getElementById('cdown');
+  var num = document.getElementById('cnum');
+  el.className = 'cdown show';
+  num.textContent = n;
+  /* force reflow so animation restarts each digit */
+  num.style.WebkitAnimation = 'none';
+  num.style.animation = 'none';
+  void num.offsetWidth;
+  num.style.WebkitAnimation = '';
+  num.style.animation = '';
+  if (n > 0) {
+    cdTimer = setTimeout(function () { startCountdown(n - 1, cb); }, 1000);
+  } else {
+    el.className = 'cdown';
+    cb();
+  }
 }
 
 function tpPause() {
@@ -315,6 +366,8 @@ function tpPause() {
 
 function tpStop() {
   window.cancelAnimationFrame(raf);
+  if (cdTimer) { clearTimeout(cdTimer); cdTimer = null; }
+  document.getElementById('cdown').className = 'cdown';
   running = false; paused = false; tpY = 0;
   var si = document.getElementById('si');
   si.style.WebkitTransform = 'translateY(0)';
@@ -324,10 +377,30 @@ function tpStop() {
   setStatus('');
 }
 
+/* Fullscreen: try native API first, fall back to CSS fake-fullscreen for iOS Safari */
 function tpFull() {
   var el = document.getElementById('dw');
-  if      (el.requestFullscreen)       el.requestFullscreen();
-  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  if (el.requestFullscreen) {
+    el.requestFullscreen();
+  } else if (el.webkitRequestFullscreen) {
+    el.webkitRequestFullscreen();
+  } else {
+    /* iOS Safari fallback: cover viewport with position:fixed */
+    el.className = 'dw fakeFS';
+    document.getElementById('exitFS').style.display = 'block';
+    /* lock body scroll while in fake fullscreen */
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function exitFull() {
+  var el = document.getElementById('dw');
+  el.className = 'dw';
+  document.getElementById('exitFS').style.display = 'none';
+  document.body.style.overflow = '';
+  /* also handle if native fullscreen is somehow active */
+  if (document.exitFullscreen) document.exitFullscreen();
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
 }
 
 /* init */
