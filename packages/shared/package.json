@@ -1,9 +1,0 @@
-{
-  "name": "@zore/shared",
-  "version": "0.1.0",
-  "description": "Shared TypeScript types for the Agentic Marketing Platform",
-  "main": "types.ts",
-  "types": "types.ts",
-  "license": "UNLICENSED",
-  "private": true
-}

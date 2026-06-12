@@ -12,8 +12,16 @@ export default function LanguageSwitcher({ locale }: LanguageSwitcherProps) {
 
   function handleSwitch() {
     const currentPath = window.location.pathname;
-    const newPath = currentPath.replace(`/${locale}`, `/${targetLocale}`);
-    window.location.href = newPath || `/${targetLocale}`;
+
+    // If URL already has a locale prefix, swap it
+    if (currentPath.startsWith(`/${locale}/`) || currentPath === `/${locale}`) {
+      const newPath = currentPath.replace(`/${locale}`, `/${targetLocale}`);
+      window.location.href = newPath || `/${targetLocale}`;
+    } else {
+      // URL has no locale prefix (middleware rewrite) — navigate explicitly
+      const pathSuffix = currentPath === '/' ? '' : currentPath;
+      window.location.href = `/${targetLocale}${pathSuffix}`;
+    }
   }
 
   return (

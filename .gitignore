@@ -1,5 +1,5 @@
 # ==============================================================================
-# éozoré — .gitignore
+# éozoré Portfólio — .gitignore
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -30,22 +30,6 @@ service-account*.json
 *-credentials.json
 
 # ------------------------------------------------------------------------------
-# Python
-# ------------------------------------------------------------------------------
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-dist/
-build/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-venv/
-.venv/
-env/
-
-# ------------------------------------------------------------------------------
 # Node.js / Next.js
 # ------------------------------------------------------------------------------
 node_modules/
@@ -55,15 +39,12 @@ out/
 *.tsbuildinfo
 
 # ------------------------------------------------------------------------------
-# Terraform
+# Python (caso algum script local)
 # ------------------------------------------------------------------------------
-infra/.terraform/
-infra/.terraform.lock.hcl
-infra/*.tfstate
-infra/*.tfstate.backup
-infra/*.tfplan
-infra/terraform.tfvars
-*.auto.tfvars
+__pycache__/
+*.py[cod]
+venv/
+.venv/
 
 # ------------------------------------------------------------------------------
 # Firebase
@@ -71,7 +52,6 @@ infra/terraform.tfvars
 .firebase/
 firebase-debug.log
 firestore-debug.log
-ui-debug.log
 
 # ------------------------------------------------------------------------------
 # Docker
@@ -80,7 +60,7 @@ ui-debug.log
 docker-compose.override.yml
 
 # ------------------------------------------------------------------------------
-# Documentos internos de planejamento (não publicar)
+# Documentos internos (não publicar)
 # ------------------------------------------------------------------------------
 planejamento.md
 artigos.md
@@ -89,6 +69,6 @@ apresentacao-kickoff.html
 eozoreIA/
 
 # ------------------------------------------------------------------------------
-# Kiro specs (workflow interno de desenvolvimento)
+# Kiro specs (workflow interno)
 # ------------------------------------------------------------------------------
 .kiro/

@@ -1,12 +1,12 @@
 # ==============================================================================
-# éozoré — Cloud Build Pipeline
+# éozoré Portfólio — Cloud Build Pipeline
 # ==============================================================================
 # Trigger: push na branch main
 # Deploya o Next.js (apps/web) no Cloud Run
 # ==============================================================================
 
 steps:
-  # Step 1: Build da imagem Docker do frontend (Next.js)
+  # Step 1: Build da imagem Docker do Next.js
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -20,7 +20,7 @@ steps:
       - 'apps/web/Dockerfile'
       - 'apps/web'
 
-  # Step 2: Push da imagem para o Container Registry
+  # Step 2: Push da imagem
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
@@ -31,7 +31,7 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/web:latest'
 
-  # Step 3: Deploy no Cloud Run com variáveis de ambiente
+  # Step 3: Deploy no Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -50,7 +50,7 @@ steps:
       - '--set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest'
 
 substitutions:
-  _NEXT_PUBLIC_BASE_URL: 'https://frontend-1042120168838.us-central1.run.app'
+  _NEXT_PUBLIC_BASE_URL: 'https://eozore.com'
 
 images:
   - 'gcr.io/$PROJECT_ID/web:$COMMIT_SHA'
