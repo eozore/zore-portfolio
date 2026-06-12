@@ -1,4 +1,5 @@
 import type { Viewport } from 'next';
+import Script from 'next/script';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
@@ -35,6 +36,18 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} antialiased`}>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-X2JQPFL0QR"
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-X2JQPFL0QR');
+          `}
+        </Script>
         {children}
       </body>
     </html>
