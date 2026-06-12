@@ -7,6 +7,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Build-time env vars (NEXT_PUBLIC_* são embutidas no JS do client)
+ARG NEXT_PUBLIC_BASE_URL=https://eozore.com
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
+
 RUN npm run build
 
 FROM node:20-alpine AS runner
