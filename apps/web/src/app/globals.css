@@ -5,13 +5,13 @@
 :root {
   --bg-deep: #f8f7f4;
   --bg-surface: #ffffff;
-  --primary: #6366f1;
-  --glow: #818cf8;
-  --accent-data: #0891b2;
+  --primary: #e67e22;
+  --glow: #f5a962;
+  --accent-data: #d35400;
   --accent-success: #16a34a;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border: rgba(100, 116, 139, 0.12);
+  --text-main: #1e1e1e;
+  --text-muted: #6b6b6b;
+  --border: rgba(30, 30, 30, 0.1);
 }
 
 html {
@@ -27,13 +27,13 @@ body {
 }
 
 ::selection {
-  background: rgba(99, 102, 241, 0.2);
-  color: #1e293b;
+  background: rgba(230, 126, 34, 0.2);
+  color: #1e1e1e;
 }
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-deep); }
-::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(230,126,34,0.3); border-radius: 3px; }
 
 /* =========================================================================
    Glass cards
@@ -63,9 +63,9 @@ body {
   pointer-events: none;
 }
 
-.blob-primary { background: rgba(99, 102, 241, 0.15); }
-.blob-cyan { background: rgba(8, 145, 178, 0.12); }
-.blob-purple { background: rgba(168, 85, 247, 0.1); }
+.blob-primary { background: rgba(230, 126, 34, 0.12); }
+.blob-cyan { background: rgba(245, 169, 98, 0.1); }
+.blob-purple { background: rgba(211, 84, 0, 0.08); }
 
 /* =========================================================================
    Article Typography
@@ -93,17 +93,17 @@ body {
 }
 .article-content code {
   font-family: 'JetBrains Mono', monospace; font-size: 0.85em;
-  background: rgba(99,102,241,0.1); color: var(--glow); padding: 0.15em 0.4em; border-radius: 6px;
+  background: rgba(230,126,34,0.1); color: var(--primary); padding: 0.15em 0.4em; border-radius: 6px;
 }
 .article-content pre code { background: transparent; color: #cdd6f4; padding: 0; font-size: 0.875rem; }
 .article-content table { width: 100%; margin: 1.5rem 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
-.article-content thead { background: rgba(99,102,241,0.06); }
+.article-content thead { background: rgba(230,126,34,0.06); }
 .article-content th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: var(--text-main); }
 .article-content td { padding: 0.65rem 1rem; color: var(--text-muted); border-top: 1px solid rgba(148,163,184,0.06); }
 .article-content hr { border: none; height: 1px; background: var(--border); margin: 2.5rem 0; }
 .article-content .katex-display {
-  margin: 1.5rem 0; padding: 1.25rem; background: rgba(34,211,238,0.04);
-  border-radius: 12px; border: 1px solid rgba(34,211,238,0.1); overflow-x: auto;
+  margin: 1.5rem 0; padding: 1.25rem; background: rgba(230,126,34,0.04);
+  border-radius: 12px; border: 1px solid rgba(230,126,34,0.1); overflow-x: auto;
 }
 .article-content pre .hljs-keyword { color: #cba6f7; }
 .article-content pre .hljs-string { color: #a6e3a1; }
