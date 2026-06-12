@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-deep: #f8f7f4;
+  --bg-surface: #ffffff;
+  --primary: #6366f1;
+  --glow: #818cf8;
+  --accent-data: #0891b2;
+  --accent-success: #16a34a;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border: rgba(100, 116, 139, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.2);
+  color: #1e293b;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.25); border-radius: 3px; }
+
+/* =========================================================================
+   Glass cards
+   ========================================================================= */
+.glass {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(100, 116, 139, 0.1);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(100, 116, 139, 0.12);
+}
+
+/* =========================================================================
+   Background blobs (decorative)
+   ========================================================================= */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.blob-primary { background: rgba(99, 102, 241, 0.15); }
+.blob-cyan { background: rgba(8, 145, 178, 0.12); }
+.blob-purple { background: rgba(168, 85, 247, 0.1); }
+
+/* =========================================================================
+   Article Typography
+   ========================================================================= */
+.article-content h2 {
+  font-size: 1.6rem; font-weight: 700; margin-top: 2.5rem; margin-bottom: 0.75rem;
+  color: var(--text-main); padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
+}
+.article-content h3 {
+  font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.5rem; color: var(--text-main);
+}
+.article-content p { margin-bottom: 1.25rem; color: #334155; line-height: 1.8; }
+.article-content strong { font-weight: 600; color: var(--text-main); }
+.article-content a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.article-content ul, .article-content ol { margin-bottom: 1.25rem; padding-left: 1.5rem; }
+.article-content li { margin-bottom: 0.5rem; color: #334155; }
+.article-content li::marker { color: var(--primary); }
+.article-content blockquote {
+  border-left: 4px solid #e67e22; background: rgba(230, 126, 34, 0.06);
+  padding: 1rem 1.5rem; margin: 1.5rem 0; border-radius: 0 12px 12px 0; color: var(--text-muted);
+}
+.article-content pre {
+  background: #0d1117; border-radius: 16px; padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+  overflow-x: auto; border: 1px solid rgba(148,163,184,0.08);
+}
+.article-content code {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.85em;
+  background: rgba(99,102,241,0.1); color: var(--glow); padding: 0.15em 0.4em; border-radius: 6px;
+}
+.article-content pre code { background: transparent; color: #cdd6f4; padding: 0; font-size: 0.875rem; }
+.article-content table { width: 100%; margin: 1.5rem 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+.article-content thead { background: rgba(99,102,241,0.06); }
+.article-content th { padding: 0.75rem 1rem; text-align: left; font-weight: 600; color: var(--text-main); }
+.article-content td { padding: 0.65rem 1rem; color: var(--text-muted); border-top: 1px solid rgba(148,163,184,0.06); }
+.article-content hr { border: none; height: 1px; background: var(--border); margin: 2.5rem 0; }
+.article-content .katex-display {
+  margin: 1.5rem 0; padding: 1.25rem; background: rgba(34,211,238,0.04);
+  border-radius: 12px; border: 1px solid rgba(34,211,238,0.1); overflow-x: auto;
+}
+.article-content pre .hljs-keyword { color: #cba6f7; }
+.article-content pre .hljs-string { color: #a6e3a1; }
+.article-content pre .hljs-number { color: #fab387; }
+.article-content pre .hljs-comment { color: #6c7086; font-style: italic; }
+.article-content pre .hljs-built_in { color: #f9e2af; }
+.article-content pre .hljs-title { color: #89b4fa; }

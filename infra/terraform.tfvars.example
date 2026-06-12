@@ -1,0 +1,13 @@
+# ==============================================================================
+# Terraform Variables — Copie para terraform.tfvars e preencha os valores reais
+# NUNCA commite terraform.tfvars com valores reais
+# ==============================================================================
+
+project_id      = "your-gcp-project-id"
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+region          = "us-central1"
+environment     = "dev"
+
+# Cron do Estrategista (toda segunda-feira às 9h BRT)
+strategist_schedule = "0 9 * * 1"
+strategist_timezone = "America/Sao_Paulo"

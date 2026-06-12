@@ -1,0 +1,50 @@
+{
+  "nav": {
+    "home": "Home",
+    "projects": "Projetos",
+    "timeline": "Linha do Tempo",
+    "blog": "Blog",
+    "tools": "Tools"
+  },
+  "hero": {
+    "greeting": "Prazer, Victor Zoré!",
+    "title": "Líder na área de ML & AI",
+    "subtitle": "Junto tecnologia e inteligência artificial para criar soluções que resolvem problemas reais de negócio. Criador do AINewz, uma plataforma de noticias escrita por IA, conheça e assine a newsletter!",
+    "cta": "Conhecer AINewz",
+    "ctaProjects": "Ver projetos"
+  },
+  "projects": {
+    "title": "Projetos em Destaque",
+    "subtitle": "Conheça as principais soluções desenvolvidas durante a minha carreira",
+    "tags": {
+      "ai": "AI",
+      "ml": "ML"
+    }
+  },
+  "timeline": {
+    "title": "Linha do Tempo",
+    "subtitle": "Minha jornada profissional e acadêmica na área de aprendizado de máquina e inteligência artificial.",
+    "career": "Carreira",
+    "education": "Educação"
+  },
+  "blog": {
+    "title": "Blog",
+    "subtitle": "Artigos, tutoriais e reflexões sobre estatística, machine learning e inteligência artificial.",
+    "readMore": "Ler artigo",
+    "readTime": "min de leitura",
+    "viewAll": "Ver blog",
+    "filters": {
+      "all": "Todos",
+      "estatistica": "Estatística",
+      "ml": "Machine Learning",
+      "ia": "Inteligência Artificial"
+    }
+  },
+  "tools": {
+    "title": "Tools",
+    "subtitle": "Ferramentas de IA e ML para explorar e experimentar"
+  },
+  "footer": {
+    "rights": "Todos os direitos reservados."
+  }
+}
