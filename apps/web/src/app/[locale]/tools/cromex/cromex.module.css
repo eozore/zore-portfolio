@@ -596,3 +596,28 @@
   box-shadow: 0 6px 20px rgba(22, 163, 74, 0.35);
 }
 
+.downloadTabButton {
+  background: #e67e22;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(230, 126, 34, 0.25);
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.downloadTabButton:hover {
+  background: #d35400;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(230, 126, 34, 0.35);
+}
+

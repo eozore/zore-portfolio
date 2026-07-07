@@ -599,17 +599,28 @@ export default function CromexPage({ params }: CromexPageProps) {
               Lista de Referência CM1 sugerido (Top 100)
             </div>
             
-            {/* Search filter */}
-            <div className={styles.searchContainer}>
-              <i className={`fa-solid fa-magnifying-glass ${styles.searchIcon}`} />
-              <input
-                id="input-search-cm1"
-                type="text"
-                placeholder="Buscar Cliente ou Material..."
-                className={styles.searchBar}
-                value={cm1Search}
-                onChange={(e) => setCm1Search(e.target.value)}
-              />
+            {/* Search filter & Download Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <a
+                id="btn-download-cm1-tab"
+                href="/api/tools/cromex/download"
+                className={styles.downloadTabButton}
+              >
+                <i className="fa-solid fa-file-arrow-down" />
+                Baixar Planilha CM1
+              </a>
+
+              <div className={styles.searchContainer}>
+                <i className={`fa-solid fa-magnifying-glass ${styles.searchIcon}`} />
+                <input
+                  id="input-search-cm1"
+                  type="text"
+                  placeholder="Buscar Cliente ou Material..."
+                  className={styles.searchBar}
+                  value={cm1Search}
+                  onChange={(e) => setCm1Search(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
