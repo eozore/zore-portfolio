@@ -54,6 +54,12 @@ export default function ToolsClientPage({ locale, initialSession, dictionary }: 
     }
   ];
 
+  // Filter tools based on authentication (only show private tools to their respective owners)
+  const visibleTools = tools.filter(tool => {
+    if (!tool.isPrivate) return true;
+    return initialSession && (initialSession.companyId === tool.companyId || initialSession.role === 'admin');
+  });
+
   const handleToolClick = (e: React.MouseEvent, tool: Tool) => {
     if (tool.isPrivate) {
       const isAuthorized = initialSession && (initialSession.companyId === tool.companyId || initialSession.role === 'admin');
@@ -97,7 +103,7 @@ export default function ToolsClientPage({ locale, initialSession, dictionary }: 
 
       {/* Grid */}
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {tools.map((tool) => {
+        {visibleTools.map((tool) => {
           const isAuthorized = !tool.isPrivate || (initialSession && (initialSession.companyId === tool.companyId || initialSession.role === 'admin'));
           const href = isAuthorized ? `/${locale}/tools/${tool.slug}` : '#';
 
@@ -140,6 +146,51 @@ export default function ToolsClientPage({ locale, initialSession, dictionary }: 
             </a>
           );
         })}
+
+        {/* Custom B2B Solutions Conversion Card */}
+        {(!initialSession || (initialSession.companyId !== 'cromex' && initialSession.role !== 'admin')) && (
+          <div className="relative glass border-2 border-primary/20 rounded-card-lg p-6 flex flex-col hover:bg-white/80 hover:shadow-glow transition-all duration-500 group overflow-hidden">
+            {/* Glowing gradient background */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-br from-primary/10 to-accent-data/10 blur-2xl group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+            
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-all duration-300">
+              <i className="fa-solid fa-code text-primary text-xl" />
+            </div>
+
+            <h3 className="text-lg font-bold text-text-main group-hover:text-primary transition-colors mb-2">
+              {locale === 'pt-BR' ? 'Precisa de uma Solução sob Medida?' : 'Need a Custom AI Solution?'}
+            </h3>
+
+            <p className="text-sm text-text-muted flex-1 leading-relaxed mb-6">
+              {locale === 'pt-BR'
+                ? 'Desenvolvemos integrações de IA, pipelines automatizados de planilhas e dashboards corporativos personalizados sob confidencialidade.'
+                : 'We build custom AI integrations, automated spreadsheets processing pipelines, and bespoke corporate analytics dashboards.'}
+            </p>
+
+            <div className="flex flex-col gap-2.5">
+              <a
+                id="btn-b2b-contact"
+                href="https://wa.me/5519997661003?text=Olá%20Victor,%20gostaria%20de%20conversar%20sobre%20uma%20plataforma%20de%20dados%20personalizada%20para%20minha%20empresa."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent-data text-white font-bold text-sm shadow-md hover:shadow-glow hover:-translate-y-0.5 transition-all text-center"
+              >
+                <i className="fa-brands fa-whatsapp text-base" />
+                {locale === 'pt-BR' ? 'Falar com Victor Zoré' : 'Get in Touch'}
+              </a>
+              {!initialSession && (
+                <button
+                  id="btn-b2b-login"
+                  onClick={handleLoginRedirect}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-white/40 text-text-main font-semibold text-xs hover:bg-white/60 transition-colors"
+                >
+                  <i className="fa-solid fa-right-to-bracket" />
+                  {locale === 'pt-BR' ? 'Login Corporativo' : 'Client Login'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Coming Soon card */}
         <div className="relative glass border-dashed border-2 rounded-card-lg p-6 flex flex-col items-center justify-center text-center min-h-[240px] opacity-60">
