@@ -78,8 +78,8 @@ steps:
     args:
       - '-c'
       - |
-        CMO_URL=$(gcloud run services describe cmo-agent --region=us-central1 --format='value(status.url)')
-        echo "Detected cmo-agent URL: $CMO_URL"
+        CMO_URL=$$(gcloud run services describe cmo-agent --region=us-central1 --format='value(status.url)')
+        echo "Detected cmo-agent URL: $$CMO_URL"
         gcloud run deploy frontend \
           --image=gcr.io/$PROJECT_ID/web:$COMMIT_SHA \
           --region=us-central1 \
@@ -91,7 +91,7 @@ steps:
           --min-instances=0 \
           --max-instances=3 \
           --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest \
-          --set-env-vars=CMO_AGENT_URL=$CMO_URL
+          --set-env-vars=CMO_AGENT_URL=$$CMO_URL
 
 substitutions:
   _NEXT_PUBLIC_BASE_URL: 'https://eozore.com'
