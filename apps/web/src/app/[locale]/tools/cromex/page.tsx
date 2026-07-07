@@ -761,7 +761,7 @@ export default function CromexPage({ params }: CromexPageProps) {
             {showDownloadBtn && !isProcessing && (
               <a
                 id="btn-download-results"
-                href="/input_julho_2026.xlsx"
+                href="/api/tools/cromex/download?file=input_julho_2026.xlsx"
                 download="input_julho_2026.xlsx"
                 className={styles.downloadButton}
               >
