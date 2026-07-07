@@ -1,20 +1,19 @@
 import type { Article, ArticleCategory, CreateArticlePayload } from '@/types/article';
 import type { Locale } from '@/types/i18n';
 import { getFirestoreDb } from './firebase';
-
-const COLLECTION = 'articles';
+import { dbPaths } from './dbPaths';
 
 /**
  * Fetches all published articles for a given locale, ordered by publishedAt DESC.
  * Returns empty array if Firestore is unavailable.
  */
-export async function getAllArticles(locale: Locale): Promise<Article[]> {
+export async function getAllArticles(locale: Locale, tenantId: string | null = null): Promise<Article[]> {
   const db = getFirestoreDb();
   if (!db) return [];
 
   try {
     const snapshot = await db
-      .collection(COLLECTION)
+      .collection(dbPaths.articles(tenantId))
       .where('language', '==', locale)
       .where('status', '==', 'published')
       .orderBy('publishedAt', 'desc')
@@ -36,14 +35,15 @@ export async function getAllArticles(locale: Locale): Promise<Article[]> {
  */
 export async function getArticleBySlug(
   slug: string,
-  locale: Locale
+  locale: Locale,
+  tenantId: string | null = null
 ): Promise<Article | null> {
   const db = getFirestoreDb();
   if (!db) return null;
 
   try {
     const snapshot = await db
-      .collection(COLLECTION)
+      .collection(dbPaths.articles(tenantId))
       .where('slug', '==', slug)
       .where('language', '==', locale)
       .limit(1)
@@ -64,13 +64,14 @@ export async function getArticleBySlug(
  * Returns the created article ID or null on failure.
  */
 export async function createArticle(
-  payload: CreateArticlePayload
+  payload: CreateArticlePayload,
+  tenantId: string | null = null
 ): Promise<string | null> {
   const db = getFirestoreDb();
   if (!db) return null;
 
   try {
-    const docRef = await db.collection(COLLECTION).add({
+    const docRef = await db.collection(dbPaths.articles(tenantId)).add({
       ...payload,
       status: 'published',
       createdAt: new Date().toISOString(),
@@ -86,13 +87,13 @@ export async function createArticle(
 /**
  * Checks if a slug already exists in Firestore.
  */
-export async function slugExists(slug: string, locale: Locale): Promise<boolean> {
+export async function slugExists(slug: string, locale: Locale, tenantId: string | null = null): Promise<boolean> {
   const db = getFirestoreDb();
   if (!db) return false;
 
   try {
     const snapshot = await db
-      .collection(COLLECTION)
+      .collection(dbPaths.articles(tenantId))
       .where('slug', '==', slug)
       .where('language', '==', locale)
       .limit(1)

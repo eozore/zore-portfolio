@@ -72,3 +72,16 @@ eozoreIA/
 # Kiro specs (workflow interno)
 # ------------------------------------------------------------------------------
 .kiro/
+
+# ------------------------------------------------------------------------------
+# Passo a Passo (Gerador de Motion HTML)
+# ------------------------------------------------------------------------------
+passoapasso/node_modules/
+passoapasso/uploads/
+passoapasso/temp/
+passoapasso/*.zip
+
+# ------------------------------------------------------------------------------
+# Pastas de Desenvolvimento Local (Ferramentas Privadas / Rascunhos)
+# ------------------------------------------------------------------------------
+tool-*/

@@ -1,0 +1,162 @@
+/* RepurposeTab.module.css — Light Theme */
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .container { grid-template-columns: 1fr; }
+}
+
+.mainCol { display: flex; flex-direction: column; gap: 32px; }
+.sideCol { display: flex; flex-direction: column; gap: 24px; position: sticky; top: 24px; height: fit-content; }
+
+.card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(30, 30, 30, 0.08);
+  padding-bottom: 16px;
+}
+
+.title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  background: rgba(230, 126, 34, 0.1);
+  color: #d35400;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.itemBox {
+  background: rgba(248, 247, 244, 0.8);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.itemMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.itemLabel { font-size: 0.9rem; font-weight: 600; color: #d35400; }
+
+.dateInput {
+  background: #ffffff;
+  border: 1px solid rgba(30, 30, 30, 0.15);
+  color: #1e1e1e;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 140px;
+  background: #ffffff;
+  border: 1px solid rgba(30, 30, 30, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  color: #1e1e1e;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.textarea:focus { outline: none; border-color: rgba(230, 126, 34, 0.4); }
+
+.textareaScript { min-height: 320px; }
+
+.slideBox {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(230, 126, 34, 0.12);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.slideNum { font-size: 0.75rem; color: #e67e22; font-weight: bold; margin-bottom: 8px; }
+.slideHeadInput { width: 100%; background: transparent; border: none; color: #1e1e1e; font-weight: bold; font-size: 1.05rem; margin-bottom: 8px; outline: none; }
+.slideBodyInput { width: 100%; background: transparent; border: none; color: #6b6b6b; font-size: 0.9rem; resize: vertical; min-height: 60px; outline: none; }
+
+.scheduleBtn {
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(230, 126, 34, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.scheduleBtn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(230, 126, 34, 0.4); }
+.scheduleBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btnSpinner {
+  width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.weekOverview { display: flex; flex-direction: column; gap: 12px; }
+.dayRow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: rgba(248, 247, 244, 0.8);
+  border: 1px solid rgba(30, 30, 30, 0.06); border-radius: 10px; font-size: 0.85rem;
+}
+.dayName { color: #d35400; font-weight: bold; }
+.dayCount { color: #6b6b6b; background: rgba(30, 30, 30, 0.06); padding: 2px 8px; border-radius: 8px; }
+
+.successBanner {
+  background: rgba(22, 163, 74, 0.08);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: #16a34a;
+  padding: 20px;
+  border-radius: 16px;
+  text-align: center;
+  font-weight: bold;
+}

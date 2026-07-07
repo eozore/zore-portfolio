@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import EmailGateModal from '@/components/auth/EmailGateModal';
 
 interface SentimentResult {
   label: 'positivo' | 'neutro' | 'negativo';
@@ -60,9 +61,24 @@ export default function ClassificadorSentimentoPage() {
   const [text, setText] = useState('');
   const [result, setResult] = useState<SentimentResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEmailGateOpen, setIsEmailGateOpen] = useState(false);
 
   function handleAnalyze() {
     if (!text.trim()) return;
+
+    // Check if user is verified lead or corporate member
+    const isAuthorized = typeof document !== 'undefined' && 
+      (document.cookie.includes('eozore_lead') || document.cookie.includes('eozore_session'));
+
+    if (!isAuthorized) {
+      const runs = parseInt(localStorage.getItem('sentiment_runs') || '0', 10);
+      if (runs >= 2) {
+        setIsEmailGateOpen(true);
+        return;
+      }
+      localStorage.setItem('sentiment_runs', (runs + 1).toString());
+    }
+
     setIsAnalyzing(true);
 
     // Simula latência de uma chamada de API
@@ -216,6 +232,12 @@ export default function ClassificadorSentimentoPage() {
           </a>
         </div>
       </div>
+
+      <EmailGateModal 
+        isOpen={isEmailGateOpen} 
+        onClose={() => setIsEmailGateOpen(false)} 
+        onSuccess={() => handleAnalyze()} 
+      />
     </section>
   );
 }

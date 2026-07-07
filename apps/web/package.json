@@ -11,8 +11,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@google-cloud/secret-manager": "^6.2.0",
     "firebase": "^10.14.1",
     "firebase-admin": "^14.0.0",
+    "mermaid": "^11.16.0",
     "next": "14.2.21",
     "react": "18.3.1",
     "react-dom": "18.3.1",

@@ -1,0 +1,195 @@
+/* IdeaTab.module.css — Light Theme — CEO x CMO Chat */
+
+.chatLayout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 180px);
+  min-height: 600px;
+  max-height: 850px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  border: 1px solid rgba(30, 30, 30, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(230, 126, 34, 0.06);
+  overflow: hidden;
+}
+
+.chatHeader {
+  padding: 20px 28px;
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(30, 30, 30, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.roomTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmoBadge {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaToolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.select {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(30, 30, 30, 0.15);
+  color: #1e1e1e;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.messagesContainer {
+  flex: 1;
+  padding: 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #f8f7f4;
+}
+
+.messageBubble {
+  max-width: 78%;
+  padding: 16px 20px;
+  border-radius: 18px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* CMO bubble: card branco com borda laranja */
+.bubbleCmo {
+  align-self: flex-start;
+  background: #ffffff;
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  border-left: 4px solid #e67e22;
+  color: #1e1e1e;
+  border-top-left-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* CEO bubble: fundo escuro suave para contraste */
+.bubbleCeo {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #1e1e2e, #2d2b55);
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  color: #e2e8f0;
+  border-top-right-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.senderName {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.senderCmo { color: #d35400; }
+.senderCeo { color: #818cf8; text-align: right; }
+
+.inputArea {
+  padding: 20px 28px;
+  background: rgba(255, 255, 255, 0.9);
+  border-top: 1px solid rgba(30, 30, 30, 0.08);
+  display: flex;
+  gap: 12px;
+}
+
+.textarea {
+  flex: 1;
+  background: rgba(248, 247, 244, 0.9);
+  border: 1px solid rgba(30, 30, 30, 0.15);
+  border-radius: 14px;
+  padding: 14px 18px;
+  color: #1e1e1e;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: none;
+  min-height: 56px;
+  max-height: 120px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.textarea::placeholder { color: #6b6b6b; }
+.textarea:focus { border-color: #e67e22; }
+
+.sendBtn {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  border: none;
+  padding: 0 24px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(230, 126, 34, 0.3);
+}
+
+.sendBtn:hover { opacity: 0.9; transform: scale(1.02); }
+.sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.handoffBar {
+  padding: 16px 28px;
+  background: linear-gradient(90deg, rgba(230, 126, 34, 0.12), rgba(211, 84, 0, 0.18));
+  border-top: 2px solid rgba(230, 126, 34, 0.4);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  animation: pulseBar 2s infinite alternate;
+}
+
+@keyframes pulseBar {
+  from { background: linear-gradient(90deg, rgba(230, 126, 34, 0.08), rgba(211, 84, 0, 0.12)); }
+  to { background: linear-gradient(90deg, rgba(230, 126, 34, 0.15), rgba(211, 84, 0, 0.2)); }
+}
+
+.handoffBtn {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(230, 126, 34, 0.35);
+}
+
+.handoffBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(230, 126, 34, 0.5); }

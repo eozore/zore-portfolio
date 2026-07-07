@@ -1,0 +1,328 @@
+/* ============================================================
+   CsmDashboard.module.css — Layout principal do admin CSM
+   Tema Claro — Alinhado com a identidade visual do eozore.com
+   ============================================================ */
+
+.layout {
+  min-height: 100vh;
+  background: #f8f7f4;
+  color: #1e1e1e;
+  font-family: 'Inter', sans-serif;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ── Decorative blobs ── */
+.blob1 {
+  position: fixed;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(230, 126, 34, 0.08) 0%, transparent 65%);
+  top: -200px;
+  left: -200px;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift1 18s ease-in-out infinite;
+}
+
+.blob2 {
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 169, 98, 0.06) 0%, transparent 65%);
+  bottom: -100px;
+  right: -100px;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift2 22s ease-in-out infinite;
+}
+
+.blob3 {
+  position: fixed;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(211, 84, 0, 0.05) 0%, transparent 65%);
+  top: 50%;
+  left: 60%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  animation: drift3 26s ease-in-out infinite;
+}
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(60px, 40px); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-50px, -30px); }
+}
+@keyframes drift3 {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50% { transform: translate(calc(-50% + 40px), calc(-50% + 30px)); }
+}
+
+/* ── Header ── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(30, 30, 30, 0.08);
+  box-shadow: 0 1px 12px rgba(230, 126, 34, 0.06);
+}
+
+.headerInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLogo {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.logoAccent {
+  font-size: 1.4rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #e67e22, #f5a962);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-style: italic;
+}
+
+.logoBase {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #555555;
+}
+
+.headerSep {
+  color: rgba(30, 30, 30, 0.2);
+  margin: 0 0.5rem;
+  font-size: 1rem;
+}
+
+.headerTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e1e1e;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  background: rgba(230, 126, 34, 0.1);
+  border: 1px solid rgba(230, 126, 34, 0.25);
+  border-radius: 20px;
+  color: #d35400;
+}
+
+.newSessionBtn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  background: rgba(230, 126, 34, 0.08);
+  border: 1px dashed rgba(230, 126, 34, 0.4);
+  border-radius: 6px;
+  color: #d35400;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.newSessionBtn:hover {
+  background: rgba(230, 126, 34, 0.18);
+  border-color: #e67e22;
+  color: #1e1e1e;
+}
+
+/* ── Tab Navigation ── */
+.tabNav {
+  position: relative;
+  z-index: 10;
+  padding: 0 1.5rem;
+  margin-top: 0;
+  background: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(30, 30, 30, 0.08);
+}
+
+.tabNavInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 1rem 0 0;
+  position: relative;
+}
+
+.tabBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  padding: 0.875rem 1.5rem 1.125rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(30, 30, 30, 0.1);
+  cursor: pointer;
+  color: #475569;
+  transition: all 0.2s;
+  position: relative;
+  min-width: 140px;
+}
+
+.tabBtn:hover {
+  color: #0f172a;
+  background: rgba(230, 126, 34, 0.04);
+}
+
+.tabBtnActive {
+  border-bottom-color: #e67e22;
+  color: #d35400;
+}
+
+.tabBtnDone {
+  color: #e67e22;
+}
+
+.tabIndex {
+  font-family: monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+  margin-bottom: 0.25rem;
+}
+
+.tabLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.tabDesc {
+  font-size: 0.72rem;
+  color: #475569;
+}
+
+.tabCheck {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.progressBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(30, 30, 30, 0.05);
+  display: none;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #e67e22, #f5a962);
+  transition: width 0.4s ease;
+}
+
+/* ── Main content area ── */
+.main {
+  position: relative;
+  z-index: 10;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 6rem;
+}
+
+/* ── Bottom Navigation Bar ── */
+.bottomBar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(30, 30, 30, 0.15);
+  border-radius: 9999px;
+  padding: 8px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(230, 126, 34, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bottomBar:hover {
+  border-color: rgba(230, 126, 34, 0.4);
+  box-shadow: 0 12px 40px rgba(230, 126, 34, 0.16);
+}
+
+.bottomBarLink {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.bottomBarLink:hover {
+  color: #0f172a;
+  background: rgba(30, 30, 30, 0.08);
+}
+
+.bottomBarLinkActive {
+  background: rgba(230, 126, 34, 0.12);
+  color: #d35400;
+  border-color: rgba(230, 126, 34, 0.3);
+}
+
+.bottomBarDivider {
+  width: 1px;
+  height: 16px;
+  background: rgba(30, 30, 30, 0.16);
+}
+
+.bottomBarText {
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 650;
+  padding: 0 8px;
+}

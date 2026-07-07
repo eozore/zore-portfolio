@@ -1,0 +1,417 @@
+/* SettingsTab.module.css — Light Theme */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.title {
+  color: #1e1e1e;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.subtitle {
+  color: #6b6b6b;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.btnBack {
+  background: transparent;
+  border: 1px solid rgba(30, 30, 30, 0.15);
+  color: #6b6b6b;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btnBack:hover {
+  background: rgba(30, 30, 30, 0.04);
+  color: #1e1e1e;
+}
+
+/* Split Layout */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  min-height: 500px;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agentBtn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #6b6b6b;
+  text-align: left;
+  padding: 12px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.agentBtn:hover {
+  background: rgba(30, 30, 30, 0.04);
+  color: #1e1e1e;
+}
+
+.agentBtnActive {
+  background: rgba(230, 126, 34, 0.1);
+  border: 1px solid rgba(230, 126, 34, 0.25);
+  color: #d35400;
+}
+
+.agentBadge {
+  font-size: 0.7rem;
+  background: rgba(30, 30, 30, 0.06);
+  color: #6b6b6b;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 4px;
+  display: inline-block;
+  font-weight: bold;
+}
+
+.agentBadgeActive {
+  background: rgba(230, 126, 34, 0.12);
+  color: #d35400;
+}
+
+.editorPane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.paneTitle {
+  color: #1e1e1e;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Textarea do editor de prompts — dark (convenção de editor de código) */
+.textarea {
+  width: 100%;
+  min-height: 380px;
+  background: #1e1e2e;
+  border: 1px solid rgba(30, 30, 30, 0.1);
+  color: #cdd6f4;
+  padding: 16px;
+  border-radius: 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: rgba(230, 126, 34, 0.4);
+}
+
+.actionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btnSave {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(230, 126, 34, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btnSave:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(230, 126, 34, 0.4);
+}
+
+.btnSave:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btnReset {
+  background: transparent;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnReset:hover {
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.collapseHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(248, 247, 244, 0.8);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 12px;
+  color: #6b6b6b;
+  font-weight: 600;
+  font-size: 0.85rem;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.collapseHeader:hover { background: rgba(248, 247, 244, 1); color: #1e1e1e; }
+
+.collapseContent {
+  background: #1e1e2e;
+  border: 1px solid rgba(30, 30, 30, 0.1);
+  border-top: none;
+  padding: 16px;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.toast {
+  background: rgba(22, 163, 74, 0.08);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: #16a34a;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* API Keys Form styles */
+.keysContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.keyRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.keyLabel {
+  color: #1e1e1e;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.keyInputGroup {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.keyInput {
+  flex: 1;
+  background: #f8f7f4;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  color: #1e1e1e;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.keyInput:focus {
+  outline: none;
+  border-color: rgba(230, 126, 34, 0.4);
+  background: #ffffff;
+}
+
+.badgeContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.envBadgeProduction {
+  font-size: 0.75rem;
+  background: rgba(22, 163, 74, 0.08);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  color: #16a34a;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.envBadgeDevelopment {
+  font-size: 0.75rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #d97706;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: bold;
+}
+
+.btnKeySave {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(230, 126, 34, 0.25);
+  transition: all 0.2s;
+}
+
+.btnKeySave:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(230, 126, 34, 0.35);
+}
+
+.btnKeySave:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* HTML Template custom editor & preview grid */
+.templateGrid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .templateGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.selectorContainer {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.templateSelectBtn {
+  background: #f8f7f4;
+  border: 1px solid rgba(30, 30, 30, 0.1);
+  color: #6b6b6b;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.templateSelectBtn:hover {
+  background: rgba(30, 30, 30, 0.04);
+}
+
+.templateSelectBtnActive {
+  background: rgba(230, 126, 34, 0.1);
+  border-color: rgba(230, 126, 34, 0.3);
+  color: #d35400;
+}
+
+.phonePreviewContainer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.phoneFrameSim {
+  width: 320px;
+  height: 570px;
+  border: 12px solid #0f172a;
+  border-radius: 36px;
+  background: #000;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.phoneNotchSim {
+  width: 110px;
+  height: 18px;
+  background: #0f172a;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.iframeSim {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #000;
+}
+

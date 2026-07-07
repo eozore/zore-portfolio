@@ -1,0 +1,217 @@
+/* EditorialCalendar.module.css */
+
+.calendarLayout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.filterBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  backdrop-filter: blur(20px);
+  padding: 16px 24px;
+  border-radius: 16px;
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.filterPills { display: flex; gap: 8px; }
+
+.pill {
+  background: rgba(30, 30, 30, 0.04);
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  color: #475569;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pillActive { background: #e67e22; color: #fff; border-color: #e67e22; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 16px;
+  min-height: 520px;
+}
+
+@media (max-width: 1200px) {
+  .grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 768px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.dayCol {
+  background: #ffffff;
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dayTitle {
+  font-weight: 800;
+  color: #f5a962;
+  font-size: 0.95rem;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dayCount {
+  background: rgba(30, 30, 30, 0.06);
+  color: #1e1e1e;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.itemCard {
+  background: #f8fafc;
+  border: 1px solid rgba(30, 30, 30, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itemCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(230, 126, 34, 0.4);
+}
+
+.cardHeadRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.platformTag {
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.cardTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e1e1e;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status_em_revisao { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+.status_aprovado { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+.status_rejeitado { background: #ef4444; }
+
+/* Modal / Drawer */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 1100px;
+  max-height: 90vh;
+  background: #0f172a;
+  border: 1px solid rgba(230, 126, 34, 0.3);
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.9);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .modalContent { grid-template-columns: 1fr; overflow-y: auto; }
+}
+
+.modalPreviewCol {
+  background: #090d16;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow-y: auto;
+}
+
+.modalEditCol {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.modalTitle { font-size: 1.3rem; font-weight: 800; color: #fff; }
+
+.statusToolbar {
+  display: flex;
+  gap: 10px;
+  background: rgba(0,0,0,0.4);
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.statusBtn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: #cbd5e1;
+  font-weight: bold;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.statusBtnActiveRev { background: rgba(251, 191, 36, 0.2); border-color: #fbbf24; color: #fbbf24; }
+.statusBtnActiveApr { background: rgba(46, 204, 113, 0.2); border-color: #2ecc71; color: #2ecc71; }
+.statusBtnActiveRej { background: rgba(239, 68, 68, 0.2); border-color: #ef4444; color: #ef4444; }
+
+.closeBtn {
+  align-self: flex-end;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
