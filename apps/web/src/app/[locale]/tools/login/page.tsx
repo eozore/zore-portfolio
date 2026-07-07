@@ -112,26 +112,30 @@ function LoginForm() {
         </button>
       </form>
 
-      <div className={styles.divider}>Acesso de Demonstração</div>
+      {process.env.NODE_ENV === 'development' && (
+        <>
+          <div className={styles.divider}>Acesso de Demonstração</div>
 
-      <div className={styles.demoSection}>
-        <button
-          id="btn-demo-cromex"
-          className={styles.demoButton}
-          onClick={() => fillDemo('cromex')}
-        >
-          <i className="fa-solid fa-building text-amber-500" />
-          Entrar como Cromex (Privado)
-        </button>
-        <button
-          id="btn-demo-public"
-          className={styles.demoButton}
-          onClick={() => fillDemo('public')}
-        >
-          <i className="fa-solid fa-globe text-blue-500" />
-          Entrar como Visitante (Público)
-        </button>
-      </div>
+          <div className={styles.demoSection}>
+            <button
+              id="btn-demo-cromex"
+              className={styles.demoButton}
+              onClick={() => fillDemo('cromex')}
+            >
+              <i className="fa-solid fa-building text-amber-500" />
+              Entrar como Cromex (Privado)
+            </button>
+            <button
+              id="btn-demo-public"
+              className={styles.demoButton}
+              onClick={() => fillDemo('public')}
+            >
+              <i className="fa-solid fa-globe text-blue-500" />
+              Entrar como Visitante (Público)
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
