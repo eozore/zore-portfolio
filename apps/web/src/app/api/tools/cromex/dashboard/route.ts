@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const storage = new Storage();
-    const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || process.env.GCP_STORAGE_BUCKET || 'zore-portfolio-cromex';
+    const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || process.env.GCP_STORAGE_BUCKET || 'vazfy-417019-assets';
     const file = storage.bucket(BUCKET_NAME).file('processed/cromex_dashboard.json');
 
     const [exists] = await file.exists();

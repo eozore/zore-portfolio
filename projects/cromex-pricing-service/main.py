@@ -30,7 +30,7 @@ app.add_middleware(
 )
 
 # Env config for GCP
-BUCKET_NAME = os.getenv("GCP_STORAGE_BUCKET") or os.getenv("CROMEX_BUCKET_NAME") or "zore-portfolio-cromex"
+BUCKET_NAME = os.getenv("GCP_STORAGE_BUCKET") or os.getenv("CROMEX_BUCKET_NAME") or "vazfy-417019-assets"
 IS_LOCAL = os.getenv("IS_LOCAL", "true").lower() == "true"
 
 # Define base directories for local fallback

@@ -86,7 +86,7 @@ steps:
       - '--cpu=1'
       - '--min-instances=0'
       - '--max-instances=3'
-      - '--set-env-vars=GCP_STORAGE_BUCKET=eozore-cromex-data,IS_LOCAL=false'
+      - '--set-env-vars=GCP_STORAGE_BUCKET=vazfy-417019-assets,IS_LOCAL=false'
 
   # ── STEP 4: Build da imagem Docker do Next.js ──
   - name: 'gcr.io/cloud-builders/docker'
@@ -134,7 +134,7 @@ steps:
           --min-instances=0 \
           --max-instances=3 \
           --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest \
-          --set-env-vars=CMO_AGENT_URL=$$CMO_URL,NEXT_PUBLIC_PRICING_API_URL=$$CROMEX_URL,PRICING_API_URL=$$CROMEX_URL
+          --set-env-vars=CMO_AGENT_URL=$$CMO_URL,NEXT_PUBLIC_PRICING_API_URL=$$CROMEX_URL,PRICING_API_URL=$$CROMEX_URL,GCP_STORAGE_BUCKET=vazfy-417019-assets,CROMEX_BUCKET_NAME=vazfy-417019-assets
 
 substitutions:
   _NEXT_PUBLIC_BASE_URL: 'https://eozore.com'

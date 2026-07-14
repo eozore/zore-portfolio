@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   // 3. Modo Produção GCP: Faz download via stream do Cloud Storage
   try {
     const storage = new Storage();
-    const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || 'zore-portfolio-cromex';
+    const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || process.env.GCP_STORAGE_BUCKET || 'vazfy-417019-assets';
     const filePath = `processed/${fileName}`;
 
     const file = storage.bucket(BUCKET_NAME).file(filePath);

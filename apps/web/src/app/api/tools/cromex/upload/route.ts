@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Production GCP: Upload to Cloud Storage
       const storage = new Storage();
-      const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || process.env.GCP_STORAGE_BUCKET || 'zore-portfolio-cromex';
+      const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || process.env.GCP_STORAGE_BUCKET || 'vazfy-417019-assets';
       const blob = storage.bucket(BUCKET_NAME).file(`raw/${standardName}`);
       
       // Save buffer to GCS
