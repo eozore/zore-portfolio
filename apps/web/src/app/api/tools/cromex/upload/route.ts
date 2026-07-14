@@ -46,10 +46,9 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const isDev = process.env.NODE_ENV === 'development';
-    const hasGcpCreds = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const useGcs = process.env.NODE_ENV === 'production' || !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-    if (isDev || !hasGcpCreds) {
+    if (!useGcs) {
       // Save locally to datainput folder
       const targetDir = path.join(process.cwd(), '..', '..', 'tool-cromex', 'datainput');
       if (!fs.existsSync(targetDir)) {

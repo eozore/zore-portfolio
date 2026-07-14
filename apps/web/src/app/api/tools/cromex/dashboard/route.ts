@@ -23,10 +23,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
   }
 
-  const isDev = process.env.NODE_ENV === 'development';
-  const hasGcpCreds = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const useGcs = process.env.NODE_ENV === 'production' || !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-  if (isDev || !hasGcpCreds) {
+  if (!useGcs) {
     try {
       const localPath = path.join(process.cwd(), '..', '..', 'tool-cromex', 'dataoutput', 'cromex_dashboard.json');
       if (fs.existsSync(localPath)) {
