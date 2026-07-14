@@ -95,6 +95,11 @@ def get_file_content(filename: str) -> str:
             blob_fallback.download_to_filename(temp_path)
             return temp_path
         else:
+            container_fallback = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+            if os.path.exists(container_fallback):
+                logger.info(f"Usando fallback embutido no container para {filename}: {container_fallback}")
+                shutil.copy(container_fallback, temp_path)
+                return temp_path
             raise FileNotFoundError(f"Arquivo {filename} não encontrado no bucket {BUCKET_NAME} (raw/) e nenhum fallback disponível.")
 
 def save_output_file(local_path: str, filename: str):
