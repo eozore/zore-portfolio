@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const { peLinear, peBaixa, pp, monthRef } = body;
 
     // Use environment variable, fallback to localhost:8080
-    const pricingApiUrl = process.env.NEXT_PUBLIC_PRICING_API_URL || 'http://localhost:8080';
+    const pricingApiUrl = process.env.PRICING_API_URL || process.env.NEXT_PUBLIC_PRICING_API_URL || 'http://localhost:8080';
     console.log(`[CROMEX PROCESS] Enviando requisição para API Python: ${pricingApiUrl}/run-all`);
 
     const pythonRes = await fetch(`${pricingApiUrl}/run-all`, {

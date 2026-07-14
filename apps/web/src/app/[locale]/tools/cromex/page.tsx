@@ -513,7 +513,7 @@ export default function CromexPage({ params }: CromexPageProps) {
 
                     {/* Axis Labels */}
                     <text x={10} y={150} transform="rotate(-90 10 150)" className={styles.axisText}>Volume (kg)</text>
-                    <text x={historicalChartPaths.width - 15} y={150} transform="rotate(90 y)" className={styles.axisText} textAnchor="middle">Aderência (%)</text>
+                    <text x={historicalChartPaths.width - 15} y={150} transform={`rotate(90 ${historicalChartPaths.width - 15} 150)`} className={styles.axisText} textAnchor="middle">Aderência (%)</text>
                   </svg>
                 ) : (
                   <p style={{ textAlign: 'center', paddingTop: '100px', color: 'var(--text-muted)' }}>Sem dados históricos disponíveis.</p>
