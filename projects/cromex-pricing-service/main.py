@@ -246,6 +246,21 @@ def run_full_pipeline_task(params: PricingParams, task_id: str):
                 'MesAno': target_period
             }
             df_pe = pd.concat([df_pe, pd.DataFrame([new_row])], ignore_index=True)
+
+        try:
+            df_pe_to_save = df_pe.drop(columns=['MesAno'])
+            temp_pe_out = "/tmp/PE_PP_updated.xlsx"
+            df_pe_to_save.to_excel(temp_pe_out, index=False)
+            if IS_LOCAL:
+                shutil.copy(temp_pe_out, pe_pp_file)
+            else:
+                logger.info("Enviando PE_PP.xlsx atualizado de volta para o GCS...")
+                client = storage.Client()
+                bucket = client.bucket(BUCKET_NAME)
+                blob = bucket.blob("raw/PE_PP.xlsx")
+                blob.upload_from_filename(temp_pe_out)
+        except Exception as pe_err:
+            logger.error(f"Erro ao salvar PE_PP.xlsx de volta: {pe_err}")
             
         df_pe_clean = df_pe[['MesAno', 'PE LINEAR', 'PE BAIXA', 'PP']].copy()
         df_pe_clean.columns = ['MesAno', 'PE LINEAR', 'PE BAIXA', 'PP']
