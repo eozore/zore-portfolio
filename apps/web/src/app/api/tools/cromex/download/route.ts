@@ -32,10 +32,10 @@ export async function GET(request: NextRequest) {
   if (isDev || !hasGcpCreds) {
     try {
       // Procura primeiro na raiz do projeto local ou no workspace
-      let localPath = path.join(process.cwd(), 'public', 'input_julho_2026.xlsx');
+      let localPath = path.join(process.cwd(), 'public', fileName);
       if (!fs.existsSync(localPath)) {
         // Fallback para pasta de desenvolvimento da Cromex
-        localPath = path.join(process.cwd(), '..', '..', 'tool-cromex', 'dataoutput', 'input_julho_2026.xlsx');
+        localPath = path.join(process.cwd(), '..', '..', 'tool-cromex', 'dataoutput', fileName);
       }
 
       if (fs.existsSync(localPath)) {
@@ -52,24 +52,31 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 3. Modo Produção GCP: gera uma Signed URL temporária no Cloud Storage
+  // 3. Modo Produção GCP: Faz download via stream do Cloud Storage
   try {
     const storage = new Storage();
     const BUCKET_NAME = process.env.CROMEX_BUCKET_NAME || 'zore-portfolio-cromex';
     const filePath = `processed/${fileName}`;
 
-    const [signedUrl] = await storage
-      .bucket(BUCKET_NAME)
-      .file(filePath)
-      .getSignedUrl({
-        version: 'v4',
-        action: 'read',
-        expires: Date.now() + 5 * 60 * 1000, // Link expira em 5 minutos
-      });
+    const file = storage.bucket(BUCKET_NAME).file(filePath);
+    
+    // Verifica se o arquivo existe antes de baixar
+    const [exists] = await file.exists();
+    if (!exists) {
+      return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
+    }
 
-    return NextResponse.redirect(signedUrl);
+    // Faz o download do arquivo em memória (bom para pequenos relatórios de BI Excel, limitados a algumas dezenas de MB)
+    const [buffer] = await file.download();
+
+    return new NextResponse(buffer, {
+      headers: {
+        'Content-Disposition': `attachment; filename="${fileName}"`,
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+    });
   } catch (error: any) {
-    console.error('Erro ao gerar URL assinada do GCS:', error);
-    return NextResponse.json({ error: 'Erro ao gerar link de download seguro' }, { status: 500 });
+    console.error('Erro ao ler arquivo do GCS:', error);
+    return NextResponse.json({ error: 'Erro ao gerar download do arquivo' }, { status: 500 });
   }
 }

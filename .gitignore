@@ -69,9 +69,21 @@ apresentacao-kickoff.html
 eozoreIA/
 
 # ------------------------------------------------------------------------------
-# Kiro specs (workflow interno)
+# Kiro specs (workflow interno) — .kiro/ agora é commitado (AI-DLC depende dele)
 # ------------------------------------------------------------------------------
-.kiro/
+# .kiro/  ← removido: AI-DLC precisa da pasta .kiro/ versionada
+
+# ------------------------------------------------------------------------------
+# AI-DLC — cursors per-user e runtime local (NÃO commitar)
+# ------------------------------------------------------------------------------
+aidlc/active-space
+aidlc/spaces/*/intents/active-intent
+aidlc/.aidlc-clone-id
+aidlc/.aidlc-turn-counter
+aidlc/.aidlc-readonly-latch
+aidlc/.aidlc-sessions/
+aidlc/spaces/*/intents/*/runtime-graph.json
+aidlc/spaces/*/intents/*/.aidlc-*
 
 # ------------------------------------------------------------------------------
 # Passo a Passo (Gerador de Motion HTML)

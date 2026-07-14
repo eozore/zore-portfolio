@@ -20,6 +20,10 @@ echo "=== 2. Criando o Google Cloud Storage Bucket (se não existir) ==="
 gsutil mb -p $PROJECT_ID -c standard -l $REGION gs://$BUCKET_NAME || true
 gsutil iam ch allUsers:objectViewer gs://$BUCKET_NAME || true
 
+echo "=== 2b. Enviando planilhas de exemplo para o bucket GCS ==="
+# Envia planilhas de exemplo sem sobrescrever as existentes (-n)
+gsutil cp -n tool-cromex/datainput/* gs://$BUCKET_NAME/raw/ || true
+
 echo "=== 3. Construindo e Implantando o Microserviço Python (Cromex Pricing API) ==="
 # Compila o container no Cloud Build e joga no Container Registry
 gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_PY_NAME projects/cromex-pricing-service

@@ -42,6 +42,16 @@ export default function ToolsClientPage({ locale, initialSession, dictionary }: 
       isPrivate: false,
     },
     {
+      id: 'youtube-editor',
+      name: 'Editor de Vídeo YouTube',
+      nameEn: 'YouTube Video Editor',
+      slug: 'editor',
+      descPt: 'Transcreva áudio no GCP, alinhe com Gemini 2.5 e sobreponha slides em vídeos MP4 automaticamente.',
+      descEn: 'Transcribe audio in GCP, align with Gemini 2.5, and overlay slides onto MP4 videos automatically.',
+      icon: 'fa-video',
+      isPrivate: false,
+    },
+    {
       id: 'cromex-pricing',
       name: 'Cromex Solução Corporativa',
       nameEn: 'Cromex Pricing Intelligence',

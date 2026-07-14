@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Locale } from '@/types/i18n';
-import dashboardData from '@/data/cromex_dashboard.json';
+import staticDashboardData from '@/data/cromex_dashboard.json';
 import styles from './cromex.module.css';
 
 interface CromexPageProps {
@@ -17,8 +17,12 @@ export default function CromexPage({ params }: CromexPageProps) {
   const [market, setMarket] = useState<'MI' | 'ME'>('MI');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [cm1Search, setCm1Search] = useState<string>('');
+
+  // Dynamic Dashboard Data State
+  const [dashboardData, setDashboardData] = useState<any>(staticDashboardData);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
   
-  // Simulation States for Processes
+  // States for Processes
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [peLinear, setPeLinear] = useState('');
@@ -27,19 +31,41 @@ export default function CromexPage({ params }: CromexPageProps) {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showDownloadBtn, setShowDownloadBtn] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  const [filesUploaded, setFilesUploaded] = useState({ vendas: false, aderencia: false });
+  const [filesUploaded, setFilesUploaded] = useState({ vendas: false, aderencia_mi: false, aderencia_me: false });
+  const [uploadingState, setUploadingState] = useState({ vendas: false, aderencia_mi: false, aderencia_me: false });
 
   // Load market specific data
   const marketData = useMemo(() => {
     return dashboardData[market] || { months: [], historical: [], by_month: {} };
-  }, [market]);
+  }, [market, dashboardData]);
 
   // Set default month to last available month if empty
   const monthsList = useMemo(() => {
     return marketData.months || [];
   }, [marketData]);
 
-  React.useEffect(() => {
+  const fetchDashboardData = async () => {
+    setIsLoadingDashboard(true);
+    try {
+      const res = await fetch('/api/tools/cromex/dashboard');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.MI || data.ME)) {
+          setDashboardData(data);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dados dinâmicos do dashboard:', err);
+    } finally {
+      setIsLoadingDashboard(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
     if (monthsList.length > 0 && !selectedMonth) {
       setSelectedMonth(monthsList[monthsList.length - 1]);
     }
@@ -66,7 +92,7 @@ export default function CromexPage({ params }: CromexPageProps) {
       String(item.client_id).includes(searchLower) || 
       String(item.material_id).includes(searchLower)
     ).slice(0, 100);
-  }, [cm1Search]);
+  }, [cm1Search, dashboardData]);
 
   // Historical Chart dimensions & paths
   const historicalChartPaths = useMemo(() => {
@@ -127,55 +153,106 @@ export default function CromexPage({ params }: CromexPageProps) {
     return String(val);
   };
 
-  const handleFileUpload = (type: 'vendas' | 'aderencia') => {
-    setFilesUploaded(prev => ({ ...prev, [type]: true }));
+  const handleRealFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'vendas' | 'aderencia_mi' | 'aderencia_me') => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingState(prev => ({ ...prev, [type]: true }));
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+
+    try {
+      const res = await fetch('/api/tools/cromex/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        setFilesUploaded(prev => ({ ...prev, [type]: true }));
+      } else {
+        const errData = await res.json();
+        alert(`Erro no upload: ${errData.error || 'Erro desconhecido'}`);
+      }
+    } catch (err) {
+      console.error('Erro no upload de arquivo:', err);
+      alert('Erro de conexão ao realizar upload da planilha.');
+    } finally {
+      setUploadingState(prev => ({ ...prev, [type]: false }));
+    }
   };
 
-  const startCalculation = (finalPeLinear: string, finalPeBaixa: string, finalPp: string) => {
+  const startCalculation = async (finalPeLinear: string, finalPeBaixa: string, finalPp: string) => {
     setIsProcessing(true);
     setProgress(0);
     setLogs([]);
     setShowDownloadBtn(false);
 
-    const logMessages = [
-      "Iniciando pipelines de cálculo da Cromex...",
-      "Carregando bases do Google Cloud Storage...",
-      "Conectando ao Firestore para buscar referências históricas...",
-      `Aplicando parâmetros de PE/PP informados (PE Linear: ${finalPeLinear}, PE Baixa: ${finalPeBaixa}, PP: ${finalPp})...`,
-      "Executando script cromex_cm1.py: Calculando quartis por material...",
-      "Executando script cromex_cm1.py: Gerando CM1 sugerido (+5% margem)...",
-      "Executando script cromex_aderencia_me.py: Mapeando Mercado Externo...",
-      "Executando script cromex_aderencia_me.py: Aplicando deduplicações de Vendedores e Linhas...",
-      "Executando script cromex_aderencia_mi.py: Mapeando Mercado Interno...",
-      "Consolidando métricas e agregando bases de dados...",
-      "Enviando dados consolidados para o Google Sheets...",
-      "Salvando arquivos de backup locais na pasta dataoutput/...",
-      "Atualizando banco de dados de visualização de dados (dashboard)...",
-      "Processamento concluído com sucesso!"
-    ];
+    try {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Iniciando pipeline de processamento...`]);
+      
+      const response = await fetch('/api/tools/cromex/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          peLinear: finalPeLinear,
+          peBaixa: finalPeBaixa,
+          pp: finalPp,
+          monthRef: selectedMonth || '2026-07'
+        })
+      });
 
-    let currentStep = 0;
-    const interval = setInterval(() => {
-      if (currentStep < logMessages.length) {
-        const time = new Date().toLocaleTimeString();
-        setLogs(prev => [...prev, `[${time}] ${logMessages[currentStep]}`]);
-        setProgress(Math.min(((currentStep + 1) / logMessages.length) * 100, 100));
-        currentStep++;
-      } else {
-        clearInterval(interval);
-        setIsProcessing(false);
-        setShowDownloadBtn(true);
+      if (!response.ok) {
+        throw new Error('Falha ao iniciar processamento na API backend.');
       }
-    }, 800);
+
+      const { task_id } = await response.json();
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Tarefa criada no servidor: ${task_id}. Monitorando execução...`]);
+
+      // Polling loop
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/tools/cromex/status?taskId=${task_id}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            
+            if (statusData.logs && statusData.logs.length > 0) {
+              setLogs(statusData.logs.map((log: string) => `[${new Date().toLocaleTimeString()}] ${log}`));
+            }
+            setProgress(statusData.progress || 0);
+
+            if (statusData.status === 'completed') {
+              clearInterval(pollInterval);
+              setIsProcessing(false);
+              setShowDownloadBtn(true);
+              fetchDashboardData();
+            } else if (statusData.status === 'error') {
+              clearInterval(pollInterval);
+              setIsProcessing(false);
+              alert(`Erro no processamento: ${statusData.last_log || 'Ocorreu um erro.'}`);
+            }
+          }
+        } catch (pollErr) {
+          console.error('Erro ao consultar status:', pollErr);
+        }
+      }, 2000);
+
+    } catch (error: any) {
+      console.error('Erro no cálculo:', error);
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERRO: ${error.message || 'Falha ao processar.'}`]);
+      setIsProcessing(false);
+    }
   };
 
   const triggerProcessRun = () => {
-    if (!filesUploaded.vendas || !filesUploaded.aderencia) {
-      alert("Por favor, faça upload de ambas as bases antes de rodar.");
+    if (!filesUploaded.vendas || !filesUploaded.aderencia_mi || !filesUploaded.aderencia_me) {
+      alert("Por favor, faça upload das três bases antes de rodar.");
       return;
     }
 
-    // Check if any value is blank
     if (!peLinear.trim() || !peBaixa.trim() || !pp.trim()) {
       setShowWarningModal(true);
     } else {
@@ -196,13 +273,44 @@ export default function CromexPage({ params }: CromexPageProps) {
     startCalculation(finalPeLinear, finalPeBaixa, finalPp);
   };
 
+  // Auth state
+  const [userEmail, setUserEmail] = useState<string>('');
+
+  React.useEffect(() => {
+    // Parse the session cookie to show the logged in user
+    const cookies = document.cookie.split(';');
+    const sessionCookie = cookies.find(c => c.trim().startsWith('eozore_session='));
+    if (sessionCookie) {
+      try {
+        const val = sessionCookie.split('=')[1];
+        const data = JSON.parse(decodeURIComponent(val));
+        if (data && data.email) {
+          setUserEmail(data.email);
+        }
+      } catch(e) {}
+    }
+  }, []);
+
+  const handleLogout = () => {
+    document.cookie = 'eozore_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    window.location.href = '/tools/login';
+  };
+
   return (
     <section className={styles.container}>
       {/* Title */}
       <div className={styles.header}>
-        <div className={styles.titleSection}>
-          <h1 id="cromex-title">Cromex Intelligence</h1>
-          <p className={styles.subtitle}>Consolidação de CM1 e dashboards de aderência de preços (ME e MI).</p>
+        <div className={styles.titleSectionWrapper}>
+          <div className={styles.titleSection}>
+            <h1 id="cromex-title">Cromex Intelligence</h1>
+            <p className={styles.subtitle}>Consolidação de CM1 e dashboards de aderência de preços (ME e MI).</p>
+          </div>
+          <div className={styles.userProfile}>
+            {userEmail && <span className={styles.userEmail}><i className="fa-solid fa-user-circle" /> {userEmail}</span>}
+            <button id="btn-logout-cromex" onClick={handleLogout} className={styles.logoutButton}>
+              <i className="fa-solid fa-right-from-bracket" /> Sair
+            </button>
+          </div>
         </div>
 
         {/* Tab Controls */}
@@ -673,30 +781,67 @@ export default function CromexPage({ params }: CromexPageProps) {
             </p>
 
             {/* File Upload Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              {/* Box Vendas */}
               <div 
                 id="upload-vendas"
                 className={styles.uploadZone} 
-                onClick={() => handleFileUpload('vendas')}
-                style={{ borderColor: filesUploaded.vendas ? '#16a34a' : '' }}
+                onClick={() => document.getElementById('input-vendas')?.click()}
+                style={{ borderColor: filesUploaded.vendas ? '#16a34a' : uploadingState.vendas ? '#3b82f6' : '' }}
               >
-                <i className={`fa-solid ${filesUploaded.vendas ? 'fa-circle-check text-green-600' : 'fa-file-excel'} ${styles.uploadIcon}`} />
+                <input 
+                  id="input-vendas"
+                  type="file"
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleRealFileUpload(e, 'vendas')}
+                />
+                <i className={`fa-solid ${filesUploaded.vendas ? 'fa-circle-check text-green-600' : uploadingState.vendas ? 'fa-spinner fa-spin text-blue-500' : 'fa-file-excel'} ${styles.uploadIcon}`} />
                 <h4 style={{ fontWeight: 700, fontSize: '0.95rem' }}>Base de Vendas</h4>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  {filesUploaded.vendas ? 'vendas.xlsx (Carregado)' : 'Clique para simular upload'}
+                  {filesUploaded.vendas ? 'vendas.xlsx (Carregado)' : uploadingState.vendas ? 'Enviando arquivo...' : 'Clique para fazer upload'}
                 </p>
               </div>
 
+              {/* Box MI */}
               <div 
-                id="upload-aderencia"
+                id="upload-aderencia-mi"
                 className={styles.uploadZone} 
-                onClick={() => handleFileUpload('aderencia')}
-                style={{ borderColor: filesUploaded.aderencia ? '#16a34a' : '' }}
+                onClick={() => document.getElementById('input-aderencia-mi')?.click()}
+                style={{ borderColor: filesUploaded.aderencia_mi ? '#16a34a' : uploadingState.aderencia_mi ? '#3b82f6' : '' }}
               >
-                <i className={`fa-solid ${filesUploaded.aderencia ? 'fa-circle-check text-green-600' : 'fa-file-excel'} ${styles.uploadIcon}`} />
-                <h4 style={{ fontWeight: 700, fontSize: '0.95rem' }}>Base de Aderência</h4>
+                <input 
+                  id="input-aderencia-mi"
+                  type="file"
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleRealFileUpload(e, 'aderencia_mi')}
+                />
+                <i className={`fa-solid ${filesUploaded.aderencia_mi ? 'fa-circle-check text-green-600' : uploadingState.aderencia_mi ? 'fa-spinner fa-spin text-blue-500' : 'fa-file-excel'} ${styles.uploadIcon}`} />
+                <h4 style={{ fontWeight: 700, fontSize: '0.95rem' }}>Aderência Mercado Interno</h4>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  {filesUploaded.aderencia ? 'aderencia.xlsx (Carregado)' : 'Clique para simular upload'}
+                  {filesUploaded.aderencia_mi ? 'aderencia_mi.xlsx (Carregado)' : uploadingState.aderencia_mi ? 'Enviando arquivo...' : 'Clique para fazer upload'}
+                </p>
+              </div>
+
+              {/* Box ME */}
+              <div 
+                id="upload-aderencia-me"
+                className={styles.uploadZone} 
+                onClick={() => document.getElementById('input-aderencia-me')?.click()}
+                style={{ borderColor: filesUploaded.aderencia_me ? '#16a34a' : uploadingState.aderencia_me ? '#3b82f6' : '' }}
+              >
+                <input 
+                  id="input-aderencia-me"
+                  type="file"
+                  accept=".xlsx"
+                  style={{ display: 'none' }}
+                  onChange={(e) => handleRealFileUpload(e, 'aderencia_me')}
+                />
+                <i className={`fa-solid ${filesUploaded.aderencia_me ? 'fa-circle-check text-green-600' : uploadingState.aderencia_me ? 'fa-spinner fa-spin text-blue-500' : 'fa-file-excel'} ${styles.uploadIcon}`} />
+                <h4 style={{ fontWeight: 700, fontSize: '0.95rem' }}>Aderência Mercado Externo</h4>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  {filesUploaded.aderencia_me ? 'aderencia_me.xlsx (Carregado)' : uploadingState.aderencia_me ? 'Enviando arquivo...' : 'Clique para fazer upload'}
                 </p>
               </div>
             </div>
@@ -746,7 +891,7 @@ export default function CromexPage({ params }: CromexPageProps) {
               id="btn-run-process"
               className={styles.runButton}
               onClick={triggerProcessRun}
-              disabled={isProcessing || !filesUploaded.vendas || !filesUploaded.aderencia}
+              disabled={isProcessing || !filesUploaded.vendas || !filesUploaded.aderencia_mi || !filesUploaded.aderencia_me}
             >
               {isProcessing ? (
                 <>
@@ -768,17 +913,40 @@ export default function CromexPage({ params }: CromexPageProps) {
               </div>
             )}
 
-            {/* Download Button */}
+            {/* Download Grid */}
             {showDownloadBtn && !isProcessing && (
-              <a
-                id="btn-download-results"
-                href="/api/tools/cromex/download?file=input_julho_2026.xlsx"
-                download="input_julho_2026.xlsx"
-                className={styles.downloadButton}
-              >
-                <i className="fa-solid fa-file-arrow-down" />
-                Baixar Resultados (Excel)
-              </a>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', width: '100%' }}>
+                <h4 style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>Download das Planilhas Processadas:</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                  <a
+                    id="btn-download-cm1"
+                    href="/api/tools/cromex/download?file=input_julho_2026.xlsx"
+                    download="input_julho_2026.xlsx"
+                    className={styles.downloadButton}
+                    style={{ margin: 0 }}
+                  >
+                    <i className="fa-solid fa-file-arrow-down" /> CM1 Indicado (Excel)
+                  </a>
+                  <a
+                    id="btn-download-mi"
+                    href="/api/tools/cromex/download?file=aderencia_mi_processada.xlsx"
+                    download="aderencia_mi_processada.xlsx"
+                    className={styles.downloadButton}
+                    style={{ margin: 0 }}
+                  >
+                    <i className="fa-solid fa-file-arrow-down" /> Aderência MI Processada
+                  </a>
+                  <a
+                    id="btn-download-me"
+                    href="/api/tools/cromex/download?file=aderencia_me_processada.xlsx"
+                    download="aderencia_me_processada.xlsx"
+                    className={styles.downloadButton}
+                    style={{ margin: 0 }}
+                  >
+                    <i className="fa-solid fa-file-arrow-down" /> Aderência ME Processada
+                  </a>
+                </div>
+              </div>
             )}
 
             {/* Logging Console output */}
