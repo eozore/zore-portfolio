@@ -7,8 +7,8 @@ import styles from './EditorialCalendar.module.css';
 
 export interface CalendarItem {
   id: string;
-  platform: 'linkedin' | 'youtube' | 'instagram' | 'threads' | 'facebook';
-  format: 'image' | 'carousel' | 'reel' | 'story' | 'video' | 'poll' | 'shorts' | 'post_imagem';
+  platform: 'linkedin' | 'youtube' | 'instagram' | 'threads' | 'youtube_community' | 'facebook';
+  format: 'image' | 'carousel' | 'reel' | 'story' | 'video' | 'poll' | 'shorts' | 'post_imagem' | 'thread' | 'community_post';
   titleOrHook: string;
   copy: string;
   scheduledAt: string; // ISO
@@ -27,7 +27,13 @@ export interface CalendarItem {
   videoError?: string;
   onRetryMerge?: () => void;
   imageUrl?: string;
+  imageHtml?: string;
   onGenerateImage?: () => void;
+  onRenderHtmlImage?: () => void;
+  /** Posts individuais de uma thread sequencial (Threads/Meta) */
+  threadPosts?: string[];
+  /** Número da thread na sequência */
+  threadNumber?: number;
 }
 
 interface EditorialCalendarProps {

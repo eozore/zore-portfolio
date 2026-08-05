@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getVertexAccessToken, getVertexStreamEndpoint } from '@/lib/vertex';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 export const dynamic = 'force-dynamic';
 // Allow up to 10 minutes for YouTube script generation via the AGY pipeline
@@ -29,6 +30,8 @@ Utilize o formato de marcação Markdown. Coloque indicações visuais/dicas de 
 > [CENA: Victor falando para a câmera com fundo dark desfocado]`;
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
+
   const projectId = process.env.FIREBASE_PROJECT_ID;
   if (!projectId) {
     return NextResponse.json(

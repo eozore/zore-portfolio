@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { getFirestoreDb } from '@/lib/firebase';
 import { dbPaths } from '@/lib/dbPaths';
 
@@ -426,10 +427,7 @@ const DEFAULT_TEMPLATES = [
 ];
 
 export async function GET(request: Request): Promise<Response> {
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   const tenantId = request.headers.get('x-tenant-id') || null;
   const db = getFirestoreDb();
@@ -464,10 +462,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   let body: any;
   try {

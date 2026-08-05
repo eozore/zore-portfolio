@@ -13,6 +13,8 @@ interface PublishTabProps {
   updateDraft: (partial: Partial<DraftState>) => void;
   onBack: () => void;
   onNext?: () => void;
+  /** Callback chamado quando o artigo é publicado com sucesso */
+  onPublished?: (url: string) => void;
 }
 
 type PublishStatus = 'idle' | 'publishing' | 'published' | 'error';
@@ -35,7 +37,7 @@ const CATEGORY_LABELS: Record<ArticleCategory, string> = {
   ia: 'Inteligencia Artificial',
 };
 
-export default function PublishTab({ draft, updateDraft, onBack, onNext }: PublishTabProps) {
+export default function PublishTab({ draft, updateDraft, onBack, onNext, onPublished }: PublishTabProps) {
   const [title, setTitle] = useState(draft.suggestedTitle || '');
   const [slug, setSlug] = useState(draft.suggestedSlug || '');
   const [coverImage, setCoverImage] = useState('https://storage.googleapis.com/eozore-assets/covers/default.jpg');
@@ -111,6 +113,8 @@ export default function PublishTab({ draft, updateDraft, onBack, onNext }: Publi
 
       setPublishedUrl(data.url);
       setPublishStatus('published');
+      // Notifica o Dashboard que a publicação foi concluída
+      onPublished?.(data.url);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao publicar';
       setPublishError(message);
@@ -434,7 +438,7 @@ export default function PublishTab({ draft, updateDraft, onBack, onNext }: Publi
               type="button"
               style={{ marginTop: '12px', width: '100%', padding: '12px', borderRadius: '12px', background: 'rgba(124,58,237,0.15)', color: '#7c3aed', border: '1px solid #7c3aed', fontWeight: 'bold', cursor: 'pointer' }}
             >
-              Avancar para Roteiro de Video &rarr;
+              Avançar sem publicar &rarr;
             </button>
           )}
 

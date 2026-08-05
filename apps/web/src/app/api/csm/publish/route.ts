@@ -3,6 +3,7 @@ import { validateArticlePayload } from '@/lib/validation';
 import { createArticle, slugExists } from '@/lib/articles';
 import { getFirestoreDb } from '@/lib/firebase';
 import type { CreateArticlePayload } from '@/types/article';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 /**
  * POST /api/csm/publish
@@ -12,10 +13,7 @@ import type { CreateArticlePayload } from '@/types/article';
  */
 export async function POST(request: Request): Promise<Response> {
   // Auth check — require same session-level marker
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   let body: unknown;
   try {
@@ -55,34 +53,51 @@ export async function POST(request: Request): Promise<Response> {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://eozore.com';
     const url = `${baseUrl}/${data.language}/blog/${data.slug}`;
 
-    // ── Asynchronous Pub/Sub Campaign Derivation Trigger ──
-    const cmoAgentUrl = process.env.CMO_AGENT_URL || 'http://localhost:8090';
-    const payload = {
-      title: data.title,
-      slug: data.slug,
-      content: data.content,
-      category: data.category,
-      language: data.language,
-    };
+    // ── Disparo assíncrono: geração do pacote de conteúdo completo ──────────
+    // Roda em background sem bloquear a resposta ao usuário.
+    // O pacote inclui: roteiro, manifesto v2, thumbnails, copies (LinkedIn/Threads).
+    // Extrai pauta e sessionId do body original (enviados pelo ArticleTab)
+    const bodyRaw = body as Record<string, unknown>;
+    const pauta   = bodyRaw.pauta   as Record<string, unknown> | null | undefined;
+    const sId     = bodyRaw.sessionId as string | undefined;
 
-    const base64Data = Buffer.from(JSON.stringify(payload)).toString('base64');
-    const pubsubBody = {
-      message: {
-        data: base64Data,
-        messageId: `msg-${Date.now()}`,
-      },
-    };
+    if (pauta?.titulo) {
+      // Chamada ao /api/csm/package do próprio Next.js (inclui scriptwriter+thumbnail+copy)
+      const host = process.env.NEXTAUTH_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-    console.log(`[csm/publish] Triggering asynchronous campaign derivation via: ${cmoAgentUrl}/pubsub/subscription`);
-    fetch(`${cmoAgentUrl}/pubsub/subscription`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(pubsubBody),
-    }).catch((err) => {
-      console.error('[csm/publish] Failed to trigger background Pub/Sub subscription repurpose:', err);
-    });
+      const chatTranscript = (bodyRaw.chatTranscript as string) || `Artigo: ${data.title}`;
+
+      console.log(`[csm/publish] Disparando geração do pacote de conteúdo em background para: ${data.slug}`);
+      fetch(`${host}/api/csm/package`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: request.headers.get('cookie') || '',
+          ...(request.headers.get('x-tenant-id')
+            ? { 'x-tenant-id': request.headers.get('x-tenant-id') as string }
+            : {}),
+        },
+        body: JSON.stringify({
+          pauta,
+          chatTranscript,
+          category:  data.category,
+          language:  data.language,
+          sessionId: sId,
+          // Passa artigo já gerado para evitar regerar
+          articleContent: data.content,
+        }),
+      }).then(async (pkgRes) => {
+        if (pkgRes.ok) {
+          console.log(`[csm/publish] Pacote gerado com sucesso para: ${data.slug}`);
+        } else {
+          const errText = await pkgRes.text().catch(() => pkgRes.statusText);
+          console.error(`[csm/publish] Falha ao gerar pacote: ${pkgRes.status} — ${errText.slice(0, 200)}`);
+        }
+      }).catch((err) => {
+        console.error('[csm/publish] Erro ao disparar geração do pacote:', err);
+      });
+    }
 
     return NextResponse.json({ slug: data.slug, url, id: docId }, { status: 201 });
   } catch (err) {

@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { generateContent } from '@/lib/vertex';
 import { getEcosystemMemory, formatMemoryForPrompt } from '@/lib/retrieval';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 interface RepurposeRequest {
   title: string;
   slug?: string;
   content: string;
   category: string;
+  youtubeScript?: string;
   language?: 'pt-BR' | 'en';
 }
 
@@ -24,6 +26,8 @@ function cleanAndRepairJson(str: string): string {
 export const maxDuration = 600;
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
+
   let body: RepurposeRequest;
   try {
     body = await request.json();

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { CSM_AUTH_COOKIE, createCsmToken } from '@/lib/csmAuth';
 
 /**
  * POST /api/csm/auth
@@ -24,7 +25,15 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const response = NextResponse.json({ ok: true }, { status: 200 });
+    response.cookies.set(CSM_AUTH_COOKIE, createCsmToken(), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 8 * 60 * 60,
+    });
+    return response;
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 });
   }

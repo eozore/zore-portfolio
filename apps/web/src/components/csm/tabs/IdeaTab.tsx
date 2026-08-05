@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { DraftState, ChatMessage } from '../CsmDashboard';
+import type { DraftState, ChatMessage, PautaConcebida } from '../CsmDashboard';
 import type { ArticleCategory } from '@/types/article';
 import styles from './IdeaTab.module.css';
 
@@ -20,13 +20,79 @@ const CATEGORIES: { id: ArticleCategory; label: string }[] = [
   { id: 'estatistica', label: 'Matemática & Probabilidade' },
 ];
 
+/**
+ * Tenta extrair o bloco JSON { "pauta": {...} } do texto do CMO.
+ * O CMO emite o bloco delimitado por ```json … ``` após "PAUTA CONCEBIDA COM SUCESSO".
+ * Retorna null se não encontrar ou se o parse falhar.
+ */
+function extractPautaFromCmoText(text: string): PautaConcebida | null {
+  // Aceita ```json ou ``` simples, com ou sem nova linha antes das chaves
+  const jsonBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (!jsonBlockMatch) return null;
+
+  try {
+    const raw = jsonBlockMatch[1].replace(/,\s*([}\]])/g, '$1'); // trailing commas
+    const parsed = JSON.parse(raw);
+    const pauta = parsed?.pauta;
+    if (
+      pauta &&
+      typeof pauta.titulo === 'string' &&
+      pauta.titulo.trim().length >= 5
+    ) {
+      return {
+        titulo:               pauta.titulo.trim(),
+        subtitulo:            (pauta.subtitulo ?? '').trim(),
+        tese:                 (pauta.tese ?? '').trim(),
+        publico:              (pauta.publico ?? '').trim(),
+        objetivo_aprendizado: (pauta.objetivo_aprendizado ?? '').trim(),
+        hardskills:           Array.isArray(pauta.hardskills) ? pauta.hardskills : [],
+        duracao_alvo:         (pauta.duracao_alvo ?? '').trim(),
+        serie:                (pauta.serie ?? '').trim(),
+        tipo_artigo: (['tecnico', 'conceitual', 'estrategico'].includes(pauta.tipo_artigo)
+          ? pauta.tipo_artigo
+          : 'tecnico') as 'tecnico' | 'conceitual' | 'estrategico',
+        nivel_tecnico: (['baixo', 'medio', 'alto'].includes(pauta.nivel_tecnico)
+          ? pauta.nivel_tecnico
+          : 'medio') as 'baixo' | 'medio' | 'alto',
+      };
+    }
+  } catch {
+    // parse silencioso — fallback no caller
+  }
+  return null;
+}
+
+/** Verifica se a pauta tem os 8 campos obrigatórios preenchidos */
+function isPautaCompleta(pauta: PautaConcebida | null): boolean {
+  if (!pauta) return false;
+  return (
+    pauta.titulo.length >= 5 &&
+    pauta.tese.length > 0 &&
+    pauta.publico.length > 0 &&
+    pauta.objetivo_aprendizado.length > 0 &&
+    Array.isArray(pauta.hardskills) && pauta.hardskills.length > 0 &&
+    pauta.duracao_alvo.length > 0
+  );
+}
+
 export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerating, sessionId, onNext }: IdeaTabProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(draft.chatHistory || []);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isReadyForHandoff, setIsReadyForHandoff] = useState(false);
+  /** Pauta extraída do último bloco JSON do CMO — usada no handoff (G7) */
+  const [detectedPauta, setDetectedPauta] = useState<PautaConcebida | null>(draft.pauta ?? null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Se sessão restaurada já tem pauta completa, libera o handoff automaticamente
+  // (não dispara geração — o PackageTab só gera quando o usuário clicar no botão)
+  useEffect(() => {
+    if (draft.pauta && isPautaCompleta(draft.pauta)) {
+      setDetectedPauta(draft.pauta);
+      setIsReadyForHandoff(true);
+    }
+  }, [draft.pauta]); // roda quando a sessão é restaurada do Firestore
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -35,8 +101,6 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-
 
   const triggerInterviewTurn = async (currentHistory: ChatMessage[]) => {
     setIsLoading(true);
@@ -59,13 +123,21 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
       setMessages(nextHistory);
       updateDraft({ chatHistory: nextHistory });
 
-      // Se o CMO emitiu a frase de pauta concebida, libera o botão criativo
-      if (data.text.includes('PAUTA CONCEBIDA COM SUCESSO') || currentHistory.length >= 4) {
-        setIsReadyForHandoff(true);
+      // G7: detecta bloco JSON { "pauta": {...} } no texto do CMO
+      if (data.text.includes('PAUTA CONCEBIDA COM SUCESSO')) {
+        const pauta = extractPautaFromCmoText(data.text);
+        if (pauta) {
+          setDetectedPauta(pauta);
+          updateDraft({ pauta });
+          // Só libera handoff se a pauta tem TODOS os 8 campos obrigatórios
+          if (isPautaCompleta(pauta)) {
+            setIsReadyForHandoff(true);
+          }
+        }
       }
+      // Safety net removido: handoff só com pauta JSON completa (todos os 8 campos)
     } catch (err) {
       console.error('[IdeaTab] Chat error:', err);
-      // Fallback de contingência
       const fbMsg: ChatMessage = {
         role: 'model',
         text: 'Olá Victor! Sou seu CMO AI. Tive um breve soluço de rede, mas estou pronto: qual é a grande tese matemática ou aprendizado de nuvem que vamos transformar no artigo educacional desta semana?',
@@ -82,10 +154,7 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
     const userMsg: ChatMessage = { role: 'user', text: inputText };
     const nextHistory = [...messages, userMsg];
     setMessages(nextHistory);
-    updateDraft({
-      chatHistory: nextHistory,
-      topic: inputText, // consolida último direcionamento como tópico principal
-    });
+    updateDraft({ chatHistory: nextHistory });
     setInputText('');
 
     triggerInterviewTurn(nextHistory);
@@ -99,20 +168,28 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
   };
 
   const handleExecuteHandoff = () => {
-    // Consolida toda a conversa de alinhamento no campo 'context' para o redator técnico
     const fullTranscript = messages
       .map((m) => `${m.role === 'user' ? 'Direcionamento CEO' : 'Alinhamento CMO'}: ${m.text}`)
       .join('\n\n');
 
+    // G7: usa o título aprovado pelo CMO (pauta.titulo), não a última frase do usuário
+    const topicFromPauta = detectedPauta?.titulo;
+
+    // Fallback progressivo: pauta JSON → última msg do CEO → draft.topic existente
     const userMessages = messages.filter((m) => m.role === 'user' && m.text.trim().length >= 10);
-    const lastUserTopic = userMessages.length > 0 
-      ? userMessages[userMessages.length - 1].text 
+    const fallbackTopic = userMessages.length > 0
+      ? userMessages[userMessages.length - 1].text
       : (draft.topic && draft.topic.length >= 10 ? draft.topic : 'Artigo Técnico éozoré');
 
+    const resolvedTopic = topicFromPauta ?? fallbackTopic;
+
     updateDraft({
-      topic: lastUserTopic.slice(0, 200),
+      topic: resolvedTopic.slice(0, 200),
+      suggestedTitle: topicFromPauta ?? '',
       context: `=== DIRETRIZES DA REUNIÃO EXECUTIVA CEO x CMO ===\n\n${fullTranscript}`,
-      format: 'blog', // SEMPRE artigo educacional profundo
+      format: 'blog',
+      // garante que pauta está no estado mesmo se updateDraft(pauta) veio antes
+      ...(detectedPauta ? { pauta: detectedPauta } : {}),
     });
 
     onNext();
@@ -169,35 +246,90 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
       </div>
 
       {/* Creative Team Handoff Banner */}
-      {(isReadyForHandoff || messages.length >= 2) && (
+      {isReadyForHandoff && (
         <div className={styles.handoffBar}>
           <div>
-            <div style={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem' }}>Pauta Concebida! Pronto para acionar o Time Criativo?</div>
-            <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>O redator técnico vai gerar o Artigo mestre com fórmulas LaTeX ($$) e gráficos Mermaid.</div>
+            <div style={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {detectedPauta
+            ? `✅ Pauta Concebida: "${detectedPauta.titulo}"`
+            : 'Pauta Concebida! Pronto para acionar o Time Criativo?'}
+              {/* Badge tipo_artigo */}
+              {detectedPauta?.tipo_artigo && (
+                <span style={{
+                  fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  padding: '2px 8px', borderRadius: '9999px', border: '1px solid',
+                  ...(detectedPauta.tipo_artigo === 'tecnico'
+                    ? { background: 'rgba(30,64,175,0.3)', color: '#93c5fd', borderColor: '#1d4ed8' }
+                    : detectedPauta.tipo_artigo === 'conceitual'
+                      ? { background: 'rgba(109,40,217,0.3)', color: '#c4b5fd', borderColor: '#7c3aed' }
+                      : { background: 'rgba(6,95,70,0.3)', color: '#6ee7b7', borderColor: '#065f46' }),
+                }}>
+                  {detectedPauta.tipo_artigo}
+                </span>
+              )}
+              {/* Badge nivel_tecnico */}
+              {detectedPauta?.nivel_tecnico && (
+                <span style={{
+                  fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  padding: '2px 8px', borderRadius: '9999px', border: '1px solid',
+                  ...(detectedPauta.nivel_tecnico === 'alto'
+                    ? { background: 'rgba(220,38,38,0.2)', color: '#fca5a5', borderColor: '#dc2626' }
+                    : detectedPauta.nivel_tecnico === 'baixo'
+                      ? { background: 'rgba(22,163,74,0.2)', color: '#86efac', borderColor: '#16a34a' }
+                      : { background: 'rgba(217,119,6,0.2)', color: '#fcd34d', borderColor: '#d97706' }),
+                }}>
+                  nível {detectedPauta.nivel_tecnico}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+              {detectedPauta
+                ? 'O sistema vai gerar o pacote completo automaticamente (artigo + derivações).'
+                : 'O redator técnico vai gerar o Artigo mestre com fórmulas LaTeX ($$) e gráficos Mermaid.'}
+            </div>
+            {detectedPauta?.hardskills && detectedPauta.hardskills.length > 0 && (
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
+                🎓 Hardskills: {detectedPauta.hardskills.slice(0, 3).join(' · ')}
+              </div>
+            )}
           </div>
           <button onClick={handleExecuteHandoff} className={styles.handoffBtn}>
-            Fechar Alinhamento & Gerar Artigo →
+            {detectedPauta ? 'Gerar Pacote Completo →' : 'Fechar Alinhamento & Gerar Artigo →'}
           </button>
         </div>
       )}
 
-      {/* Input Area */}
-      <div className={styles.inputArea}>
-        <textarea
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Direcione a pauta como CEO (ex: 'Quero falar sobre como LoRA reduz custo de memória de ativação...')"
-          className={styles.textarea}
-        />
-        <button
-          onClick={handleSendMessage}
-          disabled={!inputText.trim() || isLoading}
-          className={styles.sendBtn}
-        >
-          {isLoading ? 'Aguardando...' : 'Enviar'}
-        </button>
-      </div>
+      {/* Input Area — oculto quando pacote já foi gerado (projeto em andamento) */}
+      {!!draft.generatedContent?.trim() ? (
+        <div className={styles.projectReadyBar}>
+          <div className={styles.projectReadyText}>
+            <div className={styles.projectReadyTitle}>✓ Pacote gerado para este projeto</div>
+            <div className={styles.projectReadyDesc}>
+              Para continuar, vá para a aba Pacote. Para novo projeto, clique em &ldquo;Nova Reunião&rdquo;.
+            </div>
+          </div>
+          <button className={styles.projectReadyBtn} onClick={onNext}>
+            Ver Pacote →
+          </button>
+        </div>
+      ) : (
+        <div className={styles.inputArea}>
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Direcione a pauta como CEO (ex: 'Quero falar sobre como LoRA reduz custo de memória de ativação...')"
+            className={styles.textarea}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={!inputText.trim() || isLoading}
+            className={styles.sendBtn}
+          >
+            {isLoading ? 'Aguardando...' : 'Enviar'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

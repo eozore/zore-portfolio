@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestoreDb } from '@/lib/firebase';
 import { dbPaths } from '@/lib/dbPaths';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 const DEFAULT_AVATARS = {
   horizontal: {
@@ -14,10 +15,7 @@ const DEFAULT_AVATARS = {
 };
 
 export async function GET(req: NextRequest) {
-  const csmSession = req.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    // Also allow normal internal API access
-  }
+  if (!isCsmAuthenticated(req)) return csmUnauthorized();
 
   const tenantId = req.headers.get('x-tenant-id') || null;
   const db = getFirestoreDb();
@@ -45,10 +43,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const csmSession = req.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    // Authenticated sessions
-  }
+  if (!isCsmAuthenticated(req)) return csmUnauthorized();
 
   try {
     const { horizontal, vertical } = await req.json();

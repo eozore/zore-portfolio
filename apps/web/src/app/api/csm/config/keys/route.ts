@@ -3,6 +3,7 @@ import { getFirestoreDb } from '@/lib/firebase';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { dbPaths } from '@/lib/dbPaths';
 import { encrypt, decrypt } from '@/lib/crypto';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 const KEY_MAPPING: Record<string, { label: string; secretName: string }> = {
   HEYGEN_API_KEY: { label: 'HeyGen API Key', secretName: 'heygen-api-key' },
@@ -21,10 +22,7 @@ function isGcpProduction(): boolean {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   const tenantId = request.headers.get('x-tenant-id') || null;
   const useGcp = isGcpProduction() && !tenantId;
@@ -96,10 +94,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   let body: any;
   try {

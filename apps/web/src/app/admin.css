@@ -1,0 +1,143 @@
+/*
+ * admin.css — Design tokens unificados para o Content Studio (/admin/csm)
+ *
+ * Identidade visual: dark premium inspirada no pacote-finetuning-v2.html
+ * Um único sistema — sem split entre tabs light e dark.
+ *
+ * Paleta:
+ *   bg:       #0a0c10  (mais profundo que o antigo #0d0f14)
+ *   surface:  #111318  (cards principais)
+ *   surface2: #171c24  (cards internos)
+ *   surface3: #1e2330  (inputs, hover states)
+ *   line:     #252b36  (bordas)
+ *   line2:    #1a1f28  (separadores sutis)
+ *
+ *   orange:   #e8873a  (primary accent)
+ *   amber:    #f5b56a  (secondary, hover)
+ *   terra:    #c65d3b  (destructive, error início)
+ *   green:    #5fce8a  (success, published)
+ *   blue:     #6aa7e8  (planned, info)
+ *   purple:   #b48be0  (theory, math)
+ *
+ *   text:     #eae4dc  (primary text)
+ *   text2:    #b8b0a6  (secondary text)
+ *   muted:    #6b6560  (disabled, placeholders)
+ *
+ * Fontes:
+ *   display: 'Space Grotesk'   — títulos, labels, botões
+ *   mono:    'JetBrains Mono'  — kickers, badges, código, metadados
+ *   body:    'Inter'           — corpo de texto longo
+ */
+
+:root {
+  /* ── Cores de fundo ────────────────────────────────────── */
+  --adm-bg:       #0a0c10;
+  --adm-surface:  #111318;
+  --adm-surface2: #171c24;
+  --adm-surface3: #1e2330;
+  --adm-line:     #252b36;
+  --adm-line2:    #1a1f28;
+
+  /* ── Accent ────────────────────────────────────────────── */
+  --adm-orange:   #e8873a;
+  --adm-amber:    #f5b56a;
+  --adm-terra:    #c65d3b;
+  --adm-green:    #5fce8a;
+  --adm-blue:     #6aa7e8;
+  --adm-purple:   #b48be0;
+
+  /* ── Texto ─────────────────────────────────────────────── */
+  --adm-text:     #eae4dc;
+  --adm-text2:    #b8b0a6;
+  --adm-muted:    #6b6560;
+
+  /* ── Fontes ─────────────────────────────────────────────── */
+  --adm-font-display: 'Space Grotesk', sans-serif;
+  --adm-font-mono:    'JetBrains Mono', monospace;
+  --adm-font-body:    'Inter', sans-serif;
+
+  /* ── Raios de borda ─────────────────────────────────────── */
+  --adm-r-sm:  8px;
+  --adm-r-md: 12px;
+  --adm-r-lg: 16px;
+  --adm-r-xl: 20px;
+
+  /* ── Sombras ─────────────────────────────────────────────── */
+  --adm-shadow-sm:  0 2px 8px rgba(0,0,0,0.3);
+  --adm-shadow-md:  0 4px 16px rgba(0,0,0,0.4);
+  --adm-shadow-lg:  0 8px 32px rgba(0,0,0,0.5);
+  --adm-glow:       0 0 20px rgba(232,135,58,0.15);
+
+  /* ── Transições ─────────────────────────────────────────── */
+  --adm-t-fast: 0.15s ease;
+  --adm-t-med:  0.25s ease;
+}
+
+/* ── Grid de fundo sutil ─────────────────────────────────── */
+.adminGrid {
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(rgba(232,135,58,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232,135,58,0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 20%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Utility classes ─────────────────────────────────────── */
+.admKicker {
+  font-family: var(--adm-font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--adm-orange);
+}
+.admKicker::before { content: '// '; }
+
+.admCard {
+  background: var(--adm-surface);
+  border: 1px solid var(--adm-line);
+  border-radius: var(--adm-r-lg);
+  padding: 24px 26px;
+  position: relative;
+}
+
+.admBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--adm-font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 99px;
+  border: 1px solid var(--adm-line);
+  color: var(--adm-muted);
+}
+.admBadge.orange { border-color: rgba(232,135,58,.4); color: var(--adm-orange); background: rgba(232,135,58,.07); }
+.admBadge.green  { border-color: rgba(95,206,138,.4);  color: var(--adm-green);  background: rgba(95,206,138,.07); }
+.admBadge.blue   { border-color: rgba(106,167,232,.4); color: var(--adm-blue);   background: rgba(106,167,232,.07); }
+
+.admBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--adm-font-display);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 9px 20px;
+  border-radius: var(--adm-r-md);
+  border: none;
+  cursor: pointer;
+  transition: var(--adm-t-fast);
+}
+.admBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.admBtn.primary  { background: var(--adm-orange); color: #0a0c10; }
+.admBtn.primary:hover:not(:disabled) { background: var(--adm-amber); }
+.admBtn.ghost    { background: none; border: 1px solid var(--adm-line); color: var(--adm-muted); }
+.admBtn.ghost:hover:not(:disabled)   { border-color: var(--adm-text2); color: var(--adm-text); }
+.admBtn.success  { background: var(--adm-green); color: #0a0c10; }
+.admBtn.danger   { background: rgba(198,93,59,.12); border: 1px solid rgba(198,93,59,.4); color: #f5a094; }

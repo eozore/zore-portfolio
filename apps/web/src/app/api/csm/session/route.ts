@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { loadSession, saveDraftToSession } from '@/lib/session';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 export async function GET(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get('id');
 
@@ -24,6 +26,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
   let body: any;
   try {
     body = await request.json();

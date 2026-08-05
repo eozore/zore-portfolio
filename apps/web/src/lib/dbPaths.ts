@@ -28,6 +28,9 @@ export const dbPaths = {
   socialQueueDoc: (id: string, tenantId: string | null = DEFAULT_TENANT_ID) =>
     tenantId ? `tenants/${tenantId}/social_queue/${id}` : `social_queue/${id}`,
 
+  contentProjects: (tenantId: string | null = DEFAULT_TENANT_ID) =>
+    tenantId ? `tenants/${tenantId}/content_projects` : `content_projects`,
+
   usageLogs: (tenantId: string | null = DEFAULT_TENANT_ID) =>
     tenantId ? `tenants/${tenantId}/usage_logs` : `usage_logs`,
 

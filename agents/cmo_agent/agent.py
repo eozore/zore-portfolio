@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 
 # Load .env file manually if it exists
@@ -52,6 +52,17 @@ from distribution_agent import run_distribution, DISTRIBUTION_INSTRUCTION
 from critic_agent import run_critic, CRITIC_INSTRUCTION
 from speak_extractor_agent import extract_spoken_text
 from model_config import get_model_config
+
+# Sprint 2 — Specialist agents (G1)
+from scriptwriter_agent import run_scriptwriter, SCRIPTWRITER_INSTRUCTION
+from thumbnail_agent import run_thumbnail, THUMBNAIL_INSTRUCTION
+from copy_agent import run_copy, COPY_INSTRUCTION
+
+# BUG1 — Slide Designer Agent
+from slide_designer_agent import design_all_slides
+
+# Validator (independente de todos os agentes produtores)
+from validator_agent import validate_article, validate_package, VALIDATOR_INSTRUCTION
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -113,6 +124,40 @@ class PubSubMessage(BaseModel):
 class PubSubRequest(BaseModel):
     message: PubSubMessage
     subscription: Optional[str] = None
+
+# Sprint 2 — Package request/response models
+class PautaConcebida(BaseModel):
+    titulo:               str
+    subtitulo:            Optional[str] = ""
+    tese:                 Optional[str] = ""
+    publico:              Optional[str] = "líderes técnicos em IA/ML"
+    duracao_alvo:         Optional[str] = "8 min"
+    serie:                Optional[str] = ""
+    # Campos expandidos (CMO Agent v2 — adicionados junto com BUG6)
+    objetivo_aprendizado: Optional[str] = ""
+    hardskills:           Optional[list] = None
+    tipo_artigo:          Optional[str] = "tecnico"   # "tecnico" | "conceitual" | "estrategico"
+    nivel_tecnico:        Optional[str] = "medio"     # "baixo" | "medio" | "alto"
+
+class PackageRequest(BaseModel):
+    """Executa uma fase editorial do pacote sem ultrapassar os gates do CSM."""
+    pauta:          PautaConcebida
+    articleContent: str
+    category:       Optional[str] = "ml"
+    language:       Optional[str] = "pt-BR"
+    sessionId:      Optional[str] = None
+    phase:          Optional[str] = "script"  # script | derivatives
+    manifest:       Optional[dict] = None
+
+# Validator request models
+class ValidateArticleRequest(BaseModel):
+    articleText: str
+    pauta: Optional[dict] = None
+    mode: str = "artigo"  # "artigo" | "pacote"
+    # campos para modo "pacote"
+    manifest: Optional[dict] = None
+    copies:   Optional[dict] = None
+    thumbnails: Optional[dict] = None
 
 # ── Firestore Dynamic Configs ──────────────────────────────────────────────────
 
@@ -403,14 +448,22 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
         # Fase 1: Análise Crítica
         update_generation_checkpoint("researching", 20, "Alinhando consistência teórica com o Critic Agent...")
         start_time = time.time()
-        critic_notes = await run_critic(req.topic, req.context or "", dynamic_critic_prompt)
+        try:
+            critic_notes = await run_critic(req.topic, req.context or "", dynamic_critic_prompt)
+        except Exception as critic_err:
+            logger.warning(f"[generate] Critic falhou (non-fatal): {critic_err}. Continuando sem notas do critic.")
+            critic_notes = f"Tópico: {req.topic}. Contexto: {req.context or ''}."
         log_studio_execution("generate", "critic_done", {"critic_notes": critic_notes})
         log_python_usage("article_critic", "gemini-1.5-flash", req.topic, critic_notes, int((time.time() - start_time) * 1000))
 
         # Fase 2: Pesquisa Avançada
         update_generation_checkpoint("researching", 40, "Buscando referências científicas no arXiv...")
         start_time = time.time()
-        research_notes = await run_research(req.topic, req.context or "", critic_notes, dynamic_research_prompt)
+        try:
+            research_notes = await run_research(req.topic, req.context or "", critic_notes, dynamic_research_prompt)
+        except Exception as research_err:
+            logger.warning(f"[generate] Research falhou (non-fatal): {research_err}. Continuando sem notas de pesquisa.")
+            research_notes = ""
         log_studio_execution("generate", "research_done", {"research_notes": research_notes})
         log_python_usage("article_research", "gemini-1.5-flash", req.topic, research_notes, int((time.time() - start_time) * 1000))
         
@@ -421,8 +474,8 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
         start_writing_time = time.time()
         response, agent = await stream_writing(
             req.topic, 
-            context_with_critic, 
-            research_notes, 
+            context_with_critic[:3000],  # máx 3k chars de contexto
+            research_notes[:3000],       # máx 3k chars de notas
             dynamic_writing_prompt
         )
         
@@ -433,6 +486,14 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
                 q = get_queue()
                 if q:
                     await q.put({"type": "content", "chunk": token})
+        except Exception as stream_err:
+            logger.warning(f"[generate] Stream writing interrompido: {stream_err}")
+            q = get_queue()
+            if q and not full_text.strip():
+                await q.put({"type": "error", "message": f"Geração interrompida: {str(stream_err)[:200]}"})
+                await q.put("[DONE]")
+                return
+            logger.info(f"[generate] Usando texto parcial ({len(full_text)} chars) após erro de stream.")
         finally:
             if agent is not None:
                 await agent.__aexit__(None, None, None)
@@ -442,7 +503,8 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
 
         # Fase 4: Execução do Ambiente de Código
         from code_executor import post_process_article_plots
-        processed_text = post_process_article_plots(full_text)
+        _gcs_bucket = os.environ.get("GCS_BUCKET", "vazfy-417019-pipeline-media")
+        processed_text = post_process_article_plots(full_text, gcs_bucket=_gcs_bucket)
         if processed_text != full_text:
             logger.info("Código executado e gráficos gerados com sucesso!")
             full_text = processed_text
@@ -476,6 +538,118 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
         if q:
             await q.put({"type": "replace", "content": cleaned_text})
             await q.put({"type": "meta", "title": title, "slug": slug, "readTime": read_time})
+
+        # ── Fase 5: Validação independente do artigo gerado ──────────────────
+        update_generation_checkpoint("validating", 90, "Validando qualidade do artigo com o Editor-Chefe...")
+        dyn_validator = get_dynamic_agent_config("validator_agent", VALIDATOR_INSTRUCTION)
+
+        # Extrai pauta do contexto se disponível (enviada pelo frontend)
+        pauta_ctx: dict = {}
+        if req.context:
+            import re as _re
+            # Tenta extrair dados da pauta do contexto se foram enviados
+            for line in req.context.split("\n"):
+                if line.startswith("Título:"):
+                    pauta_ctx["titulo"] = line.replace("Título:", "").strip()
+                elif line.startswith("Tese:"):
+                    pauta_ctx["tese"] = line.replace("Tese:", "").strip()
+                elif line.startswith("Público"):
+                    pauta_ctx["publico"] = line.split(":", 1)[-1].strip()
+                elif line.startswith("Tipo:") or line.startswith("tipo_artigo:"):
+                    raw_tipo = line.split(":", 1)[-1].strip().lower()
+                    if raw_tipo in ("tecnico", "conceitual", "estrategico"):
+                        pauta_ctx["tipo_artigo"] = raw_tipo
+                elif line.startswith("Nível Técnico:") or line.startswith("nivel_tecnico:"):
+                    raw_nivel = line.split(":", 1)[-1].strip().lower()
+                    if raw_nivel in ("baixo", "medio", "alto"):
+                        pauta_ctx["nivel_tecnico"] = raw_nivel
+
+        validation_result = await validate_article(
+            article_text=cleaned_text,
+            pauta=pauta_ctx,
+            system_instruction=dyn_validator,
+        )
+
+        validation_attempt = 1
+        while not validation_result.get("approved") and validation_attempt < 2:
+            blockers = [i for i in validation_result.get("issues", []) if i.get("severity") == "blocker"]
+            logger.warning(
+                f"[generate] Artigo REPROVADO na tentativa {validation_attempt}. "
+                f"Blockers: {[b['field'] for b in blockers]}. Regenerando..."
+            )
+            update_generation_checkpoint(
+                "regenerating",
+                92,
+                f"Artigo não passou na validação ({len(blockers)} problema(s)). Regenerando...",
+            )
+
+            # Monta steering adicional com os problemas encontrados
+            blockers_text = "\n".join(
+                f"  - [{b['field']}] {b['description']}" for b in blockers
+            )
+            steering_from_issues = (
+                f"\n\nINSTRUÇÕES DE CORREÇÃO OBRIGATÓRIAS (do editor-chefe):\n{blockers_text}"
+            )
+            context_with_steering = context_with_critic + steering_from_issues
+
+            response2, agent2 = await stream_writing(
+                req.topic,
+                context_with_steering,
+                research_notes[:4000],  # Mais curto na regeneração para evitar loop
+                dynamic_writing_prompt,
+            )
+            full_text2 = ""
+            try:
+                async for token in response2:
+                    full_text2 += token
+                    q2 = get_queue()
+                    if q2:
+                        await q2.put({"type": "content", "chunk": token})
+            except Exception as regen_err:
+                logger.warning(f"[generate] Regeneração interrompida: {regen_err}")
+                if not full_text2.strip():
+                    logger.info("[generate] Regeneração falhou completamente. Mantendo artigo original.")
+                    break
+            finally:
+                if agent2 is not None:
+                    await agent2.__aexit__(None, None, None)
+
+            cleaned_text2 = re.sub(r"<think>[\s\S]*?<\/think>", "", full_text2).strip()
+            cleaned_text2 = re.sub(r"\n?META:\s*\{[^}]+\}[\s]*", "", cleaned_text2, flags=re.MULTILINE).strip()
+
+            meta_match2 = re.search(r"META:\s*(\{[^}]+\})", full_text2)
+            if meta_match2:
+                try:
+                    meta2 = json.loads(re.sub(r",\s*([}\]])", r"\1", meta_match2.group(1)))
+                    title = meta2.get("title") or title
+                    slug = meta2.get("slug") or slug
+                    read_time = meta2.get("readTime") or read_time
+                except Exception:
+                    pass
+
+            cleaned_text = cleaned_text2
+            q = get_queue()
+            if q:
+                await q.put({"type": "replace", "content": cleaned_text})
+                await q.put({"type": "meta", "title": title, "slug": slug, "readTime": read_time})
+
+            validation_result = await validate_article(
+                article_text=cleaned_text,
+                pauta=pauta_ctx,
+                system_instruction=dyn_validator,
+            )
+            validation_attempt += 1
+
+        # Envia resultado da validação como evento separado
+        q = get_queue()
+        if q:
+            await q.put({
+                "type": "validation",
+                "approved": validation_result.get("approved", True),
+                "score": validation_result.get("score", 80),
+                "issues": validation_result.get("issues", []),
+                "summary": validation_result.get("summary", ""),
+            })
 
         # Write all final project assets to local workspace directory
         project_dir = db_paths.get_local_project_dir(session_id)
@@ -713,6 +887,199 @@ async def repurpose_endpoint(req: RepurposeRequest, x_tenant_id: Optional[str] =
         logger.exception("Failed to run distribution agent")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Sprint 2 · /package — orquestra agentes especialistas em paralelo ─────────
+
+@app.post("/package")
+async def package_endpoint(
+    req: PackageRequest,
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """
+    POST /package — Sprint 2 / G1
+
+    Recebe a pauta aprovada + artigo gerado e orquestra em paralelo:
+      1. scriptwriter_agent → manifesto v2 com anchors[]
+      2. thumbnail_agent    → 2 opções de thumbnail HTML (1200×628)
+      3. copy_agent         → 2 posts LinkedIn + 2 threads
+
+    Retorna PackageV2Result como JSON síncrono.
+    O /api/csm/package do Next.js chama este endpoint após gerar o artigo.
+
+    Body:
+      pauta          — PautaConcebida (titulo, subtitulo, tese, publico, duracao_alvo, serie)
+      articleContent — Artigo em Markdown gerado pelo writing_agent
+      category       — categoria do artigo (ml | ia | estatistica)
+      language       — idioma (default pt-BR)
+      sessionId      — ID da sessão (opcional, para telemetria)
+
+    Returns:
+      {
+        "manifest":   { ...manifesto v2 dict com youtube.segments[].anchors[] },
+        "manifestHtml": "<!DOCTYPE html>...",
+        "thumbnails": { "option_minimal": "...", "option_provocative": "..." },
+        "copies":     { "linkedin_posts": [...], "threads": [...] },
+        "partialErrors": []   // lista de falhas não-fatais
+      }
+    """
+    db_paths.set_tenant_id(x_tenant_id)
+    db_paths.set_session_id(req.sessionId or "")
+
+    pauta_dict = {
+        "titulo":               req.pauta.titulo,
+        "subtitulo":            req.pauta.subtitulo or "",
+        "tese":                 req.pauta.tese or "",
+        "publico":              req.pauta.publico or "líderes técnicos em IA/ML",
+        "duracao_alvo":         req.pauta.duracao_alvo or "8 min",
+        "serie":                req.pauta.serie or "",
+        "objetivo_aprendizado": req.pauta.objetivo_aprendizado or "",
+        "hardskills":           req.pauta.hardskills or [],
+        "tipo_artigo":          req.pauta.tipo_artigo or "tecnico",
+        "nivel_tecnico":        req.pauta.nivel_tecnico or "medio",
+    }
+    article = req.articleContent
+    partial_errors: list[str] = []
+
+    # Carrega instruções dinâmicas do Firestore (fallback para padrão hardcoded)
+    dyn_scriptwriter = get_dynamic_agent_config("scriptwriter_agent", SCRIPTWRITER_INSTRUCTION)
+    dyn_thumbnail    = get_dynamic_agent_config("thumbnail_agent",    THUMBNAIL_INSTRUCTION)
+    dyn_copy         = get_dynamic_agent_config("copy_agent",         COPY_INSTRUCTION)
+
+    start = time.time()
+    logger.info(f"[/package] Starting parallel specialist pipeline for: {req.pauta.titulo}")
+
+    # ── Fase 1: roteiro e manifesto. Não gera copies/thumbnails antes da revisão.
+    async def _safe_scriptwriter():
+        try:
+            return await run_scriptwriter(pauta_dict, article, dyn_scriptwriter)
+        except Exception as exc:
+            partial_errors.append(f"scriptwriter: {exc}")
+            return None
+
+    async def _safe_thumbnail():
+        try:
+            return await run_thumbnail(pauta_dict, dyn_thumbnail)
+        except Exception as exc:
+            partial_errors.append(f"thumbnail: {exc}")
+            return {"option_minimal": "", "option_provocative": ""}
+
+    async def _safe_copy():
+        try:
+            return await run_copy(pauta_dict, article, dyn_copy)
+        except Exception as exc:
+            partial_errors.append(f"copy: {exc}")
+            return {"linkedin_posts": [], "threads": []}
+
+    if req.phase == "derivatives":
+        manifest_dict = req.manifest
+        thumbnails, copies = await asyncio.gather(_safe_thumbnail(), _safe_copy())
+    else:
+        manifest_dict = await _safe_scriptwriter()
+        thumbnails = {"option_minimal": "", "option_provocative": ""}
+        copies = {"linkedin_posts": [], "threads": []}
+
+    # ── Gera slides HTML via slide_designer_agent (BUG1 fix) ──────────────────
+    slide_htmls: dict = {}
+    if manifest_dict and req.phase != "derivatives":
+        try:
+            pauta_dict_for_slides = req.pauta.model_dump() if hasattr(req.pauta, "model_dump") else vars(req.pauta)
+            slide_htmls = await design_all_slides(manifest_dict, pauta_dict_for_slides)
+            logger.info(f"[/package] slide_designer: {len(slide_htmls)} slides gerados.")
+        except Exception as exc:
+            partial_errors.append(f"slide_designer: {exc}")
+            logger.warning(f"[/package] slide_designer_agent failed (non-blocking): {exc}")
+
+    # ── Gera HTML do manifesto v2 ──────────────────────────────────────────────
+    manifest_html = ""
+    if manifest_dict:
+        try:
+            from manifest_builder import wrap_scriptwriter_manifest
+            manifest_html = wrap_scriptwriter_manifest(
+                manifest_dict,
+                req.language or "pt-BR",
+                slide_htmls=slide_htmls,  # BUG1: passa slides reais
+            )
+        except Exception as exc:
+            partial_errors.append(f"manifest_html: {exc}")
+            logger.warning(f"[/package] wrap_scriptwriter_manifest failed: {exc}")
+
+    elapsed = round(time.time() - start, 1)
+    logger.info(
+        f"[/package] Done in {elapsed}s — "
+        f"manifest={'ok' if manifest_dict else 'FAILED'}, "
+        f"thumbnails={'ok' if thumbnails else 'FAILED'}, "
+        f"copies={'ok' if copies else 'FAILED'}"
+    )
+
+    log_python_usage(
+        "package_pipeline",
+        "gemini-2.5-flash",
+        req.pauta.titulo,
+        json.dumps({"partial_errors": partial_errors}),
+        int(elapsed * 1000),
+    )
+
+    return {
+        "manifest":     manifest_dict,
+        "manifestHtml": manifest_html,
+        "thumbnails":   thumbnails,
+        "copies":       copies,
+        "partialErrors": partial_errors,
+    }
+
+
+# ── Validator endpoint ────────────────────────────────────────────────────────
+
+@app.post("/validate")
+async def validate_endpoint(req: ValidateArticleRequest, x_tenant_id: Optional[str] = Header(None)):
+    """
+    POST /validate
+    Valida artigo ou pacote de conteúdos com agente validador independente.
+
+    Body (modo artigo):
+      { "mode": "artigo", "articleText": "...", "pauta": {...} }
+
+    Body (modo pacote):
+      { "mode": "pacote", "manifest": {...}, "copies": {...}, "thumbnails": {...}, "pauta": {...} }
+
+    Returns:
+      { "approved": bool, "score": int (0-100), "issues": [...], "summary": str }
+    """
+    db_paths.set_tenant_id(x_tenant_id)
+    pauta = req.pauta or {}
+
+    try:
+        dyn_validator = get_dynamic_agent_config("validator_agent", VALIDATOR_INSTRUCTION)
+
+        if req.mode == "artigo":
+            if not req.articleText or len(req.articleText.strip()) < 50:
+                raise HTTPException(status_code=400, detail="articleText required for mode=artigo")
+            result = await validate_article(
+                article_text=req.articleText,
+                pauta=pauta,
+                system_instruction=dyn_validator,
+            )
+        elif req.mode == "pacote":
+            result = await validate_package(
+                manifest=req.manifest or {},
+                copies=req.copies or {},
+                thumbnails=req.thumbnails or {},
+                pauta=pauta,
+                system_instruction=dyn_validator,
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown mode: {req.mode}. Use 'artigo' or 'pacote'.")
+
+        logger.info(f"[/validate] mode={req.mode} approved={result.get('approved')} score={result.get('score')}")
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("[/validate] Unexpected error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ── Pub/Sub Queue Flow and Background Worker ──────────────────────────────────
 
 def save_repurposed_to_firestore(article_title: str, article_slug: str, data: dict):
@@ -910,9 +1277,10 @@ class RetryMergeRequest(BaseModel):
     script: Optional[str] = None
 
 class GenerateImagePostRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     title: str
     imageDescription: str
-    copy: str
+    post_copy: str = Field(alias="copy")
     sessionId: Optional[str] = None
     itemId: Optional[str] = None
 
@@ -1330,7 +1698,7 @@ async def generate_image_post_endpoint(req: GenerateImagePostRequest, background
         job_id,
         req.title,
         req.imageDescription,
-        req.copy,
+        req.post_copy,
         session_id,
         x_tenant_id or "",
         item_id
@@ -1341,6 +1709,210 @@ async def generate_image_post_endpoint(req: GenerateImagePostRequest, background
 async def check_generate_image_post(jobId: str):
     job = VIDEO_JOBS.get(jobId, {"status": "not_found"})
     return job
+
+
+# ── Render HTML → PNG (Playwright) ────────────────────────────────────────────
+
+class RenderHtmlImageRequest(BaseModel):
+    html: str
+    width: int = 1200
+    height: int = 628
+    sessionId: Optional[str] = None
+    itemId: Optional[str] = None
+    fallbackTitle: Optional[str] = "éozoré"
+    fallbackBody: Optional[str] = ""
+
+
+def async_render_html_image(
+    job_id: str,
+    html: str,
+    width: int,
+    height: int,
+    session_id: str,
+    tenant_id: str,
+    item_id: str,
+    fallback_title: str,
+    fallback_body: str,
+):
+    """Worker background: renderiza imageHtml → PNG via Playwright e persiste."""
+    import shutil
+
+    db_paths.set_tenant_id(tenant_id)
+    db_paths.set_session_id(session_id)
+    VIDEO_JOBS[job_id] = {"status": "processing", "progress": 10}
+
+    try:
+        from html_image_renderer import render_html_image
+
+        VIDEO_JOBS[job_id]["progress"] = 30
+        png_bytes = render_html_image(html, width, height, fallback_title, fallback_body)
+        VIDEO_JOBS[job_id]["progress"] = 70
+
+        project_dir = db_paths.get_local_project_dir(session_id)
+        os.makedirs(project_dir, exist_ok=True)
+        filename = f"html_img_{item_id or job_id}_{width}x{height}.png"
+        local_path = os.path.join(project_dir, filename)
+
+        with open(local_path, "wb") as f:
+            f.write(png_bytes)
+
+        # Cloud Storage se disponível, senão serve local via Next.js public
+        cloud_url = upload_to_storage_if_cloud(local_path, f"{session_id}/{filename}")
+        if cloud_url:
+            image_url = cloud_url
+        else:
+            public_dir = get_public_video_dir(session_id)
+            os.makedirs(public_dir, exist_ok=True)
+            public_path = os.path.join(public_dir, filename)
+            shutil.copy2(local_path, public_path)
+            image_url = f"/videos/{session_id}/{filename}"
+
+        VIDEO_JOBS[job_id] = {
+            "status": "completed",
+            "progress": 100,
+            "imageUrl": image_url,
+        }
+        logger.info(f"[render-html-image] Done: {image_url}")
+
+    except Exception as e:
+        logger.exception("[render-html-image] Failed")
+        VIDEO_JOBS[job_id] = {
+            "status": "failed",
+            "progress": 100,
+            "error": str(e),
+        }
+
+
+@app.post("/render-html-image")
+async def render_html_image_endpoint(
+    req: RenderHtmlImageRequest,
+    background_tasks: BackgroundTasks,
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """
+    Renderiza imageHtml gerado pelo distribution_agent em PNG via Playwright.
+
+    Body:
+      html          — HTML completo ou parcial da imagem
+      width         — largura em px (LinkedIn: 1200, Instagram: 1080, default: 1200)
+      height        — altura em px (LinkedIn: 628, Instagram: 1080, default: 628)
+      sessionId     — sessão CSM
+      itemId        — id do item no calendário editorial (para nomear o arquivo)
+      fallbackTitle — título para fallback PIL se Playwright falhar
+      fallbackBody  — corpo para fallback PIL
+
+    Returns:
+      { jobId: string } — poll em GET /render-html-image?jobId=...
+    """
+    session_id = req.sessionId or "default_session"
+    item_id = req.itemId or ""
+    job_id = f"job_html_img_{item_id}_{int(time.time())}"
+
+    background_tasks.add_task(
+        async_render_html_image,
+        job_id,
+        req.html,
+        req.width,
+        req.height,
+        session_id,
+        x_tenant_id or "",
+        item_id,
+        req.fallbackTitle or "éozoré",
+        req.fallbackBody or "",
+    )
+    return {"success": True, "jobId": job_id}
+
+
+@app.get("/render-html-image")
+async def check_render_html_image(jobId: str):
+    """Poll status do job de renderização HTML→PNG."""
+    return VIDEO_JOBS.get(jobId, {"status": "not_found"})
+
+
+# ── Build Manifest ─────────────────────────────────────────────────────────────
+
+class BuildManifestRequest(BaseModel):
+    script:     str             # Roteiro YouTube em Markdown (conteúdo da Aba 4)
+    title:      str             # Título do vídeo
+    project_id: str             # ID do projeto (usado no caminho GCS)
+    language:   Optional[str]   = "pt-BR"
+
+
+@app.post("/build-manifest")
+async def build_manifest_endpoint(
+    req: BuildManifestRequest,
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """
+    Converte o roteiro YouTube (Markdown da Aba 4) em manifesto HTML
+    e salva no GCS. Retorna o gs:// URI do manifesto.
+
+    O manifesto é o contrato consumido pelo pipeline:
+      tts_job → avatar_job → video_editor_job
+
+    Body:
+      script      — Roteiro YouTube em Markdown (contém spokenText e visualCues)
+      title       — Título do vídeo
+      project_id  — ID do projeto (usado no path GCS: projects/{project_id}/manifest.html)
+      language    — Idioma (default: "pt-BR")
+
+    Returns:
+      { "manifest_gcs_path": "gs://vazfy-417019-pipeline-media/projects/.../manifest.html",
+        "segment_count": int,
+        "avatar_segments": int,
+        "slide_segments": int,
+        "estimated_cost_usd": float }
+    """
+    import os as _os
+    try:
+        from manifest_builder import build_manifest, build_and_upload_manifest, _parse_markdown_to_scenes
+
+        gcs_bucket = _os.environ.get("GCS_BUCKET", "vazfy-417019-pipeline-media")
+
+        # Gera e salva no GCS
+        gcs_uri = build_and_upload_manifest(
+            script_markdown = req.script,
+            title           = req.title,
+            project_id      = req.project_id,
+            gcs_bucket      = gcs_bucket,
+            language        = req.language or "pt-BR",
+        )
+
+        # Valida e coleta estatísticas sem importar shared.models
+        from google.cloud import storage as _gcs
+        import json as _json
+        from bs4 import BeautifulSoup as _BS
+
+        client      = _gcs.Client()
+        bucket_name, blob_path = gcs_uri.replace("gs://", "").split("/", 1)
+        html        = client.bucket(bucket_name).blob(blob_path).download_as_text()
+        soup        = _BS(html, "lxml")
+        script_tag  = soup.find("script", {"type": "application/json"})
+        manifest    = _json.loads(script_tag.string)
+
+        h_segments  = manifest.get("youtube", {}).get("segments", [])
+        v_segments  = manifest.get("reels", [{}])[0].get("segments", []) if manifest.get("reels") else []
+
+        avatar_h    = [s for s in h_segments if s.get("script")]
+        slide_h     = [s for s in h_segments if not s.get("script") and s.get("slide") is not None]
+        total_chars = sum(len(s["script"]) for s in avatar_h)
+
+        return {
+            "manifest_gcs_path": gcs_uri,
+            "segment_count":     len(h_segments),
+            "avatar_segments":   len(avatar_h),
+            "slide_segments":    len(slide_h),
+            "estimated_cost_usd": round(
+                total_chars * 0.00005
+                + sum(s.get("min_duration_s", 5.0) for s in avatar_h) * 0.0335 / 60,
+                4
+            ),
+        }
+
+    except Exception as e:
+        logger.exception("[build-manifest] Erro")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn

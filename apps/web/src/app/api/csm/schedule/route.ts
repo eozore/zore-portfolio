@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { getFirestoreDb } from '@/lib/firebase';
 import { dbPaths } from '@/lib/dbPaths';
 
@@ -22,6 +23,7 @@ interface SchedulePayload {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
   const db = getFirestoreDb();
   if (!db) {
     return NextResponse.json({ error: 'Firestore database unavailable' }, { status: 500 });

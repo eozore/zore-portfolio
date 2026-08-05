@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getFirestoreDb } from '@/lib/firebase';
 import { dbPaths } from '@/lib/dbPaths';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 const DEFAULT_PROMPTS: Record<string, { label: string; prompt: string }> = {
   writing_agent: {
@@ -86,10 +87,7 @@ Evite resumos superficiais ou conceitos básicos de tutorial. Foque em trazer ri
 };
 
 export async function GET(request: Request): Promise<Response> {
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   const tenantId = request.headers.get('x-tenant-id') || null;
   const db = getFirestoreDb();
@@ -124,10 +122,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const csmSession = request.headers.get('x-csm-session');
-  if (csmSession !== 'authenticated') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
   let body: any;
   try {

@@ -1,0 +1,217 @@
+# cloudbuild-pipeline.yaml
+# ============================================================
+# Pipeline CI/CD da content pipeline éozoré.
+# Trigger: push para branch main com mudanças em agents/pipeline/**
+#
+# Variáveis de substituição (podem ser sobrescritas no trigger):
+#   $_REGION      : us-central1
+#   $_SA_EMAIL    : pipeline-jobs-sa@vazfy-417019.iam.gserviceaccount.com
+#   $_GCS_BUCKET  : vazfy-417019-pipeline-media
+#   $_HEYGEN_CB_URL: URL do heygen-callback
+# ============================================================
+
+substitutions:
+  _REGION: us-central1
+  _SA_EMAIL: pipeline-jobs-sa@vazfy-417019.iam.gserviceaccount.com
+  _GCS_BUCKET: vazfy-417019-pipeline-media
+  _HEYGEN_CB_URL: https://heygen-callback-4zffe4l4lq-uc.a.run.app
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  # ── Step 1: Build imagem unificada ───────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - --tag
+      - gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --tag
+      - gcr.io/$PROJECT_ID/pipeline:latest
+      - --cache-from
+      - gcr.io/$PROJECT_ID/pipeline:latest
+      - --file
+      - agents/pipeline/Dockerfile
+      - agents/pipeline
+    waitFor: ["-"]
+
+  # ── Step 2: Push imagem ───────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    args:
+      - push
+      - --all-tags
+      - gcr.io/$PROJECT_ID/pipeline
+    waitFor: [build]
+
+  # ── Step 3: Deploy pipeline-trigger ──────────────────────────
+  # Recebe Pub/Sub push e aciona os Cloud Run Jobs
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-pipeline-trigger
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - pipeline-trigger
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --platform=managed
+      - --port=8090
+      - --command=uvicorn
+      - --args=pipeline_trigger.app:app,--host,0.0.0.0,--port,8090
+      - --min-instances=0
+      - --max-instances=3
+      - --memory=512Mi
+      - --cpu=1
+      - --timeout=30
+      - --service-account=$_SA_EMAIL
+      - --no-allow-unauthenticated
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,GCP_REGION=$_REGION
+    waitFor: [push]
+
+  # ── Step 4: Deploy heygen-callback ───────────────────────────
+  # Recebe webhook do HeyGen quando vídeo fica pronto
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-heygen-callback
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - heygen-callback
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --platform=managed
+      - --port=8091
+      - --command=uvicorn
+      - --args=heygen_callback.app:app,--host,0.0.0.0,--port,8091
+      - --min-instances=0
+      - --max-instances=1
+      - --memory=512Mi
+      - --cpu=1
+      - --timeout=60
+      - --service-account=$_SA_EMAIL
+      - --no-allow-unauthenticated
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default
+    waitFor: [push]
+
+  # ── Step 5: Deploy publisher-immediate ───────────────────────
+  # API de publicação imediata: /publish-now, /scheduled, /queue-status
+  # Precisa de 2GB para gerar thumbnails (Playwright + FFmpeg)
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-publisher-immediate
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - publisher-immediate
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --platform=managed
+      - --port=8092
+      - --command=uvicorn
+      - --args=publisher_immediate.app:app,--host,0.0.0.0,--port,8092
+      - --min-instances=0
+      - --max-instances=2
+      - --memory=2Gi
+      - --cpu=2
+      - --timeout=600
+      - --service-account=$_SA_EMAIL
+      - --no-allow-unauthenticated
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
+      - --set-secrets=YOUTUBE_OAUTH_CLIENT_ID=youtube-oauth-client-id:latest,YOUTUBE_OAUTH_CLIENT_SECRET=youtube-oauth-client-secret:latest,YOUTUBE_OAUTH_REFRESH_TOKEN=youtube-oauth-refresh-token:latest
+    waitFor: [push]
+
+  # ── Step 6: Update tts-job ────────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-tts-job
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - tts-job
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --command=python
+      - --args=-m,tts_job
+      - --memory=512Mi
+      - --cpu=1
+      - --task-timeout=1800s
+      - --max-retries=0
+      - --service-account=$_SA_EMAIL
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default
+      - --set-secrets=ELEVENLABS_API_KEY=elevenlabs-api-key:latest,ELEVENLABS_VOICE_ID=elevenlabs-voice-id:latest
+    waitFor: [push]
+
+  # ── Step 7: Update avatar-job ─────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-avatar-job
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - avatar-job
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --command=python
+      - --args=-m,avatar_job
+      - --memory=512Mi
+      - --cpu=1
+      - --task-timeout=9000s
+      - --max-retries=0
+      - --service-account=$_SA_EMAIL
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,HEYGEN_CALLBACK_URL=$_HEYGEN_CB_URL,HEYGEN_AVATAR_ID_HORIZONTAL=32e2ad6b3e5a45bf8c61cbf7220912f4,HEYGEN_AVATAR_ID_VERTICAL=d7fdce2942a244649820a0b5c989766f
+    waitFor: [push]
+
+  # ── Step 8: Update video-editor-job (4 GB — Playwright + FFmpeg) ──
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-video-editor-job
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - video-editor-job
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --command=python
+      - --args=-m,video_editor_job
+      - --memory=4Gi
+      - --cpu=4
+      - --task-timeout=3600s
+      - --max-retries=0
+      - --service-account=$_SA_EMAIL
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
+    waitFor: [push]
+
+  # ── Step 9: Update publisher-scheduled ───────────────────────
+  # Cloud Run Job que processa a fila agendada e publica em todas as plataformas
+  # Precisa de 2GB para gerar thumbnails via Playwright
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-publisher-scheduled
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - publisher-scheduled
+      - --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+      - --region=$_REGION
+      - --command=python
+      - --args=-m,publisher_job
+      - --memory=2Gi
+      - --cpu=2
+      - --task-timeout=3600s
+      - --max-retries=0
+      - --service-account=$_SA_EMAIL
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
+      - --set-secrets=YOUTUBE_OAUTH_CLIENT_ID=youtube-oauth-client-id:latest,YOUTUBE_OAUTH_CLIENT_SECRET=youtube-oauth-client-secret:latest,YOUTUBE_OAUTH_REFRESH_TOKEN=youtube-oauth-refresh-token:latest
+
+    waitFor: [push]
+
+images:
+  - gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
+  - gcr.io/$PROJECT_ID/pipeline:latest

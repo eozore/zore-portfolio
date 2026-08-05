@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { ArticleCategory } from '@/types/article';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 type OutputFormat = 'blog' | 'youtube' | 'linkedin';
 
@@ -85,6 +86,7 @@ function formatLinkedinPost(content: string, title: string): string {
  * Formats the generated content for different channels and returns as downloadable text.
  */
 export async function POST(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
   let body: ExportRequest;
   try {
     body = await request.json();

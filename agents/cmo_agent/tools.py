@@ -216,44 +216,66 @@ def fetch_trending_papers(query: str, max_results: int = 2) -> str:
 def search_web(query: str, max_results: int = 5) -> str:
     """Busca na internet informações e tendências sobre tópicos tecnológicos gerais.
 
+    Usa a Tavily API (https://tavily.com) — projetada para agentes de IA.
+    Requer a variável de ambiente TAVILY_API_KEY no Secret Manager do GCP.
+
     Args:
         query: O termo de busca (ex: "Vertex AI agent architecture", "FastAPI best practices").
         max_results: Número máximo de resultados (padrão: 5).
     """
-    safe_query = urllib.parse.quote(query)
-    url = f"https://html.duckduckgo.com/html/?q={safe_query}"
+    import json as _json
+
+    api_key = os.environ.get("TAVILY_API_KEY", "")
+    if not api_key:
+        logger.warning(
+            "[tools] TAVILY_API_KEY não definida. "
+            "Adicione a chave no Secret Manager e configure a env var no Cloud Run cmo-agent."
+        )
+        return (
+            f"Busca web indisponível: TAVILY_API_KEY não configurada. "
+            f"Crie uma conta em tavily.com, obtenha a API key e adicione ao Secret Manager do projeto."
+        )
+
+    url = "https://api.tavily.com/search"
+    payload = _json.dumps({
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "basic",
+        "include_answer": False,
+        "include_raw_content": False,
+        "max_results": min(max_results, 10),
+    }).encode("utf-8")
+
     try:
         req = urllib.request.Request(
             url,
+            data=payload,
             headers={
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+                "Content-Type": "application/json",
+                "User-Agent": "eozore-cmo-agent/2.0",
+            },
+            method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as response:
-            html = response.read().decode('utf-8')
-            
-        results = []
-        blocks = re.findall(r'<div class="result__body">([\s\S]*?)</div>\s*</div>', html)
-        for block in blocks[:max_results]:
-            title_match = re.search(r'<a class="result__url"[^>]*>([\s\S]*?)</a>', block)
-            snippet_match = re.search(r'<a class="result__snippet"[^>]*>([\s\S]*?)</a>', block)
-            
-            title = re.sub(r'<[^>]*>', '', title_match.group(1)).strip() if title_match else ''
-            snippet = re.sub(r'<[^>]*>', '', snippet_match.group(1)).strip() if snippet_match else ''
-            
-            title = re.sub(r'\s+', ' ', title)
-            snippet = re.sub(r'\s+', ' ', snippet)
-            if title:
-                results.append((title, snippet))
-                
-        if not results:
+            data = _json.loads(response.read().decode("utf-8"))
+
+        results_raw = data.get("results", [])
+        if not results_raw:
             return f"Nenhum resultado web encontrado para '{query}'."
-            
+
         results_text = ""
-        for i, (title, snippet) in enumerate(results):
-            results_text += f"{i+1}. {title}\n   Resumo: {snippet}\n\n"
+        for i, item in enumerate(results_raw[:max_results]):
+            title   = item.get("title", "").strip()
+            url_    = item.get("url", "").strip()
+            content = item.get("content", "").strip()
+            # Trunca conteúdo para evitar tokens excessivos
+            snippet = content[:300] + ("..." if len(content) > 300 else "")
+            results_text += f"{i+1}. {title}\n   URL: {url_}\n   Resumo: {snippet}\n\n"
+
+        logger.info(f"[tools] Tavily search OK: {len(results_raw)} resultados para '{query}'")
         return f"=== RESULTADOS DA WEB PARA: '{query}' ===\n\n{results_text}"
+
     except Exception as e:
-        logger.error(f"Error fetching web search: {e}")
+        logger.error(f"[tools] Tavily search error: {e}")
         return f"Falha ao realizar busca web por '{query}': {str(e)}"
 

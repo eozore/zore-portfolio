@@ -4,6 +4,7 @@ import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { dbPaths } from '@/lib/dbPaths';
 import { decrypt } from '@/lib/crypto';
 import { sanitizeHeyGenScript } from '@/lib/heygenSanitizer';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 // Simulates a video processing pipeline when the API key is not present
 const SIMULATED_VIDEOS: Record<string, { status: string; progress: number; video_url?: string; error?: string }> = {};
@@ -87,6 +88,7 @@ async function getHeyGenSettings(
 }
 
 export async function POST(req: NextRequest) {
+  if (!isCsmAuthenticated(req)) return csmUnauthorized();
   try {
     const { script, format, title, id, avatarProfile } = await req.json();
 
@@ -208,6 +210,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!isCsmAuthenticated(req)) return csmUnauthorized();
   try {
     const { searchParams } = new URL(req.url);
     const videoId = searchParams.get('videoId');

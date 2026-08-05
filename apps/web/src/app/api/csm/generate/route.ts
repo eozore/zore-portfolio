@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestoreDb } from '@/lib/firebase';
 import type { ArticleCategory } from '@/types/article';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 type OutputFormat = 'blog' | 'youtube' | 'linkedin';
 
@@ -11,6 +12,7 @@ interface GenerateRequest {
   format: OutputFormat;
   category: ArticleCategory;
   language: 'pt-BR' | 'en';
+  sessionId?: string;
 }
 
 import { getVertexAccessToken, getVertexStreamEndpoint } from '@/lib/vertex';
@@ -139,6 +141,8 @@ function slugify(str: string): string {
 export const maxDuration = 600;
 
 export async function POST(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
+
   const projectId = process.env.FIREBASE_PROJECT_ID;
   if (!projectId) {
     return NextResponse.json(
@@ -185,13 +189,56 @@ export async function POST(request: Request): Promise<Response> {
 
     if (pythonRes.ok && pythonRes.body) {
       console.log('[csm/generate] Successfully connected to Python microservice. Proxying stream...');
-      return new Response(pythonRes.body, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'X-Accel-Buffering': 'no',
-        },
+      // Wrap the body in a transform stream that catches SSE error events
+      // and falls through to the Vertex AI fallback when the Python agent
+      // returns a plain-text error (e.g. "upstream request failed", 429, etc.)
+      // rather than a valid JSON SSE payload.
+      const encoder = new TextEncoder();
+      let firstChunk = true;
+      let isValidSse = false;
+
+      const transformedBody = new ReadableStream({
+        async start(controller) {
+          const reader = pythonRes.body!.getReader();
+          const decoder = new TextDecoder();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value, { stream: true });
+              if (firstChunk) {
+                firstChunk = false;
+                // A valid SSE stream always starts with "data: "
+                if (chunk.trimStart().startsWith('data:')) {
+                  isValidSse = true;
+                } else {
+                  // Not SSE — log and let the outer catch trigger the fallback
+                  console.warn('[csm/generate] Python stream returned non-SSE content, falling back:', chunk.slice(0, 120));
+                  controller.error(new Error('non-sse-response'));
+                  return;
+                }
+              }
+              controller.enqueue(encoder.encode(chunk));
+            }
+            controller.close();
+          } catch (err) {
+            controller.error(err);
+          }
+        }
       });
+
+      if (!isValidSse && !firstChunk) {
+        // non-SSE detected above — fall through to Vertex AI fallback below
+        console.warn('[csm/generate] Falling back to direct Vertex AI.');
+      } else {
+        return new Response(transformedBody, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+          },
+        });
+      }
     } else {
       console.warn(`[csm/generate] Python service returned HTTP status ${pythonRes.status}. Falling back to direct Vertex AI.`);
     }

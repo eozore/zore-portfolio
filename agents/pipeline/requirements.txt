@@ -1,0 +1,37 @@
+# agents/pipeline/requirements.txt
+# Dependências Python para todos os Cloud Run Jobs/Services da pipeline.
+# Versões fixadas para builds reproduzíveis.
+
+# ── Web Framework (heygen-callback, publisher-immediate) ──────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# ── HTTP clients ──────────────────────────────────────────────
+requests==2.31.0
+httpx==0.27.0
+
+# ── GCP clients ───────────────────────────────────────────────
+google-cloud-pubsub==2.21.0
+google-cloud-storage==2.14.0
+google-cloud-secret-manager==2.18.0
+firebase-admin==6.4.0
+
+# ── Data validation ───────────────────────────────────────────
+pydantic==2.7.0
+
+# ── Audio processing (avatar-job) ────────────────────────────
+pydub==0.25.1
+
+# ── HTML/manifest parsing ─────────────────────────────────────
+beautifulsoup4==4.12.3
+lxml==5.2.2
+
+# ── Utilities ─────────────────────────────────────────────────
+python-multipart==0.0.9
+
+# ── Testing (não incluído na imagem de produção — apenas dev) ─
+pytest==8.2.2
+pytest-asyncio==0.23.7
+
+# ── Playwright instalado separadamente no Dockerfile ──────────
+# playwright==1.44.0  (instalado via pip no Dockerfile antes deste arquivo)

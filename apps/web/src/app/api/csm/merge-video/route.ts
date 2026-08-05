@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  if (!isCsmAuthenticated(req)) return csmUnauthorized();
   try {
     const body = await req.json();
     const res = await fetch('http://localhost:8090/merge-video', {
@@ -25,6 +27,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!isCsmAuthenticated(req)) return csmUnauthorized();
   try {
     const { searchParams } = new URL(req.url);
     const jobId = searchParams.get('jobId');
