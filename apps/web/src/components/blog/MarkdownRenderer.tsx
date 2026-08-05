@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
@@ -10,6 +11,71 @@ import type { Components } from 'react-markdown';
 interface MarkdownRendererProps {
   content: string;
 }
+
+// ── Mermaid Block Component (idêntico ao RichArticleRenderer) ──
+const MermaidBlock = ({ code }: { code: string }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const render = async () => {
+      if (!ref.current || cancelled) return;
+
+      try {
+        const mermaid = (await import('mermaid')).default;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'neutral',
+          themeVariables: {
+            background: '#f8f7f4',
+            primaryColor: '#e67e22',
+            primaryTextColor: '#1e1e1e',
+            primaryBorderColor: '#d35400',
+            lineColor: '#6b6b6b',
+            secondaryColor: '#fff3e8',
+            tertiaryColor: '#fff8f0',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '14px',
+          },
+        });
+
+        const id = `mermaid-${Math.random().toString(36).slice(2)}`;
+        const { svg } = await mermaid.render(id, code.trim());
+        if (ref.current && !cancelled) {
+          ref.current.innerHTML = svg;
+          const svgEl = ref.current.querySelector('svg');
+          if (svgEl) {
+            svgEl.style.width = '100%';
+            svgEl.style.height = 'auto';
+          }
+        }
+      } catch (err) {
+        if (ref.current && !cancelled) {
+          ref.current.innerHTML = `<pre style="color:#dc2626;font-size:0.8rem;padding:12px;background:#fff1f1;border-radius:8px;overflow:auto">⚠️ Erro ao renderizar diagrama Mermaid:\n${String(err)}</pre>`;
+        }
+      }
+    };
+
+    render();
+    return () => { cancelled = true; };
+  }, [code]);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        background: '#f8f7f4',
+        borderRadius: '12px',
+        padding: '24px',
+        margin: '24px 0',
+        border: '1px solid rgba(0,0,0,0.08)',
+        overflowX: 'auto',
+        textAlign: 'center',
+      }}
+    />
+  );
+};
 
 /**
  * Custom components for react-markdown.
@@ -91,12 +157,22 @@ const components: Components = {
     <hr className="border-none h-[2px] bg-border my-10 rounded" />
   ),
 
-  // Code blocks
-  pre: ({ children }) => (
-    <pre className="bg-[#1e1e2e] rounded-xl p-5 my-6 overflow-x-auto border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
-      {children}
-    </pre>
-  ),
+  // Code blocks — intercept mermaid ANTES do <pre> renderizar
+  pre: ({ children }) => {
+    // Verifica se o filho direto é um <code class="language-mermaid">
+    const child = React.Children.toArray(children)[0] as React.ReactElement<{className?: string; children?: React.ReactNode}>;
+    const childClass = child?.props?.className ?? '';
+    if (childClass.includes('language-mermaid')) {
+      // Extrai o texto do código mermaid
+      const codeText = String(child?.props?.children ?? '').replace(/\n$/, '');
+      return <MermaidBlock code={codeText} />;
+    }
+    return (
+      <pre className="bg-[#1e1e2e] rounded-xl p-5 my-6 overflow-x-auto border border-white/[0.08] shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+        {children}
+      </pre>
+    );
+  },
   code: ({ className, children, ...props }) => {
     // Block code (inside <pre>)
     const isBlock = className?.includes('hljs') || className?.includes('language-');
@@ -175,4 +251,8 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
       </ReactMarkdown>
     </div>
   );
+}
+
+interface MarkdownRendererProps {
+  content: string;
 }

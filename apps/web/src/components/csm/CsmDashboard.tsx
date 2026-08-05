@@ -109,6 +109,7 @@ export interface DraftState {
   publishedArticleUrl?: string;
   packageStatus?: PackageStatus;
   packageStartedAt?: number;
+  packageError?: string;
   workflowStage?: WorkflowStage;
 }
 
@@ -219,6 +220,60 @@ export default function CsmDashboard() {
     setDraft(INITIAL_DRAFT); setSessionId(id); setActiveTab('idea');
   };
 
+  const startPackageGeneration = useCallback(async (articleContent: string) => {
+    updateDraft({
+      packageStatus: 'generating',
+      packageStartedAt: Date.now(),
+      workflowStage: 'package_generating',
+    });
+
+    try {
+      const response = await fetch('/api/csm/package', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pauta: draft.pauta,
+          chatTranscript: (draft.chatHistory ?? []).map((message) => `${message.role}: ${message.text}`).join('\n\n'),
+          category: draft.category,
+          language: draft.language,
+          sessionId,
+          articleContent,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+
+      const hasScript = Boolean(data.youtubeScript?.trim() || data.manifestV2);
+      updateDraft({
+        generatedContent: data.articleContent ?? articleContent,
+        suggestedTitle: data.suggestedTitle ?? draft.suggestedTitle,
+        suggestedSlug: data.suggestedSlug ?? draft.suggestedSlug,
+        estimatedReadTime: data.estimatedReadTime ?? draft.estimatedReadTime,
+        manifestV2: data.manifestV2 ?? null,
+        youtubeScript: data.youtubeScript ?? '',
+        manifestHtml: data.manifestHtml ?? '',
+        thumbnails: data.thumbnails ?? null,
+        specialistCopies: data.specialistCopies ?? null,
+        repurposedData: data.repurposedData ?? null,
+        packageStatus: hasScript ? 'script_ready' : 'error',
+        workflowStage: hasScript ? 'script_ready' : 'error',
+        packageError: data.partialError ?? (hasScript ? '' : 'Roteiro não foi gerado.'),
+      } as Partial<DraftState>);
+    } catch (error) {
+      updateDraft({
+        packageStatus: 'error',
+        workflowStage: 'error',
+        packageError: error instanceof Error ? error.message : 'Falha ao gerar pacote',
+      } as Partial<DraftState>);
+    }
+  }, [draft, sessionId, updateDraft]);
+
+  const handlePublished = useCallback((url: string, packageAlreadyStarted = false) => {
+    updateDraft({ publishedArticleUrl: url });
+    setActiveTab('review');
+    if (!packageAlreadyStarted) void startPackageGeneration(draft.generatedContent);
+  }, [draft.generatedContent, startPackageGeneration, updateDraft]);
+
   const tabIndex = MAIN_TABS.findIndex((tab) => tab.id === activeTab);
 
   return (
@@ -242,7 +297,7 @@ export default function CsmDashboard() {
 
         <main className={styles.main}>{loadingSession ? <div className={styles.loadingState}><div className={styles.loadingSpinner} /><span className={styles.loadingText}>carregando sessão...</span></div> : <>
           {activeTab === 'idea' && <IdeaTab draft={draft} updateDraft={updateDraft} isGenerating={false} setIsGenerating={() => undefined} sessionId={sessionId} onNext={() => goToTab('article')} />}
-          {activeTab === 'article' && <ArticleTab draft={draft} updateDraft={updateDraft} sessionId={sessionId} onBack={() => goToTab('idea')} onPublished={(url) => { updateDraft({ publishedArticleUrl: url, packageStatus: 'generating', packageStartedAt: Date.now(), workflowStage: 'package_generating' }); goToTab('review'); }} />}
+          {activeTab === 'article' && <ArticleTab draft={draft} updateDraft={updateDraft} sessionId={sessionId} onBack={() => goToTab('idea')} onPublished={handlePublished} />}
           {activeTab === 'review' && <ReviewTab draft={draft} updateDraft={updateDraft} sessionId={sessionId} onBack={() => goToTab('article')} onApproved={() => { updateDraft({ workflowStage: 'approved' }); goToTab('tracking'); }} />}
           {activeTab === 'tracking' && <TrackingTab draft={draft} sessionId={sessionId} onBack={() => goToTab('review')} />}
           {activeTab === 'settings' && <SettingsTab onBack={() => goToTab(lastStudioTab)} />}

@@ -29,10 +29,23 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored === 'authenticated') {
-      setAuthenticated(true);
+    if (stored !== 'authenticated') {
+      setChecking(false);
+      return;
     }
-    setChecking(false);
+
+    // O sessionStorage é apenas uma dica visual. A autorização real fica no
+    // cookie HttpOnly; isso evita sessões antigas bypassarem a nova autenticação.
+    fetch('/api/csm/auth')
+      .then((res) => {
+        if (res.ok) {
+          setAuthenticated(true);
+        } else {
+          sessionStorage.removeItem(SESSION_KEY);
+        }
+      })
+      .catch(() => sessionStorage.removeItem(SESSION_KEY))
+      .finally(() => setChecking(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

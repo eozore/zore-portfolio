@@ -6,7 +6,7 @@
    ============================================================ */
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { DraftState } from '../CsmDashboard';
 import styles from './GenerateTab.module.css';
 import pubStyles from './PublishTab.module.css';
@@ -18,7 +18,18 @@ interface ArticleTabProps {
   sessionId: string;
   onBack: () => void;
   /** Chamado após publicação bem-sucedida com a URL do artigo */
-  onPublished: (url: string) => void;
+  onPublished: (url: string, packageAlreadyStarted?: boolean) => void;
+}
+
+interface PublishedArticle {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  category: string;
+  language: 'pt-BR' | 'en';
+  publishedAt?: string;
+  coverImage?: string;
 }
 
 type PublishStatus = 'idle' | 'publishing' | 'published' | 'error';
@@ -57,6 +68,24 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
   });
   const [publishStatus, setPublishStatus] = useState<PublishStatus>('idle');
   const [publishError, setPublishError] = useState('');
+  const [publishedArticles, setPublishedArticles] = useState<PublishedArticle[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
+  const [resumingArticle, setResumingArticle] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingArticles(true);
+    fetch(`/api/csm/articles?language=${draft.language}`)
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) setPublishedArticles(data.articles ?? []);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setLoadingArticles(false); });
+    return () => { cancelled = true; };
+  }, [draft.language]);
 
   const isEmpty = !draft.generatedContent.trim();
   const wordCount = draft.generatedContent.trim().split(/\s+/).filter(Boolean).length;
@@ -175,8 +204,79 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
     }
   };
 
+  const handleResumePackage = async (article: PublishedArticle) => {
+    setResumingArticle(article.id);
+    setResumeError('');
+    try {
+      const pauta = draft.pauta ?? {
+        titulo: article.title,
+        subtitulo: '',
+        tese: 'Desenvolver uma explicação prática e rigorosa a partir do artigo publicado.',
+        publico: 'Líderes e profissionais que precisam compreender o tema.',
+        objetivo_aprendizado: 'Compreender e aplicar os conceitos principais do artigo.',
+        hardskills: [],
+        duracao_alvo: '8 min',
+        serie: 'conteudo-tecnico',
+        tipo_artigo: 'tecnico' as const,
+        nivel_tecnico: 'medio' as const,
+      };
+      const response = await fetch('/api/csm/package', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pauta,
+          chatTranscript: `Artigo publicado retomado: ${article.title}`,
+          category: article.category || draft.category,
+          language: article.language,
+          sessionId,
+          articleContent: article.content,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      const hasScript = Boolean(data.youtubeScript?.trim() || data.manifestV2);
+      updateDraft({
+        pauta,
+        topic: article.title,
+        generatedContent: article.content,
+        suggestedTitle: article.title,
+        suggestedSlug: article.slug,
+        publishedArticleUrl: `/${article.language}/blog/${article.slug}`,
+        manifestV2: data.manifestV2 ?? null,
+        youtubeScript: data.youtubeScript ?? '',
+        manifestHtml: data.manifestHtml ?? '',
+        thumbnails: data.thumbnails ?? null,
+        specialistCopies: data.specialistCopies ?? null,
+        repurposedData: data.repurposedData ?? null,
+        packageStatus: hasScript ? 'script_ready' : 'error',
+        workflowStage: hasScript ? 'script_ready' : 'error',
+        packageError: data.partialError ?? '',
+      });
+      onPublished(`/${article.language}/blog/${article.slug}`, true);
+    } catch (error) {
+      setResumeError(error instanceof Error ? error.message : 'Falha ao gerar pacote');
+    } finally {
+      setResumingArticle(null);
+    }
+  };
+
   return (
     <div className={styles.container}>
+      <section style={{ margin: '12px 16px 0', padding: '14px 16px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(255,255,255,0.025)' }}>
+        <div style={{ color: '#fbbf24', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '6px' }}>RETOMAR ARTIGO PUBLICADO</div>
+        <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '10px' }}>Use esta lista para gerar o roteiro e o pacote de um artigo que já está no blog.</div>
+        {loadingArticles ? <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Carregando artigos...</span> : publishedArticles.length === 0 ? <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Nenhum artigo publicado encontrado.</span> : (
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {publishedArticles.map((article) => (
+              <div key={article.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(0,0,0,0.16)' }}>
+                <div style={{ minWidth: 0 }}><div style={{ color: '#e2e8f0', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{article.title}</div><div style={{ color: '#64748b', fontSize: '0.72rem' }}>/{article.slug}</div></div>
+                <button type="button" onClick={() => void handleResumePackage(article)} disabled={resumingArticle !== null} style={{ flexShrink: 0, padding: '7px 11px', border: '1px solid rgba(251,191,36,0.35)', borderRadius: '7px', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', cursor: resumingArticle !== null ? 'wait' : 'pointer', fontSize: '0.75rem' }}>{resumingArticle === article.id ? 'Gerando...' : 'Gerar pacote'}</button>
+              </div>
+            ))}
+          </div>
+        )}
+        {resumeError && <div style={{ color: '#f87171', fontSize: '0.78rem', marginTop: '8px' }}>{resumeError}</div>}
+      </section>
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>

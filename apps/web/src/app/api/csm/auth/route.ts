@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { CSM_AUTH_COOKIE, createCsmToken } from '@/lib/csmAuth';
+import { CSM_AUTH_COOKIE, createCsmToken, isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+
+export async function GET(request: Request): Promise<Response> {
+  if (!isCsmAuthenticated(request)) return csmUnauthorized();
+  return NextResponse.json({ ok: true });
+}
 
 /**
  * POST /api/csm/auth
