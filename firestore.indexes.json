@@ -16,6 +16,14 @@
         { "fieldPath": "channels_approved", "arrayConfig": "CONTAINS" },
         { "fieldPath": "approval_data.approved_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "social_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "session_id", "order": "ASCENDING" },
+        { "fieldPath": "scheduled_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

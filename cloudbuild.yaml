@@ -41,12 +41,23 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
       - '--port=8090'
-      - '--memory=1Gi'
-      - '--cpu=1'
+      # 2Gi: Chromium (Playwright) sozinho reserva ~500MB-1GB; com 1Gi o
+      # render de thumbnail/carrossel morre por OOM sem mensagem clara.
+      - '--memory=2Gi'
+      - '--cpu=2'
       - '--min-instances=0'
       - '--max-instances=3'
-      - '--set-secrets=FIREBASE_PROJECT_ID=firebase-project-id:latest,TAVILY_API_KEY=TAVILY_API_KEY:latest'
-      - '--set-env-vars=GCS_BUCKET=vazfy-417019-pipeline-media'
+      # Explícito e versionado: a config em produção tinha derivado para 900s
+      # via ajuste manual, sem correspondência no repo. Nunca mais depender
+      # de estado que só existe no console.
+      - '--timeout=900'
+      # Sem isto a CPU é cortada assim que a resposta HTTP é enviada, e os
+      # BackgroundTasks do FastAPI (render-motion, merge-video, image-post)
+      # ficam congelados para sempre. Mesmo tratamento já aplicado ao
+      # cromex-pricing-service no commit 9bf780e.
+      - '--no-cpu-throttling'
+      - '--set-secrets=FIREBASE_PROJECT_ID=firebase-project-id:latest,TAVILY_API_KEY=TAVILY_API_KEY:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest'
+      - '--set-env-vars=GCS_BUCKET=vazfy-417019-pipeline-media,ENVIRONMENT=production'
 
   # ── STEP 3b: Build da imagem Docker do Cromex Pricing Service (Python) ──
   - name: 'gcr.io/cloud-builders/docker'
@@ -136,7 +147,7 @@ steps:
           --min-instances=0 \
           --max-instances=3 \
           --timeout=600 \
-          --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest,CSM_PASSWORD_HASH=csm-password-hash:latest \
+          --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest,CSM_PASSWORD_HASH=csm-password-hash:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest \
           --set-env-vars=CMO_AGENT_URL=$$CMO_URL,NEXT_PUBLIC_PRICING_API_URL=$$CROMEX_URL,PRICING_API_URL=$$CROMEX_URL,GCP_STORAGE_BUCKET=vazfy-417019-assets,CROMEX_BUCKET_NAME=vazfy-417019-assets
 
 substitutions:
