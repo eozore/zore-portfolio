@@ -1,0 +1,1 @@
+[Answer]: Cloud Logging automático via Cloud Run. Alertas de dead-letter queue configurados via Cloud Monitoring. Kanban do CSM Studio é o painel de observabilidade principal (Firestore listener em tempo real).

@@ -97,3 +97,22 @@ passoapasso/*.zip
 # Pastas de Desenvolvimento Local (Ferramentas Privadas / Rascunhos)
 # ------------------------------------------------------------------------------
 tool-*/
+
+# ------------------------------------------------------------------------------
+# Terraform (infra/) — providers e state NUNCA vão para o repo.
+# O tfstate guarda valores de recursos em texto puro (inclusive segredos
+# resolvidos), e .terraform/ são ~109MB de binários de provider.
+# Os .tf continuam versionados.
+# ------------------------------------------------------------------------------
+**/.terraform/
+*.tfstate
+*.tfstate.*
+tfplan*
+
+# ------------------------------------------------------------------------------
+# Artefatos de execução de teste da pipeline (saída, não fonte)
+# ------------------------------------------------------------------------------
+projects/test_verification_session_v3/
+projects/thumbnails_test/
+projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*/
+agents/pipeline/samples/

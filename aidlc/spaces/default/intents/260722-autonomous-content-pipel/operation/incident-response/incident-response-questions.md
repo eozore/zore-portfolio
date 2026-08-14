@@ -1,0 +1,1 @@
+[Answer]: Uso solo — Victor é o único operador. Runbooks simples de recuperação via CSM Studio (Re-tentar, Pular, Upload Manual).

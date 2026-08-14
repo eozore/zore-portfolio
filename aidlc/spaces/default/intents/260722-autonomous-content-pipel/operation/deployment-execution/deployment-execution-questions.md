@@ -1,0 +1,1 @@
+[Answer]: Deploy pendente. Primeiro deploy manual via setup_jobs.sh e cloudbuild.

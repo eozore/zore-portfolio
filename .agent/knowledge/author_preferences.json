@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "author": {
+    "name": "Victor Zoré",
+    "role": "Tech Lead em GenAI & MLOps / Cloud Architect GCP",
+    "education": "BSc em Matemática pela UFSCar",
+    "teachingPhilosophy": "Ensinar rigorosamente o PORQUÊ (teoria matemática, lógica e intuição geométrica) antes do COMO (código ou bibliotecas)."
+  },
+  "contentTone": {
+    "style": "Técnico, analítico, provocador, sóbrio e direto.",
+    "avoidClichés": [
+      "No mundo acelerado da inteligência artificial",
+      "Em constante evolução",
+      "Mergulhe fundo",
+      "Revolucionário",
+      "Desvendando os segredos",
+      "Vamos explorar juntos"
+    ],
+    "preferredHooks": [
+      "O erro estatístico que 90% dos engenheiros cometem em produção",
+      "A álgebra linear por trás do truque",
+      "Por que você está gastando memória de vídeo à toa"
+    ],
+    "targetAudience": "Staff Engineers, Arquitetos de Soluções em Nuvem, Cientistas de Dados Sênior e Tech Leads."
+  },
+  "coCreationRules": {
+    "proactivePitch": true,
+    "maxQuestionsPerTurn": 1,
+    "suggestOutlineImmediately": true
+  }
+}

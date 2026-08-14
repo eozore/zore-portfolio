@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "collections": {
+    "articles": {
+      "description": "Artigos de blog publicados oficialmente na plataforma",
+      "properties": {
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string", "description": "Markdown GFM + LaTeX" },
+        "category": { "type": "string", "enum": ["ml", "ia", "estatistica"] },
+        "language": { "type": "string", "enum": ["pt-BR", "en"] },
+        "readTime": { "type": "number" },
+        "publishedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "social_queue": {
+      "description": "Fila de distribuição de marketing aprovada para agendamento",
+      "properties": {
+        "articleId": { "type": "string" },
+        "channel": { "type": "string", "enum": ["linkedin", "youtube", "reel", "carousel", "story"] },
+        "status": { "type": "string", "enum": ["approved", "published"] },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "payload": { "type": "object" }
+      }
+    }
+  }
+}

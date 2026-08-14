@@ -1,0 +1,23 @@
+[
+  {
+    "uuid": "019f4254-03df-7728-b1fe-05751ab3eeda",
+    "slug": "tools-refactor",
+    "dirName": "260708-tools-refactor",
+    "scope": "refactor",
+    "status": "complete"
+  },
+  {
+    "uuid": "019f8a10-c468-799b-9af9-93c8ccde6d4d",
+    "slug": "autonomous-content-pipel",
+    "dirName": "260722-autonomous-content-pipel",
+    "scope": "enterprise",
+    "status": "complete"
+  },
+  {
+    "uuid": "019faff6-e3bf-7bf8-aff6-6b7aff35c360",
+    "slug": "feature",
+    "dirName": "260729-feature",
+    "scope": "feature",
+    "status": "complete"
+  }
+]
