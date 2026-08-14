@@ -8,9 +8,11 @@ Endpoints:
   POST /scheduled          — aciona processamento da fila agendada
   POST /publish-now        — publica um item imediatamente (sem fila)
   POST /publish-video      — publica vídeo pronto (VideoReadyMsg payload)
+  POST /pubsub/video-ready — push do Pub/Sub (content-pipeline.video-ready)
   GET  /queue-status       — resumo da fila publish_queue por status/plataforma
 """
 
+import base64
 import json
 import logging
 import os
@@ -144,6 +146,48 @@ def publish_video(req: VideoReadyRequest):
         return {"status": "ok", "project_id": req.project_id, "results": results}
     except Exception as e:
         logger.exception("[/publish-video] Erro")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/pubsub/video-ready")
+def pubsub_video_ready(envelope: dict):
+    """
+    Consumidor push do tópico content-pipeline.video-ready.
+
+    Sem este endpoint, a mensagem publicada pelo video-editor-job ao terminar o
+    vídeo ficava numa subscription pull que NINGUÉM consumia — o vídeo final
+    existia no GCS mas nunca era publicado em nenhuma plataforma. A subscription
+    `publisher-service-sub` agora é push para cá (OIDC pipeline-jobs-sa).
+
+    Envelope Pub/Sub: {"message": {"data": base64(VideoReadyMsg json)}, ...}
+    Retornar 2xx faz o Pub/Sub dar ack; 5xx faz redelivery com backoff.
+    """
+    try:
+        data_b64 = (envelope.get("message") or {}).get("data", "")
+        payload = json.loads(base64.b64decode(data_b64).decode("utf-8"))
+    except Exception as e:
+        logger.error(f"[/pubsub/video-ready] Envelope inválido: {e}")
+        # 200 para não ficar em redelivery infinito de mensagem malformada
+        return {"status": "ignored", "reason": f"bad envelope: {e}"}
+
+    project_id = payload.get("project_id", "")
+    logger.info(f"[/pubsub/video-ready] project_id={project_id}")
+    try:
+        from shared.models import VideoReadyMsg
+        from publisher_job.job import PublisherJob
+        msg = VideoReadyMsg(
+            project_id=project_id,
+            horizontal_final=payload.get("horizontal_final", ""),
+            vertical_final=payload.get("vertical_final", ""),
+            duration_seconds=payload.get("duration_seconds", 0.0),
+            trigger=payload.get("trigger", "scheduled"),
+        )
+        job = PublisherJob(gcp_project_id=GCP_PROJECT_ID)
+        results = job.publish_video_ready(msg)
+        logger.info(f"[/pubsub/video-ready] ✅ {project_id}: {results}")
+        return {"status": "ok", "project_id": project_id, "results": results}
+    except Exception as e:
+        logger.exception("[/pubsub/video-ready] Erro — Pub/Sub fará redelivery")
         raise HTTPException(status_code=500, detail=str(e))
 
 

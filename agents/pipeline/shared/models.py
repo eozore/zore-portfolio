@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Literal, Optional
 
@@ -115,9 +115,24 @@ class Segment:
     id:             str
     script:         str           # "" = slide puro (sem TTS/HeyGen)
     beat:           str
-    slide:          Optional[int] = None  # None = avatar puro (sem slide)
+    slide:          Optional[str | int] = None  # None = avatar puro; v2 usa ids string ("yt-02")
     min_duration_s: float         = 4.5
     pause_after_s:  float         = 0.4
+    # Âncoras de animação do manifesto v2 (on_phrase → action). O TTS/HeyGen
+    # não as consome, mas o manifesto as inclui — sem este campo, Segment(**s)
+    # explodia com "unexpected keyword argument 'anchors'" e derrubava o
+    # pipeline inteiro na primeira etapa.
+    anchors:        list = field(default_factory=list)
+
+    @classmethod
+    def from_raw(cls, raw: dict) -> "Segment":
+        """
+        Constrói a partir do dict cru do manifesto IGNORANDO campos
+        desconhecidos. O manifesto é gerado por LLM e evolui (anchors hoje,
+        outros amanhã) — um campo extra nunca deve derrubar o pipeline.
+        """
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in raw.items() if k in known})
 
     @property
     def needs_tts(self) -> bool:
@@ -200,14 +215,14 @@ class Manifest:
         Retorna segmentos com script != '' — os que geram áudio TTS.
         """
         segs_raw = self._get_raw_segments(target)
-        return [Segment(**s) for s in segs_raw if s.get("script")]
+        return [Segment.from_raw(s) for s in segs_raw if s.get("script")]
 
     def get_tts_segments(
         self, target: Literal["horizontal", "vertical"]
     ) -> list[Segment]:
         """Retorna segmentos que precisam de áudio TTS (script != '')."""
         segs_raw = self._get_raw_segments(target)
-        return [Segment(**s) for s in segs_raw if s.get("script")]
+        return [Segment.from_raw(s) for s in segs_raw if s.get("script")]
 
     def get_heygen_segments(
         self, target: Literal["horizontal", "vertical"]
@@ -218,7 +233,7 @@ class Manifest:
         """
         segs_raw = self._get_raw_segments(target)
         return [
-            Segment(**s)
+            Segment.from_raw(s)
             for s in segs_raw
             if s.get("script") and s.get("slide") is None
         ]
@@ -232,7 +247,7 @@ class Manifest:
         """
         segs_raw = self._get_raw_segments(target)
         return [
-            Segment(**s)
+            Segment.from_raw(s)
             for s in segs_raw
             if s.get("script") and s.get("slide") is not None
         ]
@@ -243,7 +258,7 @@ class Manifest:
         """Retorna segmentos com script == '' — renderizados pelo Playwright sem áudio."""
         segs_raw = self._get_raw_segments(target)
         return [
-            Segment(**s)
+            Segment.from_raw(s)
             for s in segs_raw
             if not s.get("script") and s.get("slide") is not None
         ]

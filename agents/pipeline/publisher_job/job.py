@@ -312,18 +312,32 @@ class PublisherJob:
           - Instagram: Reel vertical
           - LinkedIn, Threads: post de texto com link
 
+        Idempotência por plataforma: cada content_projects/{id} é uma jornada de
+        produção; cada publicação por plataforma é um asset independente. Se este
+        método já rodou antes e algumas plataformas tiveram sucesso (post_id
+        gravado em stages.publisher.platforms), elas são PULADAS numa nova
+        execução — evita duplicar uploads/posts ao reprocessar o stage "publisher"
+        (via /api/csm/calendar/retry) depois de uma falha parcial.
+
         Args:
             msg: VideoReadyMsg com URLs do GCS.
 
         Returns:
-            dict plataforma → post_id.
+            dict plataforma → post_id (ou "*_error" → mensagem).
         """
         results: dict[str, str] = {}
         project_id = msg.project_id
+        project_ref = self._db.collection("content_projects").document(project_id)
 
         # Lê metadados do projeto no Firestore
-        proj_doc = self._db.collection("content_projects").document(project_id).get()
+        proj_doc = project_ref.get()
         meta: dict[str, Any] = proj_doc.to_dict() if proj_doc.exists else {}
+
+        # Publicações já bem-sucedidas em uma tentativa anterior (retry parcial)
+        already_ok: dict[str, str] = (
+            meta.get("stages", {}).get("publisher", {}).get("platforms", {})
+        )
+        started_at = int(time.time())
         title       = meta.get("title", f"Conteúdo éozoré — {project_id}")
         description = meta.get("description", "")
         tags        = meta.get("tags", ["ia", "machinelearning", "eozore"])
@@ -408,83 +422,63 @@ class PublisherJob:
         except Exception as e:
             logger.warning(f"Thumbnail generation failed (non-fatal): {e}")
 
-        # 1. YouTube longo
-        try:
-            yt = self._get_youtube()
-            vid_id = yt.upload_video(
-                video_source=msg.horizontal_final,
-                title=title,
-                description=copy_long,
-                tags=tags,
-                category_id="27",
-                privacy="public",
-                is_short=False,
+        # Cada plataforma abaixo checa `already_ok` antes de publicar — se uma
+        # tentativa anterior deste projeto já teve sucesso nela, reaproveita o
+        # post_id em vez de publicar de novo (evita vídeo/post duplicado num retry).
+        platform_attempts: list[tuple[str, Any]] = [
+            ("youtube", lambda: self._get_youtube().upload_video(
+                video_source=msg.horizontal_final, title=title, description=copy_long,
+                tags=tags, category_id="27", privacy="public", is_short=False,
                 thumbnail_url=thumbnail_youtube_url,
-            )
-            results["youtube"] = vid_id
-        except Exception as e:
-            logger.error(f"YouTube upload failed: {e}")
-            results["youtube_error"] = str(e)[:200]
-
-        # 2. YouTube Short (vertical)
-        try:
-            yt = self._get_youtube()
-            short_id = yt.upload_video(
-                video_source=msg.vertical_final,
-                title=f"#{title} (Short)",
-                description=copy_short,
-                tags=tags + ["Shorts"],
-                category_id="27",
-                privacy="public",
-                is_short=True,
+            )),
+            ("youtube_short", lambda: self._get_youtube().upload_video(
+                video_source=msg.vertical_final, title=f"#{title} (Short)", description=copy_short,
+                tags=tags + ["Shorts"], category_id="27", privacy="public", is_short=True,
                 thumbnail_url=thumbnail_reel_url,
-            )
-            results["youtube_short"] = short_id
-        except Exception as e:
-            logger.error(f"YouTube Short upload failed: {e}")
-            results["youtube_short_error"] = str(e)[:200]
+            )),
+            ("instagram_reel", lambda: self._get_meta().publish_instagram({
+                "format": "reel", "asset_urls": [_prepare_media_url(msg.vertical_final)], "copy": copy_social,
+            })),
+            ("linkedin", lambda: self._get_linkedin().publish({"copy": copy_social, "format": "text"})),
+            ("threads", lambda: self._get_meta().publish_threads({"copy": copy_social})),
+        ]
 
-        # 3. Instagram Reel (vertical) — usa Signed URL se GCS privado
-        try:
-            meta_client = self._get_meta()
-            reel_url = _prepare_media_url(msg.vertical_final)
-            reel_id = meta_client.publish_instagram({
-                "format":     "reel",
-                "asset_urls": [reel_url],
-                "copy":       copy_social,
-            })
-            results["instagram_reel"] = reel_id
-        except Exception as e:
-            logger.error(f"Instagram Reel failed: {e}")
-            results["instagram_reel_error"] = str(e)[:200]
-
-        # 4. LinkedIn (post de texto com link)
-        try:
-            li = self._get_linkedin()
-            li_id = li.publish({"copy": copy_social, "format": "text"})
-            results["linkedin"] = li_id
-        except Exception as e:
-            logger.error(f"LinkedIn failed: {e}")
-            results["linkedin_error"] = str(e)[:200]
-
-        # 5. Threads (post de texto)
-        try:
-            meta_client = self._get_meta()
-            th_id = meta_client.publish_threads({"copy": copy_social})
-            results["threads"] = th_id
-        except Exception as e:
-            logger.error(f"Threads failed: {e}")
-            results["threads_error"] = str(e)[:200]
+        platforms_status: dict[str, str] = dict(already_ok)  # preserva sucessos anteriores
+        for platform, attempt in platform_attempts:
+            if already_ok.get(platform):
+                results[platform] = already_ok[platform]
+                logger.info(f"[publisher] {platform} já publicado em tentativa anterior (post_id={already_ok[platform]}) — pulando.")
+                continue
+            try:
+                post_id = attempt()
+                results[platform] = post_id
+                platforms_status[platform] = post_id
+            except Exception as e:
+                logger.error(f"{platform} failed: {e}")
+                results[f"{platform}_error"] = str(e)[:200]
+                platforms_status[platform] = ""  # marca tentativa feita, sem sucesso — não vira "já ok"
 
         # YouTube Community Post: não tem API pública — salva para publicação manual
         results["youtube_community"] = "pending_manual — publicar manualmente no YouTube Studio"
 
-        # Atualiza status do projeto no Firestore
+        # Sucesso = todas as plataformas com API real tiveram post_id não-vazio
+        tracked_platforms = [p for p, _ in platform_attempts]
+        all_ok = all(platforms_status.get(p) for p in tracked_platforms)
+        failed_platforms = [p for p in tracked_platforms if not platforms_status.get(p)]
+
+        now_ts = int(time.time())
         try:
-            self._db.collection("content_projects").document(project_id).update({
-                "status":          "published",
-                "publish_results": results,
-                "published_at":    datetime.now(timezone.utc).isoformat(),
+            project_ref.update({
+                "status":                    "published" if all_ok else "published_partial",
+                "publish_results":           results,
+                "published_at":              datetime.now(timezone.utc).isoformat(),
+                "stages.publisher.status":       "completed" if all_ok else "error",
+                "stages.publisher.platforms":    platforms_status,
+                "stages.publisher.started_at":   started_at,
+                "stages.publisher.completed_at": now_ts,
+                "stages.publisher.error_message": (
+                    None if all_ok else f"Falha em: {', '.join(failed_platforms)}. Use retry para reprocessar só essas plataformas."
+                ),
             })
         except Exception as e:
             logger.warning(f"Firestore project update failed: {e}")
