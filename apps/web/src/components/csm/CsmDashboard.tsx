@@ -5,7 +5,7 @@
    ============================================================ */
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import '@/app/admin.css';
 import AuthGate from './AuthGate';
 import IdeaTab from './tabs/IdeaTab';
@@ -223,12 +223,50 @@ export default function CsmDashboard() {
     })();
   }, [sessionId]);
 
-  const saveDraft = useCallback(async (next: DraftState) => {
-    if (!sessionId) return;
-    await fetch('/api/csm/session', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, draft: next }),
-    }).catch((error) => console.warn('[csm] draft save failed', error));
+  /**
+   * Autosave com debounce.
+   *
+   * Antes, `updateDraft` disparava um POST a cada chamada — ou seja, uma
+   * escrita no Firestore por TECLA digitada no editor do artigo e por chunk de
+   * SSE durante a geração. O Firestore sustenta ~1 escrita/s por documento;
+   * isso ficava ordens de grandeza acima, gerando contenção e escritas
+   * perdidas. Agora acumulamos em um ref e gravamos uma vez após a pausa.
+   */
+  const pendingDraftRef = useRef<DraftState | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState('');
+
+  const flushDraft = useCallback(async () => {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
+    const next = pendingDraftRef.current;
+    if (!next || !sessionId) return;
+
+    // Durante a geração do pacote quem escreve na sessão é o servidor
+    // (/api/csm/package grava manifesto, thumbnails e copies). Um autosave do
+    // cliente com estado anterior ao último poll sobrescreveria esses campos.
+    // O ReviewTab já faz polling, então nada se perde ao pular aqui.
+    if (next.packageStatus === 'generating') return;
+
+    pendingDraftRef.current = null;
+    setSaveState('saving');
+    try {
+      const res = await fetch('/api/csm/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, draft: next }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setSaveState('saved'); setSaveError('');
+    } catch (error) {
+      // Mantém o draft pendente para a próxima tentativa em vez de descartá-lo.
+      pendingDraftRef.current = next;
+      setSaveState('error');
+      setSaveError(error instanceof Error ? error.message : 'falha ao salvar');
+      console.error('[csm] draft save failed', error);
+    }
   }, [sessionId]);
 
   const updateDraft = useCallback((partial: Partial<DraftState>) => {
@@ -242,16 +280,29 @@ export default function CsmDashboard() {
         const { parseMarkdownToScenes } = require('@/lib/scriptParser');
         next.youtubeScenes = parseMarkdownToScenes(partial.youtubeScript);
       }
-      void saveDraft(next);
+      pendingDraftRef.current = next;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => void flushDraft(), 2_500);
       return next;
     });
-  }, [saveDraft]);
+  }, [flushDraft]);
 
+  // Rede de segurança: grava o que estiver pendente ao trocar de aba do
+  // navegador, ao fechar e ao desmontar — o debounce nunca pode custar a
+  // última edição do usuário.
   useEffect(() => {
     if (!sessionId) return;
-    const interval = setInterval(() => void saveDraft(draft), 30_000);
-    return () => clearInterval(interval);
-  }, [draft, saveDraft, sessionId]);
+    const onHide = () => { if (document.visibilityState === 'hidden') void flushDraft(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onHide);
+    const interval = setInterval(() => void flushDraft(), 30_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onHide);
+      clearInterval(interval);
+      void flushDraft();
+    };
+  }, [flushDraft, sessionId]);
 
   const goToTab = (tab: ActiveTab) => {
     if (!isMetaTab(tab) && !isTabUnlocked(tab, draft)) {
@@ -376,7 +427,19 @@ export default function CsmDashboard() {
           {activeTab === 'overview' && <OverviewTab onBack={() => goToTab(lastStudioTab)} onOpenSession={openSession} />}
         </>}</main>
 
-        <footer className={styles.bottomBar}><span className={styles.bottomBarText}>éozoré Studio</span><div className={styles.bottomBarDivider} /><button onClick={() => goToTab(lastStudioTab)} className={`${styles.bottomBarLink} ${!isMetaTab(activeTab) ? styles.bottomBarLinkActive : ''}`}>📝 Studio</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('overview')} className={`${styles.bottomBarLink} ${activeTab === 'overview' ? styles.bottomBarLinkActive : ''}`} style={{ position: 'relative' }}>
+        <footer className={styles.bottomBar}><span className={styles.bottomBarText}>éozoré Studio</span>
+          {/* Estado do autosave. Antes a gravação falhava em silêncio e o
+              usuário só descobria no reload seguinte, com o trabalho perdido. */}
+          {saveState !== 'idle' && (
+            <span
+              className={styles.saveState}
+              title={saveState === 'error' ? saveError : undefined}
+              style={{ color: saveState === 'error' ? '#dc2626' : saveState === 'saving' ? '#8a8a8a' : '#16a34a' }}
+            >
+              {saveState === 'saving' ? '⟳ salvando…' : saveState === 'saved' ? '✓ salvo' : `✗ não salvo — ${saveError}`}
+            </span>
+          )}
+          <div className={styles.bottomBarDivider} /><button onClick={() => goToTab(lastStudioTab)} className={`${styles.bottomBarLink} ${!isMetaTab(activeTab) ? styles.bottomBarLinkActive : ''}`}>📝 Studio</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('overview')} className={`${styles.bottomBarLink} ${activeTab === 'overview' ? styles.bottomBarLinkActive : ''}`} style={{ position: 'relative' }}>
             🗂️ Visão Geral
             {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
           </button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('settings')} className={`${styles.bottomBarLink} ${activeTab === 'settings' ? styles.bottomBarLinkActive : ''}`}>⚙️ Ajustes</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('telemetry')} className={`${styles.bottomBarLink} ${activeTab === 'telemetry' ? styles.bottomBarLinkActive : ''}`}>📊 Telemetria</button></footer>

@@ -4,8 +4,17 @@ export const dbPaths = {
   sessions: (tenantId: string | null = DEFAULT_TENANT_ID) => 
     tenantId ? `tenants/${tenantId}/sessions` : `csm_sessions`,
     
-  sessionDoc: (id: string, tenantId: string | null = DEFAULT_TENANT_ID) => 
+  sessionDoc: (id: string, tenantId: string | null = DEFAULT_TENANT_ID) =>
     tenantId ? `tenants/${tenantId}/sessions/${id}` : `csm_sessions/${id}`,
+
+  /**
+   * Doc irmão do draft, onde vivem os artefatos pesados do pacote
+   * (manifestHtml, thumbnails). Cada doc do Firestore tem teto de 1MB — manter
+   * esses campos no draft principal fazia a sessão inteira crescer junto com o
+   * deck de slides e morrer silenciosamente quando estourasse.
+   */
+  sessionArtifactsDoc: (id: string, tenantId: string | null = DEFAULT_TENANT_ID) =>
+    `${tenantId ? `tenants/${tenantId}/sessions/${id}` : `csm_sessions/${id}`}/artifacts/package`,
     
   articles: (tenantId: string | null = DEFAULT_TENANT_ID) => 
     tenantId ? `tenants/${tenantId}/articles` : `articles`,

@@ -421,6 +421,19 @@
   padding: 0 8px;
 }
 
+/* Estado do autosave no rodapé — discreto quando tudo vai bem, legível
+   quando falha. A cor é aplicada inline conforme o estado. */
+.saveState {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
 .bottomBarLink {
   background: transparent;
   border: none;
