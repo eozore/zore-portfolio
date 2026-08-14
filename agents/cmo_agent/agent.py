@@ -12,7 +12,7 @@ import json
 import subprocess
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
@@ -27,13 +27,18 @@ if os.path.exists(env_path):
                 key, val = line.split("=", 1)
                 os.environ[key.strip()] = val.strip()
 
-# Bypass SSL verification locally to prevent certificate failures in urllib/requests (especially on macOS)
-import ssl
-try:
-    ssl._create_default_https_context = ssl._create_unverified_context
-    logging.info("SSL verification bypass enabled for local environment.")
-except AttributeError:
-    pass
+# Bypass SSL verification ONLY in local development, to avoid macOS certificate-store
+# failures in urllib/requests. In Cloud Run (ENVIRONMENT=production, set below by
+# cloudbuild) this must stay OFF — disabling cert validation in production would allow
+# a MITM on any outbound HTTPS call (Vertex AI, Tavily, GCS, HeyGen, publishers).
+_APP_ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").lower()
+if _APP_ENVIRONMENT != "production":
+    import ssl
+    try:
+        ssl._create_default_https_context = ssl._create_unverified_context
+        logging.warning("SSL verification bypass enabled — ENVIRONMENT=%s (never do this in production).", _APP_ENVIRONMENT)
+    except AttributeError:
+        pass
 
 # Add the current folder to sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -70,13 +75,45 @@ logger = logging.getLogger("cmo_agent")
 
 app = FastAPI(title="éozoré CMO Agent Service (Multi-Agent)", version="2.0.0")
 
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Este serviço não é consumido por navegadores diretamente (o Next.js server-side
+# faz proxy de todas as chamadas), então CORS não precisa ser aberto. Restringe a
+# uma allowlist configurável via env — vazio/default = nenhuma origem de browser
+# liberada (chamadas server-to-server não são afetadas por CORS de qualquer forma).
+_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Tenant-ID", "X-Internal-Auth"],
 )
+
+# ── Autenticação interna Next.js → cmo-agent ────────────────────────────────
+# O serviço roda com --allow-unauthenticated no Cloud Run (Next.js e Python são
+# serviços separados, ainda sem IAM invoker). Como mitigação, exige um segredo
+# compartilhado em todo endpoint que não seja /health ou /pubsub/subscription
+# (o Pub/Sub push usa seu próprio token OIDC, verificação futura — TODO).
+# .strip() por simetria com o frontend: segredos criados via `openssl rand` trazem
+# \n final, que não pode trafegar em header HTTP.
+_INTERNAL_SECRET = os.environ.get("CMO_INTERNAL_SECRET", "").strip()
+_PUBLIC_PATHS = {"/health", "/pubsub/subscription"}
+
+@app.middleware("http")
+async def enforce_internal_auth(request, call_next):
+    if request.url.path in _PUBLIC_PATHS or request.method == "OPTIONS":
+        return await call_next(request)
+    if _INTERNAL_SECRET:
+        provided = request.headers.get("x-internal-auth", "").strip()
+        if provided != _INTERNAL_SECRET:
+            logger.warning(f"Rejected unauthenticated request to {request.url.path} (missing/invalid X-Internal-Auth)")
+            return JSONResponse(status_code=401, content={"detail": "Missing or invalid internal auth token"})
+    else:
+        logger.warning(
+            "CMO_INTERNAL_SECRET not configured — endpoint %s is reachable by anyone with the URL. "
+            "Set the secret in Secret Manager and redeploy.", request.url.path
+        )
+    return await call_next(request)
 
 # Background Worker Tasks Registers
 GENERATION_QUEUES = {}
@@ -146,7 +183,7 @@ class PackageRequest(BaseModel):
     category:       Optional[str] = "ml"
     language:       Optional[str] = "pt-BR"
     sessionId:      Optional[str] = None
-    phase:          Optional[str] = "script"  # script | derivatives
+    phase:          Optional[str] = "script"  # script | thumbnails | copies | derivatives
     manifest:       Optional[dict] = None
 
 # Validator request models
@@ -322,7 +359,17 @@ def log_python_usage(stage: str, model_name: str, prompt_text: str, response_tex
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "sdk": "google-antigravity", "multi_agent": True}
+    return {
+        "status": "ok",
+        "sdk": "google-antigravity",
+        "multi_agent": True,
+        "security": {
+            "environment": _APP_ENVIRONMENT,
+            "internal_auth_enforced": bool(_INTERNAL_SECRET),
+            "cors_allowed_origins": _ALLOWED_ORIGINS,
+            "ssl_verification": _APP_ENVIRONMENT == "production",
+        },
+    }
 
 @app.post("/interview")
 async def interview_endpoint(req: InterviewRequest, x_tenant_id: Optional[str] = Header(None)):
@@ -970,7 +1017,19 @@ async def package_endpoint(
             partial_errors.append(f"copy: {exc}")
             return {"linkedin_posts": [], "threads": []}
 
-    if req.phase == "derivatives":
+    # Cada asset do pacote (roteiro, thumbnails, copies) é gerado por um
+    # especialista independente e pode ser re-executado sozinho — usado pelo
+    # botão "Gerar novamente" da ReviewTab quando só um pedaço falhou, sem
+    # precisar refazer os assets que já deram certo.
+    if req.phase == "thumbnails":
+        manifest_dict = req.manifest
+        thumbnails = await _safe_thumbnail()
+        copies = {"linkedin_posts": [], "threads": []}
+    elif req.phase == "copies":
+        manifest_dict = req.manifest
+        thumbnails = {"option_minimal": "", "option_provocative": ""}
+        copies = await _safe_copy()
+    elif req.phase == "derivatives":
         manifest_dict = req.manifest
         thumbnails, copies = await asyncio.gather(_safe_thumbnail(), _safe_copy())
     else:
@@ -979,8 +1038,10 @@ async def package_endpoint(
         copies = {"linkedin_posts": [], "threads": []}
 
     # ── Gera slides HTML via slide_designer_agent (BUG1 fix) ──────────────────
+    # Só roda na fase "script" (primeira geração) — um retry isolado de
+    # thumbnails/copies/derivatives não deve regenerar os slides já aprovados.
     slide_htmls: dict = {}
-    if manifest_dict and req.phase != "derivatives":
+    if manifest_dict and req.phase not in ("derivatives", "thumbnails", "copies"):
         try:
             pauta_dict_for_slides = req.pauta.model_dump() if hasattr(req.pauta, "model_dump") else vars(req.pauta)
             slide_htmls = await design_all_slides(manifest_dict, pauta_dict_for_slides)
@@ -990,8 +1051,11 @@ async def package_endpoint(
             logger.warning(f"[/package] slide_designer_agent failed (non-blocking): {exc}")
 
     # ── Gera HTML do manifesto v2 ──────────────────────────────────────────────
+    # Também pulado em retries isolados de thumbnails/copies: sem slide_htmls
+    # recém-gerados, reescrever o manifestHtml aqui voltaria a usar placeholders
+    # vazios no lugar dos slides já aprovados pelo usuário.
     manifest_html = ""
-    if manifest_dict:
+    if manifest_dict and req.phase not in ("thumbnails", "copies"):
         try:
             from manifest_builder import wrap_scriptwriter_manifest
             manifest_html = wrap_scriptwriter_manifest(

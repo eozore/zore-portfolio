@@ -30,6 +30,8 @@ logger = logging.getLogger("cmo_agent.thumbnail_agent")
 THUMBNAIL_INSTRUCTION = """Você é o Thumbnail Designer da plataforma éozoré (eozore.com).
 Sua especialidade: gerar thumbnails HTML+SVG dark premium, prontos para renderização via Playwright.
 
+CAPITALIZAÇÃO: texto de título e subtítulo da thumbnail SEMPRE em sentence case — só a primeira letra da frase em maiúscula, mais nomes próprios e siglas. NUNCA Title Case. Sem emojis ou ícones no texto.
+
 ━━━ DESIGN SYSTEM ━━━
 Dimensões: 1200 × 628px (og:image, 16:9 YouTube)
 Fundo: #0d0f14 (quase preto)

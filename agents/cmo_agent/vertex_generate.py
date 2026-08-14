@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from typing import AsyncIterator, Optional
 
 import google.auth
@@ -56,6 +57,14 @@ def _vertex_endpoint(project_id: str, stream: bool = True) -> str:
     return f"{base}:streamGenerateContent?alt=sse" if stream else f"{base}:generateContent"
 
 
+# Status transitórios do Vertex que valem retry: 429 (quota momentânea),
+# 500/503 (instabilidade do serviço). Erros 4xx de request malformado NÃO
+# são retentados — repetir não muda o resultado.
+_RETRYABLE_STATUS = {429, 500, 503}
+_MAX_ATTEMPTS = 4          # 1 tentativa + 3 retries
+_BASE_BACKOFF_SECONDS = 4  # 4s, 8s, 16s — 429 de quota por minuto precisa de espera real
+
+
 async def generate_text(
     prompt: str,
     system_instruction: str = "",
@@ -63,8 +72,10 @@ async def generate_text(
     top_p: float = 0.9,
 ) -> str:
     """
-    Gera texto via Vertex AI diretamente (não-streaming).
-    Modelo: gemini-3.5-flash (GA) ou configurável via env VERTEX_MODEL.
+    Gera texto via Vertex AI diretamente (não-streaming), com retry automático
+    e backoff exponencial em erros transitórios (429/500/503). Todos os agentes
+    do pacote (scriptwriter, copy, thumbnail, validator, slides) passam por aqui,
+    então um pico de quota não derruba mais a geração inteira.
     """
     project_id = os.environ.get("FIREBASE_PROJECT_ID")
     if not project_id:
@@ -85,25 +96,47 @@ async def generate_text(
         if system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
-        resp = req_lib.post(
-            _vertex_endpoint(project_id, stream=False),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=300,
-        )
-        if resp.status_code != 200:
-            raise RuntimeError(f"Vertex AI error {resp.status_code}: {resp.text[:400]}")
+        last_error: Exception | None = None
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            try:
+                resp = req_lib.post(
+                    _vertex_endpoint(project_id, stream=False),
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=300,
+                )
+            except req_lib.exceptions.RequestException as exc:
+                last_error = RuntimeError(f"Vertex AI network error: {exc}")
+                if attempt < _MAX_ATTEMPTS:
+                    wait = _BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                    logger.warning(f"[vertex] network error (attempt {attempt}/{_MAX_ATTEMPTS}), retrying in {wait}s: {exc}")
+                    time.sleep(wait)
+                    continue
+                raise last_error
 
-        data = resp.json()
-        parts = (
-            data.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [])
-        )
-        return "".join(p.get("text", "") for p in parts)
+            if resp.status_code == 200:
+                data = resp.json()
+                parts = (
+                    data.get("candidates", [{}])[0]
+                    .get("content", {})
+                    .get("parts", [])
+                )
+                return "".join(p.get("text", "") for p in parts)
+
+            last_error = RuntimeError(f"Vertex AI error {resp.status_code}: {resp.text[:400]}")
+            if resp.status_code in _RETRYABLE_STATUS and attempt < _MAX_ATTEMPTS:
+                wait = _BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                logger.warning(
+                    f"[vertex] HTTP {resp.status_code} (attempt {attempt}/{_MAX_ATTEMPTS}), retrying in {wait}s"
+                )
+                time.sleep(wait)
+                continue
+            raise last_error
+
+        raise last_error or RuntimeError("Vertex AI: exhausted retries")
 
     return await loop.run_in_executor(None, _call)
 
@@ -141,16 +174,35 @@ async def stream_text(
             if system_instruction:
                 payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
 
-            with req_lib.post(
-                _vertex_endpoint(project_id, stream=True),
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                stream=True,
-                timeout=600,
-            ) as resp:
+            # Retry na ABERTURA do stream (antes de qualquer token): um 429/503
+            # transitório na conexão não deve derrubar a geração do artigo inteira.
+            # Depois que tokens começam a fluir, uma falha no meio não é retentável
+            # (o texto parcial já foi consumido pelo cliente).
+            resp = None
+            for attempt in range(1, _MAX_ATTEMPTS + 1):
+                resp = req_lib.post(
+                    _vertex_endpoint(project_id, stream=True),
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    stream=True,
+                    timeout=600,
+                )
+                if resp.status_code == 200:
+                    break
+                if resp.status_code in _RETRYABLE_STATUS and attempt < _MAX_ATTEMPTS:
+                    wait = _BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                    logger.warning(
+                        f"[vertex-stream] HTTP {resp.status_code} (attempt {attempt}/{_MAX_ATTEMPTS}), retrying in {wait}s"
+                    )
+                    resp.close()
+                    time.sleep(wait)
+                    continue
+                break
+
+            with resp:
                 if resp.status_code != 200:
                     token_queue.put(RuntimeError(
                         f"Vertex AI error {resp.status_code}: {resp.text[:400]}"

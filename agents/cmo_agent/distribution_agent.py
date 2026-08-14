@@ -231,6 +231,8 @@ class RepurposeResponse(BaseModel):
 
 DISTRIBUTION_INSTRUCTION = """Você é o Distribution Agent da plataforma éozoré.
 
+CAPITALIZAÇÃO (regra inegociável): todos os títulos, hooks e headings de qualquer peça SEMPRE em sentence case — só a primeira letra da frase em maiúscula, mais nomes próprios e siglas (RAG, LLM, GCP). NUNCA Title Case (Cada Palavra Maiúscula é proibido). Sem emojis ou ícones em títulos, hooks e headings de carrossel.
+
 Sua missão: a partir de um artigo técnico e do roteiro YouTube, criar uma campanha omnicanal completa que sirva a dois objetivos simultâneos e indissociáveis:
 
   OBJETIVO 1 — EDUCAR: cada peça entrega conhecimento real e aplicável. Não é resumo vago. É insight concreto.

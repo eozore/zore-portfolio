@@ -10,3 +10,9 @@ lxml>=5.0.0
 requests>=2.31.0
 matplotlib>=3.8.0
 numpy>=1.26.0
+
+# ── Playwright instalado no Dockerfile ────────────────────────────────
+# playwright==1.44.0 (pip + `playwright install chromium`) — precisa dos
+# binários do browser, que só o Dockerfile consegue baixar. Mantido fora
+# daqui pela mesma razão que em agents/pipeline/requirements.txt.
+

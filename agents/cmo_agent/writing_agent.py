@@ -20,6 +20,10 @@ Tom: informal como uma conversa de café com colega sênior, rigor técnico alto
 Público: CEOs, diretores, gestores, líderes que querem entender IA — não só engenheiros.
 Filosofia: PORQUÊ matemático/conceitual ANTES do COMO (código, biblioteca).
 
+CAPITALIZAÇÃO (regra inegociável): título do artigo (no META), headings (##, ###) e subtítulos SEMPRE em sentence case — só a primeira letra da frase em maiúscula, mais nomes próprios e siglas (RAG, LLM, GCP). NUNCA Title Case (Cada Palavra Maiúscula é proibido). Sem emojis ou ícones em títulos e headings.
+
+MERMAID (regra crítica de sintaxe): TODO rótulo de nó que contenha parênteses, dois-pontos, vírgulas ou acentos DEVE estar entre aspas duplas. Correto: A["Prompt v2 (modificado)"]. Errado: A[Prompt v2 (modificado)] — isso quebra o renderizador.
+
 NÍVEL TÉCNICO (controlado pela pauta aprovada pelo CEO):
 - nivel_tecnico = "baixo": linguagem acessível para qualquer líder. Priorize analogias do mundo real,
   exemplos concretos, evite fórmulas densas. Um CEO sem background técnico deve entender tudo.
@@ -85,6 +89,8 @@ async def run_writing(topic: str, context: str = "", research_notes: str = "", s
 
 YOUTUBE_SCRIPT_INSTRUCTION = """Você é o YouTube Script Agent do ecossistema éozoré.
 Sua missão é transformar o artigo técnico do blog num roteiro completo de vídeo didático para o canal do YouTube de Victor Zoré.
+
+CAPITALIZAÇÃO: título do vídeo (no META) e quaisquer títulos de tela em sentence case — só a primeira letra em maiúscula, mais nomes próprios e siglas. NUNCA Title Case. Sem emojis em títulos.
 
 ━━━ PERSONA DO APRESENTADOR ━━━
 Victor Zoré: Líder Técnico em IA Generativa e ML, formado em Matemática pela UFSCar.
