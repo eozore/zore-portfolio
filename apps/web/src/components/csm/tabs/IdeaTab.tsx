@@ -20,6 +20,13 @@ const CATEGORIES: { id: ArticleCategory; label: string }[] = [
   { id: 'estatistica', label: 'Matemática & Probabilidade' },
 ];
 
+const EXAMPLE_PROMPTS = [
+  'Quero explicar por que fine-tuning com LoRA reduz tanto o custo de memória.',
+  'Vamos falar sobre como RAG resolve alucinação em LLMs de produção.',
+  'Tenho uma tese sobre o trade-off entre latência e qualidade em modelos servidos na GCP.',
+  'Quero desmistificar attention mechanism com uma analogia geométrica simples.',
+];
+
 /**
  * Tenta extrair o bloco JSON { "pauta": {...} } do texto do CMO.
  * O CMO emite o bloco delimitado por ```json … ``` após "PAUTA CONCEBIDA COM SUCESSO".
@@ -205,7 +212,7 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
         </div>
 
         <div className={styles.metaToolbar}>
-          <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold' }}>Área:</span>
+          <span style={{ fontSize: '0.8rem', color: '#6b6b6b', fontWeight: 'bold' }}>Área:</span>
           <select
             value={draft.category}
             onChange={(e) => updateDraft({ category: e.target.value as ArticleCategory })}
@@ -220,6 +227,39 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
 
       {/* Messages Scroll Area */}
       <div className={styles.messagesContainer}>
+        {messages.length === 0 && !isLoading && (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>💬</div>
+            <div className={styles.emptyTitle}>Sobre o que vamos escrever esta semana?</div>
+            <div className={styles.emptyDesc}>
+              Direcione o CMO com um tema, uma tese ou um aprendizado prático. Ele vai perguntar
+              o essencial (público, ângulo, profundidade) até fechar a pauta com você.
+            </div>
+            <div className={styles.exampleGrid}>
+              {EXAMPLE_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  className={styles.exampleChip}
+                  onClick={() => setInputText(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+
+            {/* Segundo ponto de entrada: o CMO não é obrigatório. Quem já tem
+                artigo publicado pode pular direto para a geração do pacote. */}
+            <div className={styles.altEntry}>
+              <span className={styles.altEntryLine} />
+              <span className={styles.altEntryLabel}>ou</span>
+              <span className={styles.altEntryLine} />
+            </div>
+            <button type="button" className={styles.altEntryBtn} onClick={onNext}>
+              Partir de um artigo já publicado →
+            </button>
+          </div>
+        )}
         {messages.map((m, i) => {
           const isCmo = m.role === 'model';
           return (
@@ -238,7 +278,7 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
         {isLoading && (
           <div className={`${styles.messageBubble} ${styles.bubbleCmo}`}>
             <span className={`${styles.senderName} ${styles.senderCmo}`}>Diretor de Marketing (CMO AI)</span>
-            <div style={{ fontStyle: 'italic', color: '#94a3b8' }}>Analisando pauta, SEO e rigor matemático...</div>
+            <div style={{ fontStyle: 'italic', color: '#6b6b6b' }}>Analisando pauta, SEO e rigor matemático...</div>
           </div>
         )}
 
@@ -249,7 +289,7 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
       {isReadyForHandoff && (
         <div className={styles.handoffBar}>
           <div>
-            <div style={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 800, color: '#1e1e1e', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {detectedPauta
             ? `✅ Pauta Concebida: "${detectedPauta.titulo}"`
             : 'Pauta Concebida! Pronto para acionar o Time Criativo?'}
@@ -259,10 +299,10 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
                   fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
                   padding: '2px 8px', borderRadius: '9999px', border: '1px solid',
                   ...(detectedPauta.tipo_artigo === 'tecnico'
-                    ? { background: 'rgba(30,64,175,0.3)', color: '#93c5fd', borderColor: '#1d4ed8' }
+                    ? { background: 'rgba(30,64,175,0.3)', color: '#2563eb', borderColor: '#2563eb' }
                     : detectedPauta.tipo_artigo === 'conceitual'
-                      ? { background: 'rgba(109,40,217,0.3)', color: '#c4b5fd', borderColor: '#7c3aed' }
-                      : { background: 'rgba(6,95,70,0.3)', color: '#6ee7b7', borderColor: '#065f46' }),
+                      ? { background: 'rgba(109,40,217,0.3)', color: '#7c3aed', borderColor: '#7c3aed' }
+                      : { background: 'rgba(6,95,70,0.3)', color: '#16a34a', borderColor: '#16a34a' }),
                 }}>
                   {detectedPauta.tipo_artigo}
                 </span>
@@ -273,22 +313,22 @@ export default function IdeaTab({ draft, updateDraft, isGenerating, setIsGenerat
                   fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
                   padding: '2px 8px', borderRadius: '9999px', border: '1px solid',
                   ...(detectedPauta.nivel_tecnico === 'alto'
-                    ? { background: 'rgba(220,38,38,0.2)', color: '#fca5a5', borderColor: '#dc2626' }
+                    ? { background: 'rgba(220,38,38,0.2)', color: '#dc2626', borderColor: '#dc2626' }
                     : detectedPauta.nivel_tecnico === 'baixo'
-                      ? { background: 'rgba(22,163,74,0.2)', color: '#86efac', borderColor: '#16a34a' }
-                      : { background: 'rgba(217,119,6,0.2)', color: '#fcd34d', borderColor: '#d97706' }),
+                      ? { background: 'rgba(22,163,74,0.2)', color: '#16a34a', borderColor: '#16a34a' }
+                      : { background: 'rgba(217,119,6,0.2)', color: '#d97706', borderColor: '#d97706' }),
                 }}>
                   nível {detectedPauta.nivel_tecnico}
                 </span>
               )}
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
+            <div style={{ fontSize: '0.8rem', color: '#4a4a4a' }}>
               {detectedPauta
                 ? 'O sistema vai gerar o pacote completo automaticamente (artigo + derivações).'
                 : 'O redator técnico vai gerar o Artigo mestre com fórmulas LaTeX ($$) e gráficos Mermaid.'}
             </div>
             {detectedPauta?.hardskills && detectedPauta.hardskills.length > 0 && (
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
+              <div style={{ fontSize: '0.72rem', color: '#6b6b6b', marginTop: '4px', fontFamily: 'JetBrains Mono, monospace' }}>
                 🎓 Hardskills: {detectedPauta.hardskills.slice(0, 3).join(' · ')}
               </div>
             )}

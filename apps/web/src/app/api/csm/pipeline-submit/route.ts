@@ -23,6 +23,7 @@ import { PubSub } from '@google-cloud/pubsub';
 import { GoogleAuth } from 'google-auth-library';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { dbPaths } from '@/lib/dbPaths';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 const GCP_PROJECT_ID      = process.env.FIREBASE_PROJECT_ID || 'vazfy-417019';
 const PIPELINE_TOPIC      = 'content-pipeline.package-approved';
@@ -187,7 +188,7 @@ export async function POST(request: Request): Promise<Response> {
       // a. Chama cmo_agent para construir manifesto e salvar no GCS
       const manifestRes = await fetch(`${CMO_AGENT_URL}/build-manifest`, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: cmoAgentHeaders(),
         body:    JSON.stringify({
           script:     youtubeScript,
           title:      articleTitle,
@@ -281,7 +282,7 @@ export async function POST(request: Request): Promise<Response> {
         // Gera manifesto para o roteiro do vídeo curto
         const manifestRes = await fetch(`${CMO_AGENT_URL}/build-manifest`, {
           method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: cmoAgentHeaders(),
           body:    JSON.stringify({
             script:     copy,
             title:      item.title,

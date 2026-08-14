@@ -9,6 +9,9 @@
 import { NextResponse } from 'next/server';
 import { loadSession, saveDraftToSession } from '@/lib/session';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
+import { getEnabledChannelToggles } from '@/lib/channelToggles';
+import { filterDerivativesByChannels } from '@/lib/channels';
 
 export const maxDuration = 600;
 
@@ -63,10 +66,7 @@ export async function POST(request: Request): Promise<Response> {
     if (cmoAgentUrl) {
       const specialistResponse = await fetch(`${cmoAgentUrl}/package`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
-        },
+        headers: cmoAgentHeaders(tenantId),
         body: JSON.stringify({
           pauta: draft.pauta,
           articleContent: content,
@@ -103,18 +103,26 @@ export async function POST(request: Request): Promise<Response> {
       signal: AbortSignal.timeout(540_000),
     });
 
-    const repurposedData = await response.json().catch(() => null);
-    if (!response.ok || !repurposedData) {
+    const rawRepurposedData = await response.json().catch(() => null);
+    if (!response.ok || !rawRepurposedData) {
       return NextResponse.json(
-        { error: repurposedData?.error || `Falha nas derivações (${response.status})` },
+        { error: rawRepurposedData?.error || `Falha nas derivações (${response.status})` },
         { status: 502 },
       );
     }
 
+    // Remove os canais desligados em Configurações → Canais & Formatos antes
+    // de expor o resultado ao frontend ou persistir na sessão.
+    const channelToggles = await getEnabledChannelToggles(tenantId);
+    const repurposedData = filterDerivativesByChannels(rawRepurposedData as Record<string, unknown>, channelToggles);
+    const filteredSpecialistCopies = specialistCopies && typeof specialistCopies === 'object'
+      ? filterDerivativesByChannels(specialistCopies as Record<string, unknown>, channelToggles)
+      : specialistCopies;
+
     await saveDraftToSession(body.sessionId, {
       ...draft,
       youtubeScript,
-      specialistCopies,
+      specialistCopies: filteredSpecialistCopies,
       thumbnails,
       repurposedData,
       packageStatus: 'ready',

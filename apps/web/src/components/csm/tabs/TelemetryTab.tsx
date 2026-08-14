@@ -127,7 +127,7 @@ export default function TelemetryTab({ onBack }: TelemetryTabProps) {
           <span>Calculando métricas do Firestore...</span>
         </div>
       ) : error ? (
-        <div className={styles.emptyState} style={{ color: '#ef4444' }}>
+        <div className={styles.emptyState} style={{ color: '#dc2626' }}>
           <span>❌ Erro: {error}</span>
         </div>
       ) : !metrics || metrics.summary.totalCalls === 0 ? (
@@ -202,10 +202,10 @@ export default function TelemetryTab({ onBack }: TelemetryTabProps) {
                           {formatStageLabel(log.stage)}
                         </span>
                       </td>
-                      <td style={{ fontFamily: 'monospace', color: '#64748b' }}>{log.model}</td>
+                      <td style={{ fontFamily: 'monospace', color: '#6b6b6b' }}>{log.model}</td>
                       <td>{log.inputTokens.toLocaleString()} / {log.outputTokens.toLocaleString()}</td>
                       <td>{(log.latencyMs / 1000).toFixed(1)}s</td>
-                      <td style={{ fontWeight: 600, color: '#0f172a' }}>
+                      <td style={{ fontWeight: 600, color: '#1e1e1e' }}>
                         ${log.estimatedCostUsd.toFixed(5)}
                       </td>
                     </tr>

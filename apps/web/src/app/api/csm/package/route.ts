@@ -11,6 +11,9 @@
 import { NextResponse } from 'next/server';
 import { loadSession, saveDraftToSession } from '@/lib/session';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
+import { getEnabledChannelToggles } from '@/lib/channelToggles';
+import { filterDerivativesByChannels } from '@/lib/channels';
 
 export interface PautaConcebida {
   titulo: string;
@@ -271,7 +274,7 @@ ${chatTranscript}`.trim();
     try {
       const specialistRes = await fetch(`${cmoAgentUrl}/package`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        headers: { ...cmoAgentHeaders(), Cookie: cookie },
         body: JSON.stringify({
           pauta: {
             titulo:               pauta.titulo,
@@ -353,18 +356,29 @@ ${chatTranscript}`.trim();
     console.warn('[csm/package] Repurpose partial error:', partialError);
   }
 
+  // Remove das derivações qualquer canal que o usuário tenha desligado em
+  // Configurações → Canais & Formatos, antes de expor o resultado ou persistir.
+  const tenantIdForChannels = request.headers.get('x-tenant-id') || null;
+  const channelToggles = await getEnabledChannelToggles(tenantIdForChannels);
+  const filteredRepurposedData = repurposedData && typeof repurposedData === 'object'
+    ? filterDerivativesByChannels(repurposedData as Record<string, unknown>, channelToggles)
+    : repurposedData;
+  const filteredSpecialistCopies = specialistCopies && typeof specialistCopies === 'object'
+    ? filterDerivativesByChannels(specialistCopies as Record<string, unknown>, channelToggles)
+    : specialistCopies;
+
   const result: PackageResult = {
     pauta,
     articleContent,
     suggestedTitle,
     suggestedSlug,
     estimatedReadTime,
-    repurposedData,
+    repurposedData: filteredRepurposedData,
     manifestV2,
     youtubeScript: generatedYoutubeScript,
     manifestHtml,
     thumbnails,
-    specialistCopies,
+    specialistCopies: filteredSpecialistCopies as PackageResult['specialistCopies'],
     ...(partialError ? { partialError } : {}),
   };
 
@@ -373,7 +387,7 @@ ${chatTranscript}`.trim();
   // reloads e a uma troca de instância do Cloud Run.
   if (sessionId) {
     try {
-      const tenantId = request.headers.get('x-tenant-id') || null;
+      const tenantId = tenantIdForChannels;
       const session = await loadSession(sessionId, tenantId);
       const currentDraft = (session as { draft?: Record<string, unknown> } | null)?.draft ?? {};
       await saveDraftToSession(sessionId, {
@@ -386,8 +400,8 @@ ${chatTranscript}`.trim();
         youtubeScript: generatedYoutubeScript,
         manifestHtml,
         thumbnails,
-        specialistCopies,
-        repurposedData,
+        specialistCopies: filteredSpecialistCopies,
+        repurposedData: filteredRepurposedData,
         packageStatus: generatedYoutubeScript ? (generateDerivatives ? 'ready' : 'script_ready') : 'error',
         workflowStage: generatedYoutubeScript ? (generateDerivatives ? 'package_ready' : 'script_ready') : 'error',
         packageError: partialError ?? '',

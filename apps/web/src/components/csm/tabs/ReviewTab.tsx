@@ -12,6 +12,7 @@ import type {
   SpecialistLinkedIn, SpecialistThread,
 } from '../CsmDashboard';
 import type { ApproveResult, StepStatus } from '@/app/api/csm/approve-package/route';
+import { normalizeChannelToggles, isChannelEnabled, type ChannelToggles } from '@/lib/channels';
 import styles from './PackageTab.module.css';
 
 interface ReviewTabProps {
@@ -20,6 +21,8 @@ interface ReviewTabProps {
   sessionId: string;
   onBack: () => void;
   onApproved: () => void;
+  /** Reexecuta a geração do pacote a partir do artigo já publicado (estado de erro). */
+  onRetryPackage: () => void;
 }
 
 type SubTab = 'roteiro' | 'slides' | 'thumbnails' | 'linkedin' | 'derivacoes';
@@ -56,12 +59,29 @@ const PACKAGE_STATUS_LABELS: Record<string, string> = {
   error:      'Erro na geração do pacote',
 };
 
-export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApproved }: ReviewTabProps) {
+export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApproved, onRetryPackage }: ReviewTabProps) {
   const [activeTab, setActiveTab] = useState<SubTab>('roteiro');
   const [isApproving, setIsApproving] = useState(false);
   const [isGeneratingDerivatives, setIsGeneratingDerivatives] = useState(false);
   const [approveResult, setApproveResult] = useState<ApproveResult | null>(null);
   const [approveError, setApproveError] = useState('');
+  const [channelToggles, setChannelToggles] = useState<ChannelToggles>(() => normalizeChannelToggles(null));
+  const [retryingAsset, setRetryingAsset] = useState<'thumbnails' | 'copies' | null>(null);
+  const [assetRetryError, setAssetRetryError] = useState('');
+
+  // Carrega os canais ligados/desligados em Configurações → Canais & Formatos,
+  // para ocultar sub-abas e itens de canais que o usuário desligou.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/csm/config/channels', { headers: { 'x-csm-session': 'authenticated' } });
+        if (res.ok) {
+          const data = await res.json();
+          setChannelToggles(normalizeChannelToggles(data.toggles));
+        }
+      } catch { /* mantém defaults */ }
+    })();
+  }, []);
 
   // Pollings para aguardar pacote gerado em background
   const [pollCount, setPollCount] = useState(0);
@@ -138,10 +158,13 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
     setIsApproving(true); setApproveError(''); setApproveResult(null);
 
     const pauta     = draft.pauta;
-    const spLi      = (spCopies?.linkedin_posts ?? []) as SpecialistLinkedIn[];
-    const spTh      = (spCopies?.threads ?? []) as SpecialistThread[];
-    const rdPosts   = rd?.linkedinPosts ?? [];
-    const reelItems = rd?.reelsScripts ?? [];
+    const linkedinOn = isChannelEnabled(channelToggles, 'linkedin_text');
+    const threadsOn  = isChannelEnabled(channelToggles, 'threads_posts');
+    const reelsOn    = isChannelEnabled(channelToggles, 'instagram_reels');
+    const spLi      = linkedinOn ? ((spCopies?.linkedin_posts ?? []) as SpecialistLinkedIn[]) : [];
+    const spTh      = threadsOn  ? ((spCopies?.threads ?? []) as SpecialistThread[]) : [];
+    const rdPosts   = linkedinOn ? (rd?.linkedinPosts ?? []) : [];
+    const reelItems = reelsOn    ? (rd?.reelsScripts ?? []) : [];
     const hasYT     = !!draft.youtubeScript?.trim() || ytSegments.length > 0;
 
     const articleSlug  = draft.suggestedSlug  || slugify(pauta?.titulo ?? 'artigo');
@@ -193,6 +216,9 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
       });
       const result: ApproveResult = await res.json();
       setApproveResult(result);
+      // Persiste o calendário da semana no draft — sem isso o plano sumia no
+      // primeiro reload e a aba Publicações não tinha como exibi-lo.
+      if (result.plan?.length) updateDraft({ publishPlan: result.plan });
       if (result.text.status !== 'error' && result.video.status !== 'error') {
         onApproved();
       }
@@ -201,15 +227,57 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
     } finally {
       setIsApproving(false);
     }
-  }, [hasPackage, packageStatus, isApproving, draft, spCopies, rd, ytSegments, sessionId, onApproved]);
+  }, [hasPackage, packageStatus, isApproving, draft, spCopies, rd, ytSegments, sessionId, onApproved, channelToggles, updateDraft]);
 
-  const tabs: { id: SubTab; label: string; count?: number }[] = [
+  const linkedinChannelOn = isChannelEnabled(channelToggles, 'linkedin_text') || isChannelEnabled(channelToggles, 'threads_posts');
+  const derivacoesChannelOn = ['instagram_reels', 'instagram_stories', 'instagram_feed', 'instagram_carousel', 'youtube_shorts', 'youtube_community']
+    .some((id) => isChannelEnabled(channelToggles, id));
+
+  // Retomada por asset — reexecuta só thumbnails ou só copies, sem tocar no
+  // roteiro/slides já aprovados. Ver /api/csm/package/asset-retry.
+  const handleRetryAsset = useCallback(async (asset: 'thumbnails' | 'copies') => {
+    if (retryingAsset || !sessionId) return;
+    setRetryingAsset(asset);
+    setAssetRetryError('');
+    try {
+      const res = await fetch('/api/csm/package/asset-retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, asset }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (asset === 'thumbnails') updateDraft({ thumbnails: data.thumbnails ?? null });
+      else updateDraft({ specialistCopies: data.specialistCopies ?? null });
+    } catch (err) {
+      setAssetRetryError(err instanceof Error ? err.message : 'Falha ao regenerar');
+    } finally {
+      setRetryingAsset(null);
+    }
+  }, [retryingAsset, sessionId, updateDraft]);
+
+  // Cada sub-aba mostra quantos itens realmente existem — sem isso, "Slides"
+  // e "Derivações" pareciam abas mortas mesmo quando o pacote tinha conteúdo,
+  // porque só apareciam clicando dentro. Contagem 0 = badge cinza "vazio", não
+  // some, para deixar claro que o agente daquele asset falhou ou não gerou.
+  const slideCount = ytSegments.filter((s) => !!s.slide).length;
+  const thumbCount = [thumbs?.option_minimal, thumbs?.option_provocative].filter(Boolean).length;
+  const derivacoesCount = (rd?.reelsScripts?.length ?? 0) + (rd?.youtubeShorts?.length ?? 0)
+    + (rd?.carousels?.length ?? 0) + (rd?.storiesIdeas?.length ?? 0) + (rd?.imagePosts?.length ?? 0);
+
+  const tabs: { id: SubTab; label: string; count: number }[] = [
     { id: 'roteiro',    label: 'Roteiro',    count: ytSegments.length },
-    { id: 'slides',     label: 'Slides' },
-    { id: 'thumbnails', label: 'Thumbnails' },
-    { id: 'linkedin',   label: 'LinkedIn',   count: linkedinPosts.length },
-    { id: 'derivacoes', label: 'Derivações' },
+    { id: 'slides',     label: 'Slides',     count: slideCount },
+    { id: 'thumbnails', label: 'Thumbnails', count: thumbCount },
+    ...(linkedinChannelOn ? [{ id: 'linkedin' as const, label: 'LinkedIn',   count: linkedinPosts.length + threads.length }] : []),
+    ...(derivacoesChannelOn ? [{ id: 'derivacoes' as const, label: 'Derivações', count: derivacoesCount }] : []),
   ];
+
+  // Se a sub-aba ativa foi desligada (usuário mudou config em outra aba), volta para roteiro.
+  useEffect(() => {
+    if (!tabs.some((t) => t.id === activeTab)) setActiveTab('roteiro');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedinChannelOn, derivacoesChannelOn]);
 
   return (
     <div className={styles.container}><div className={styles.inner}>
@@ -253,9 +321,25 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
           <div className={styles.emptyTitle}>Pacote ainda não disponível</div>
           <div className={styles.emptyDesc}>
             {packageStatus === 'error'
-              ? 'Ocorreu um erro na geração. Volte para o Artigo e tente novamente.'
+              ? 'Ocorreu um erro na geração do pacote.'
               : 'Publique o artigo primeiro. O pacote será gerado automaticamente.'}
           </div>
+          {packageStatus === 'error' && (
+            <>
+              {draft.packageError && (
+                <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '8px', maxWidth: '520px', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+                  {draft.packageError}
+                </div>
+              )}
+              <button onClick={onRetryPackage} disabled={!draft.generatedContent}
+                style={{ marginTop: '16px', padding: '10px 24px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg,#d97706,#ea580c)', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+                ↺ Gerar pacote novamente
+              </button>
+              <div style={{ color: '#8a8a8a', fontSize: '0.72rem', marginTop: '8px' }}>
+                O artigo publicado é reaproveitado — só o pacote é regenerado.
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -267,9 +351,12 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               className={`${styles.packageNavBtn} ${activeTab === t.id ? styles.packageNavBtnActive : ''}`}>
               {t.label}
-              {t.count !== undefined && t.count > 0 && (
-                <span className={`${styles.badge} ${styles.badgeOrange}`}>{t.count}</span>
-              )}
+              <span
+                className={`${styles.badge} ${t.count > 0 ? styles.badgeOrange : styles.badgeEmpty}`}
+                title={t.count > 0 ? `${t.count} item(ns)` : 'Nada gerado ainda — pode ser falha do agente'}
+              >
+                {t.count > 0 ? t.count : '—'}
+              </span>
             </button>
           ))}
         </nav>
@@ -325,8 +412,15 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
         {/* Thumbnails */}
         {activeTab === 'thumbnails' && (
           <div className={styles.panel}>
-            {!thumbs ? (
-              <div className={styles.emptyState}><div className={styles.emptyDesc}>Thumbnails não disponíveis.</div></div>
+            {!thumbs || (!thumbs.option_minimal && !thumbs.option_provocative) ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyDesc}>Thumbnails não disponíveis (falha na geração).</div>
+                <button onClick={() => handleRetryAsset('thumbnails')} disabled={retryingAsset === 'thumbnails'}
+                  style={{ marginTop: '12px', padding: '8px 18px', borderRadius: '8px', border: '1px solid rgba(230,126,34,0.35)', background: 'rgba(230,126,34,0.1)', color: '#e67e22', fontWeight: 700, fontSize: '0.8rem', cursor: retryingAsset ? 'wait' : 'pointer' }}>
+                  {retryingAsset === 'thumbnails' ? 'Gerando…' : '↺ Gerar novamente'}
+                </button>
+                {assetRetryError && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '8px' }}>{assetRetryError}</div>}
+              </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 {[['Minimalista', thumbs.option_minimal], ['Provocativa', thumbs.option_provocative]].map(([label, html]) => (
@@ -344,13 +438,20 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
         {activeTab === 'linkedin' && (
           <div className={styles.panel}>
             {linkedinPosts.length === 0 ? (
-              <div className={styles.emptyState}><div className={styles.emptyDesc}>Copies LinkedIn não disponíveis.</div></div>
+              <div className={styles.emptyState}>
+                <div className={styles.emptyDesc}>Copies LinkedIn não disponíveis (falha na geração).</div>
+                <button onClick={() => handleRetryAsset('copies')} disabled={retryingAsset === 'copies'}
+                  style={{ marginTop: '12px', padding: '8px 18px', borderRadius: '8px', border: '1px solid rgba(230,126,34,0.35)', background: 'rgba(230,126,34,0.1)', color: '#e67e22', fontWeight: 700, fontSize: '0.8rem', cursor: retryingAsset ? 'wait' : 'pointer' }}>
+                  {retryingAsset === 'copies' ? 'Gerando…' : '↺ Gerar novamente'}
+                </button>
+                {assetRetryError && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '8px' }}>{assetRetryError}</div>}
+              </div>
             ) : (
               (linkedinPosts as SpecialistLinkedIn[]).map((p, i) => (
                 <div key={p.id ?? i} className={styles.card}>
                   <div className={styles.cardTitle}>Post #{i + 1}</div>
                   <div className={styles.segScript} style={{ whiteSpace: 'pre-wrap' }}>{p.hook}{'\n\n'}{p.copy}</div>
-                  {p.hashtags && <div style={{ color: '#60a5fa', fontSize: '0.78rem', marginTop: '4px' }}>{p.hashtags}</div>}
+                  {p.hashtags && <div style={{ color: '#2563eb', fontSize: '0.78rem', marginTop: '4px' }}>{p.hashtags}</div>}
                 </div>
               ))
             )}
@@ -363,40 +464,77 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
             <div className={styles.card}>
               <div className={styles.cardTitle}>Resumo das Derivações</div>
               {[
-                ['Reels',     rd?.reelsScripts?.length     ?? 0],
-                ['Threads',   threads.length],
-                ['Shorts YT', rd?.youtubeShorts?.length    ?? 0],
-                ['Carrosséis',rd?.carousels?.length        ?? 0],
-                ['Stories',   rd?.storiesIdeas?.length     ?? 0],
-              ].map(([label, count]) => (
-                <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{label as string}</span>
-                  <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.85rem' }}>{count as number}</span>
-                </div>
-              ))}
+                ['Reels',      rd?.reelsScripts?.length  ?? 0, 'instagram_reels'],
+                ['Threads',    threads.length,                 'threads_posts'],
+                ['Shorts YT',  rd?.youtubeShorts?.length ?? 0, 'youtube_shorts'],
+                ['Carrosséis', rd?.carousels?.length     ?? 0, 'instagram_carousel'],
+                ['Stories',    rd?.storiesIdeas?.length  ?? 0, 'instagram_stories'],
+              ].map(([label, count, channelId]) => {
+                const enabled = isChannelEnabled(channelToggles, channelId as string);
+                return (
+                  <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(30,30,30,0.04)', opacity: enabled ? 1 : 0.5 }}>
+                    <span style={{ color: '#6b6b6b', fontSize: '0.85rem' }}>{label as string}</span>
+                    {enabled
+                      ? <span style={{ color: '#1e1e1e', fontWeight: 'bold', fontSize: '0.85rem' }}>{count as number}</span>
+                      : <span style={{ color: '#8a8a8a', fontSize: '0.75rem', fontStyle: 'italic' }}>Desligado em Configurações</span>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
       </>)}
+
+      {/* Plano da semana — o que sai em cada dia após a aprovação */}
+      {approveResult?.plan?.length ? (
+        <div className={styles.card} style={{ marginTop: '16px' }}>
+          <div className={styles.cardTitle}>Plano de publicação · próximos 7 dias</div>
+          <div style={{ fontSize: '0.78rem', color: '#6b6b6b', marginBottom: '10px' }}>
+            O publicador roda de hora em hora e envia cada peça no horário abaixo.
+          </div>
+          {approveResult.plan.map((day) => (
+            <div key={day.day} style={{ marginBottom: '10px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e67e22', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Dia {day.day} · {new Date(day.date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+              </div>
+              {day.items.map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '5px 0', borderBottom: '1px solid rgba(30,30,30,0.05)', fontSize: '0.8rem' }}>
+                  <span style={{ color: '#1e1e1e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <b style={{ color: '#6b6b6b', fontWeight: 600 }}>{item.platform}</b> · {item.title || item.format}
+                  </span>
+                  <span style={{ color: '#6b6b6b', flexShrink: 0, fontFamily: 'monospace' }}>
+                    {new Date(item.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Barra de ação */}
       <div className={styles.actionBar} style={{ justifyContent: 'space-between', marginTop: '16px' }}>
         <button className={styles.backBtn} onClick={onBack}>← Artigo</button>
 
         {approveError && (
-          <div style={{ color: '#f87171', fontSize: '0.8rem', padding: '8px' }}>{approveError}</div>
+          <div style={{ color: '#dc2626', fontSize: '0.8rem', padding: '8px' }}>{approveError}</div>
         )}
 
         {approveResult && (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ color: '#4ade80', fontSize: '0.85rem', fontWeight: 'bold' }}>
+            <span style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 'bold' }}>
               ✓ Pipeline disparado
             </span>
             {approveResult.errors?.length > 0 && (
-              <span style={{ color: '#fbbf24', fontSize: '0.75rem' }}>
+              <span style={{ color: '#d97706', fontSize: '0.75rem' }}>
                 ({approveResult.errors.length} erro(s) parcial(is))
               </span>
             )}
+            {approveResult.blockedChannels?.length ? (
+              <span style={{ color: '#8a8a8a', fontSize: '0.75rem' }}>
+                {approveResult.blockedChannels.length} canal(is) ignorado(s) (desligado em Configurações)
+              </span>
+            ) : null}
           </div>
         )}
 
@@ -412,8 +550,8 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
           disabled={!hasPackage || packageStatus !== 'ready' || isApproving || !!approveResult}
           style={{
             padding: '14px 28px', borderRadius: '12px', fontWeight: 'bold', border: 'none', cursor: !hasPackage || packageStatus !== 'ready' || isApproving || !!approveResult ? 'not-allowed' : 'pointer', fontSize: '1rem',
-            background: approveResult ? 'rgba(74,222,128,0.15)' : !hasPackage || packageStatus !== 'ready' ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg,#16a34a,#15803d)',
-            color: approveResult ? '#4ade80' : !hasPackage || packageStatus !== 'ready' ? '#64748b' : '#fff',
+            background: approveResult ? 'rgba(22,163,74,0.15)' : !hasPackage || packageStatus !== 'ready' ? 'rgba(30,30,30,0.05)' : 'linear-gradient(135deg,#16a34a,#15803d)',
+            color: approveResult ? '#16a34a' : !hasPackage || packageStatus !== 'ready' ? '#8a8a8a' : '#ffffff',
           }}>
           {isApproving ? 'Aprovando...' : approveResult ? '✓ Aprovado' : '✅ Aprovar & Produzir Vídeo'}
         </button>}

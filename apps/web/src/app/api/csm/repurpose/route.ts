@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateContent } from '@/lib/vertex';
 import { getEcosystemMemory, formatMemoryForPrompt } from '@/lib/retrieval';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 interface RepurposeRequest {
   title: string;
@@ -49,9 +50,7 @@ export async function POST(request: Request): Promise<Response> {
     console.log(`[csm/repurpose] Attempting to proxy campaign derivation to Python service: ${cmoAgentUrl}/repurpose`);
     const pythonRes = await fetch(`${cmoAgentUrl}/repurpose`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: cmoAgentHeaders(),
       body: JSON.stringify({
         title: resolvedTitle,
         slug: resolvedSlug,

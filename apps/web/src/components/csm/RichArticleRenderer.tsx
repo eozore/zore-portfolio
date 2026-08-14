@@ -56,6 +56,34 @@ function cleanMermaidCode(rawCode: string): string {
   // Converte <br> HTML para espaço dentro de rótulos (Mermaid não aceita HTML)
   cleaned = cleaned.replace(/<br\s*\/?>/gi, ' ');
 
+  // Auto-quote de rótulos de nós: parênteses, dois-pontos e vírgulas dentro de
+  // [..], {..} ou |..| sem aspas quebram o parser ("Expecting 'SQE' ... got 'PS'").
+  // O LLM às vezes ignora a instrução de citar — protegemos aqui de qualquer forma.
+  // Aplicado linha a linha para não tocar comentários/diretivas (%%) nem
+  // linhas de estilo (classDef/style/linkStyle), que usam ':' legitimamente.
+  const needsQuoting = (label: string) => /[():,;<>&]/.test(label);
+  cleaned = cleaned
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith('%%') || /^(classDef|style|linkStyle|click)\b/.test(trimmed)) return line;
+      let out = line;
+      // Rótulos retangulares  A[Texto (com parens)]  →  A["Texto (com parens)"]
+      out = out.replace(/\[([^\][\n"]+)\]/g, (match, label: string) =>
+        needsQuoting(label) ? `["${label.replace(/"/g, "'")}"]` : match,
+      );
+      // Rótulos de decisão  B{Pergunta (x)?}  →  B{"Pergunta (x)?"}
+      out = out.replace(/\{([^{}\n"]+)\}/g, (match, label: string) =>
+        needsQuoting(label) ? `{"${label.replace(/"/g, "'")}"}` : match,
+      );
+      // Rótulos de aresta  -->|texto (x)|  →  -->|"texto (x)"|
+      out = out.replace(/\|([^|\n"]+)\|/g, (match, label: string) =>
+        needsQuoting(label) ? `|"${label.replace(/"/g, "'")}"|` : match,
+      );
+      return out;
+    })
+    .join('\n');
+
   return cleaned.trim();
 }
 

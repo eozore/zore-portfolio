@@ -3,6 +3,7 @@ import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestoreDb } from '@/lib/firebase';
 import type { ArticleCategory } from '@/types/article';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 type OutputFormat = 'blog' | 'youtube' | 'linkedin';
 
@@ -171,10 +172,7 @@ export async function POST(request: Request): Promise<Response> {
     console.log(`[csm/generate] Attempting to proxy generation to Python service: ${cmoAgentUrl}/generate`);
     const pythonRes = await fetch(`${cmoAgentUrl}/generate`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': tenantId || '',
-      },
+      headers: cmoAgentHeaders(tenantId),
       body: JSON.stringify({
         topic,
         context,

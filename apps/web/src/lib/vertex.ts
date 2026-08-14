@@ -81,26 +81,53 @@ export async function generateContent(options: GenerateContentOptions): Promise<
     (payload.generationConfig as Record<string, unknown>).responseSchema = options.responseSchema;
   }
 
-  const res = await fetch(getVertexGenerateEndpoint(projectId), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  // 429 (quota momentânea), 500 e 503 são transitórios — retry com backoff
+  // exponencial em vez de estourar o erro direto para a UI do chat/derivações.
+  const RETRYABLE = new Set([429, 500, 503]);
+  const MAX_ATTEMPTS = 4;
+  const BASE_BACKOFF_MS = 4_000; // 4s, 8s, 16s — quota por minuto precisa de espera real
 
-  if (!res.ok) {
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(getVertexGenerateEndpoint(projectId), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      lastError = new Error(`Vertex AI network error: ${err instanceof Error ? err.message : String(err)}`);
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, BASE_BACKOFF_MS * 2 ** (attempt - 1)));
+        continue;
+      }
+      throw lastError;
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error('No text returned from Vertex AI candidate');
+      }
+      return text;
+    }
+
     const errText = await res.text();
-    throw new Error(`Vertex AI generateContent error (${res.status}): ${errText}`);
+    lastError = new Error(`Vertex AI generateContent error (${res.status}): ${errText}`);
+    if (RETRYABLE.has(res.status) && attempt < MAX_ATTEMPTS) {
+      const wait = BASE_BACKOFF_MS * 2 ** (attempt - 1);
+      console.warn(`[vertex] HTTP ${res.status} (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${wait}ms`);
+      await new Promise((r) => setTimeout(r, wait));
+      continue;
+    }
+    throw lastError;
   }
 
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('No text returned from Vertex AI candidate');
-  }
-
-  return text;
+  throw lastError ?? new Error('Vertex AI: exhausted retries');
 }
 

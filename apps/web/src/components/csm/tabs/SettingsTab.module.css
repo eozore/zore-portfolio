@@ -1,20 +1,21 @@
-/* SettingsTab.module.css — Light Theme */
+/* SettingsTab.module.css — tema claro, alinhado com o site publico */
 
 .container {
   display: flex;
   flex-direction: column;
   gap: 24px;
   width: 100%;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255,255,255, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(30, 30, 30, 0.08);
+  border: 1px solid rgba(30,30,30,0.12);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
 .headerRow {
@@ -39,8 +40,8 @@
 
 .btnBack {
   background: transparent;
-  border: 1px solid rgba(30, 30, 30, 0.15);
-  color: #6b6b6b;
+  border: 1px dashed rgba(30,30,30,0.18);
+  color: #8a8a8a;
   padding: 8px 16px;
   border-radius: 10px;
   cursor: pointer;
@@ -49,8 +50,9 @@
 }
 
 .btnBack:hover {
-  background: rgba(30, 30, 30, 0.04);
-  color: #1e1e1e;
+  background: rgba(230,126,34,0.06);
+  border-color: rgba(230,126,34,0.4);
+  color: #e67e22;
 }
 
 /* Split Layout */
@@ -81,30 +83,32 @@
 }
 
 .agentBtn:hover {
-  background: rgba(30, 30, 30, 0.04);
+  background: rgba(30,30,30,0.03);
   color: #1e1e1e;
 }
 
 .agentBtnActive {
-  background: rgba(230, 126, 34, 0.1);
-  border: 1px solid rgba(230, 126, 34, 0.25);
-  color: #d35400;
+  background: rgba(230,126,34,0.1);
+  border: 1px solid rgba(230,126,34,0.3);
+  color: #e67e22;
 }
 
 .agentBadge {
-  font-size: 0.7rem;
-  background: rgba(30, 30, 30, 0.06);
-  color: #6b6b6b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  background: rgba(30,30,30,0.05);
+  color: #8a8a8a;
   padding: 2px 6px;
   border-radius: 6px;
   margin-top: 4px;
   display: inline-block;
-  font-weight: bold;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .agentBadgeActive {
-  background: rgba(230, 126, 34, 0.12);
-  color: #d35400;
+  background: rgba(230,126,34,0.14);
+  color: #e67e22;
 }
 
 .editorPane {
@@ -119,13 +123,13 @@
   font-weight: 700;
 }
 
-/* Textarea do editor de prompts — dark (convenção de editor de código) */
+/* Textarea do editor de prompts */
 .textarea {
   width: 100%;
   min-height: 380px;
-  background: #1e1e2e;
-  border: 1px solid rgba(30, 30, 30, 0.1);
-  color: #cdd6f4;
+  background: #f2f0ec;
+  border: 1px solid rgba(30,30,30,0.12);
+  color: #1e1e1e;
   padding: 16px;
   border-radius: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -137,7 +141,7 @@
 
 .textarea:focus {
   outline: none;
-  border-color: rgba(230, 126, 34, 0.4);
+  border-color: rgba(230,126,34,0.45);
 }
 
 .actionRow {
@@ -156,13 +160,13 @@
   border-radius: 10px;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(230, 126, 34, 0.3);
+  box-shadow: 0 4px 14px rgba(230,126,34,0.25);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .btnSave:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(230, 126, 34, 0.4);
+  box-shadow: 0 6px 20px rgba(230,126,34,0.35);
 }
 
 .btnSave:disabled {
@@ -173,7 +177,7 @@
 
 .btnReset {
   background: transparent;
-  border: 1px solid rgba(220, 38, 38, 0.3);
+  border: 1px solid rgba(220,38,38,0.3);
   color: #dc2626;
   padding: 10px 18px;
   border-radius: 10px;
@@ -184,15 +188,15 @@
 }
 
 .btnReset:hover {
-  background: rgba(220, 38, 38, 0.06);
+  background: rgba(220,38,38,0.08);
 }
 
 .collapseHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(248, 247, 244, 0.8);
-  border: 1px solid rgba(30, 30, 30, 0.08);
+  background: rgba(30,30,30,0.02);
+  border: 1px solid rgba(30,30,30,0.12);
   padding: 12px 16px;
   border-radius: 10px;
   cursor: pointer;
@@ -204,27 +208,27 @@
   transition: all 0.2s;
 }
 
-.collapseHeader:hover { background: rgba(248, 247, 244, 1); color: #1e1e1e; }
+.collapseHeader:hover { background: rgba(30,30,30,0.04); color: #1e1e1e; }
 
 .collapseContent {
-  background: #1e1e2e;
-  border: 1px solid rgba(30, 30, 30, 0.1);
+  background: #f2f0ec;
+  border: 1px solid rgba(30,30,30,0.12);
   border-top: none;
   padding: 16px;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
   max-height: 240px;
   overflow-y: auto;
-  font-family: monospace;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: #6b6b6b;
   white-space: pre-wrap;
   line-height: 1.5;
 }
 
 .toast {
-  background: rgba(22, 163, 74, 0.08);
-  border: 1px solid rgba(22, 163, 74, 0.25);
+  background: rgba(22,163,74,0.08);
+  border: 1px solid rgba(22,163,74,0.25);
   color: #16a34a;
   padding: 12px 20px;
   border-radius: 12px;
@@ -272,8 +276,8 @@
 
 .keyInput {
   flex: 1;
-  background: #f8f7f4;
-  border: 1px solid rgba(30, 30, 30, 0.12);
+  background: #f2f0ec;
+  border: 1px solid rgba(30,30,30,0.12);
   color: #1e1e1e;
   padding: 12px 16px;
   border-radius: 10px;
@@ -282,9 +286,11 @@
   transition: all 0.2s;
 }
 
+.keyInput::placeholder { color: #9a9a9a; }
+
 .keyInput:focus {
   outline: none;
-  border-color: rgba(230, 126, 34, 0.4);
+  border-color: rgba(230,126,34,0.45);
   background: #ffffff;
 }
 
@@ -295,9 +301,10 @@
 }
 
 .envBadgeProduction {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
-  background: rgba(22, 163, 74, 0.08);
-  border: 1px solid rgba(22, 163, 74, 0.25);
+  background: rgba(22,163,74,0.08);
+  border: 1px solid rgba(22,163,74,0.25);
   color: #16a34a;
   padding: 4px 10px;
   border-radius: 20px;
@@ -305,9 +312,10 @@
 }
 
 .envBadgeDevelopment {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.25);
   color: #d97706;
   padding: 4px 10px;
   border-radius: 20px;
@@ -322,13 +330,13 @@
   border-radius: 10px;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(230, 126, 34, 0.25);
+  box-shadow: 0 4px 12px rgba(230,126,34,0.22);
   transition: all 0.2s;
 }
 
 .btnKeySave:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(230, 126, 34, 0.35);
+  box-shadow: 0 6px 20px rgba(230,126,34,0.32);
 }
 
 .btnKeySave:disabled {
@@ -354,11 +362,12 @@
   display: flex;
   gap: 12px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .templateSelectBtn {
-  background: #f8f7f4;
-  border: 1px solid rgba(30, 30, 30, 0.1);
+  background: rgba(30,30,30,0.02);
+  border: 1px solid rgba(30,30,30,0.12);
   color: #6b6b6b;
   padding: 8px 16px;
   border-radius: 8px;
@@ -369,13 +378,14 @@
 }
 
 .templateSelectBtn:hover {
-  background: rgba(30, 30, 30, 0.04);
+  background: rgba(30,30,30,0.05);
+  color: #1e1e1e;
 }
 
 .templateSelectBtnActive {
-  background: rgba(230, 126, 34, 0.1);
-  border-color: rgba(230, 126, 34, 0.3);
-  color: #d35400;
+  background: rgba(230,126,34,0.1);
+  border-color: rgba(230,126,34,0.35);
+  color: #e67e22;
 }
 
 .phonePreviewContainer {
@@ -387,18 +397,18 @@
 .phoneFrameSim {
   width: 320px;
   height: 570px;
-  border: 12px solid #0f172a;
+  border: 12px solid #f2f0ec;
   border-radius: 36px;
   background: #000;
   position: relative;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.08);
   overflow: hidden;
 }
 
 .phoneNotchSim {
   width: 110px;
   height: 18px;
-  background: #0f172a;
+  background: #f2f0ec;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
   position: absolute;
@@ -415,3 +425,217 @@
   background: #000;
 }
 
+/* ── Canais & Formatos ─────────────────────────────────────────── */
+
+.channelGroupLabel {
+  color: #e67e22;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.channelGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.channelCard {
+  border: 1px solid rgba(30,30,30,0.12);
+  background: rgba(30,30,30,0.02);
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.channelCard:hover {
+  border-color: rgba(230,126,34,0.4);
+  background: rgba(230,126,34,0.03);
+}
+
+.channelCardDisabled {
+  opacity: 0.55;
+}
+
+.channelCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.channelCardLabel {
+  color: #1e1e1e;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.channelCardDesc {
+  color: #8a8a8a;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  margin-top: 6px;
+}
+
+.comingSoonBadge {
+  flex-shrink: 0;
+  background: rgba(148,163,184,0.12);
+  color: #6b6b6b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.toggleSwitch {
+  flex-shrink: 0;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(30,30,30,0.12);
+  background: #f2f0ec;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.toggleSwitch:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.toggleSwitchOn {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1e1e1e;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  transition: transform 0.2s;
+}
+
+.toggleSwitchOn .toggleKnob {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+/* ── Segurança ─────────────────────────────────────────────────── */
+
+.securityBlock {
+  border: 1px solid rgba(30,30,30,0.12);
+  background: rgba(30,30,30,0.02);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.securityBlockTitle {
+  color: #1e1e1e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+/* ── Painéis de texto e caixas informativas (ex-inline styles) ───── */
+
+.mutedText {
+  color: #6b6b6b;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+.infoBox {
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(30,30,30,0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(30,30,30,0.12);
+}
+
+.infoBoxTitle {
+  color: #e67e22;
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.infoBoxText {
+  color: #6b6b6b;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.profileCard {
+  padding: 16px;
+  background: rgba(30,30,30,0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(30,30,30,0.12);
+}
+
+.profileCardTitle {
+  color: #e67e22;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: rgba(30,30,30,0.12);
+  margin: 16px 0 8px;
+}
+
+.sidebarGroupLabel {
+  color: #9a9a9a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 12px 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.securityRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f2f0ec;
+}
+
+.securityRowLabel {
+  color: #6b6b6b;
+  font-size: 0.8rem;
+}
+
+.loadingBox {
+  text-align: center;
+  padding: 60px;
+}
+
+.loadingIcon {
+  color: #e67e22;
+  font-size: 2rem;
+  animation: spin 2s linear infinite;
+}
+
+.loadingText {
+  color: #6b6b6b;
+  margin-top: 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

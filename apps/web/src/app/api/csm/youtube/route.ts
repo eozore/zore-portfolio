@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getVertexAccessToken, getVertexStreamEndpoint } from '@/lib/vertex';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 export const dynamic = 'force-dynamic';
 // Allow up to 10 minutes for YouTube script generation via the AGY pipeline
@@ -61,9 +62,7 @@ export async function POST(request: Request): Promise<Response> {
     console.log(`[csm/youtube] Proxying to Python service: ${cmoAgentUrl}/youtube`);
     const pythonRes = await fetch(`${cmoAgentUrl}/youtube`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: cmoAgentHeaders(),
       body: JSON.stringify({
         title: resolvedTitle,
         content,

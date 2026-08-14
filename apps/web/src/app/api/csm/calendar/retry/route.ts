@@ -9,10 +9,12 @@
  *    → Reseta status=planned, retry_count=0, error_message=null
  *    → O publisher-scheduled vai pegar na próxima rodada
  *
- * B) content_projects (pipeline de vídeo — TTS→Avatar→Editor)
- *    → Detecta o stage com falha (tts | avatar | editor)
- *    → Reseta o stage para pending no Firestore
- *    → Republica a mensagem Pub/Sub correta para reiniciar a partir daquele stage
+ * B) content_projects (pipeline de vídeo — TTS→Avatar→Editor→Publisher)
+ *    → Detecta o stage com falha (tts | avatar | editor | publisher)
+ *    → Reseta o stage (e os seguintes) para pending no Firestore
+ *    → Republica a mensagem Pub/Sub correta para reiniciar a partir daquele stage,
+ *      SEM refazer os stages anteriores já concluídos (cada jornada de produção
+ *      é um content_projects/{projectId}; cada stage é um asset independente).
  *
  * Body: { id: string, collection: 'social_queue' | 'content_projects' }
  */
@@ -22,13 +24,17 @@ import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { getFirestoreDb } from '@/lib/firebase';
 import { dbPaths } from '@/lib/dbPaths';
 import { PubSub } from '@google-cloud/pubsub';
+import { computeHealth } from '@/lib/pipelineHealth';
 
 const GCP_PROJECT_ID   = process.env.FIREBASE_PROJECT_ID || 'vazfy-417019';
 const PIPELINE_TOPICS  = {
-  tts:    'content-pipeline.package-approved',
-  avatar: 'content-pipeline.tts-completed',
-  editor: 'content-pipeline.avatar-completed',
+  tts:       'content-pipeline.package-approved',
+  avatar:    'content-pipeline.tts-completed',
+  editor:    'content-pipeline.avatar-completed',
+  publisher: 'content-pipeline.video-ready',
 } as const;
+const STAGE_ORDER = ['tts', 'avatar', 'editor', 'publisher'] as const;
+type StageName = (typeof STAGE_ORDER)[number];
 
 export async function POST(request: Request): Promise<Response> {
   if (!isCsmAuthenticated(request)) return csmUnauthorized();
@@ -78,31 +84,37 @@ export async function POST(request: Request): Promise<Response> {
   // ── B: Pipeline de vídeo (content_projects) ───────────────────────────────
   const stages = data.stages ?? {};
 
-  // Encontra o stage com falha — na ordem TTS → Avatar → Editor
-  const failedStage = (['tts', 'avatar', 'editor'] as const).find(
-    (s) => stages[s]?.status === 'error'
-  );
+  // Encontra o stage travado — erro explícito OU rodando/pendente há mais
+  // tempo do que o esperado (Job morto por OOM, mensagem Pub/Sub perdida etc.
+  // nunca gravam error_message, então "error" sozinho não pega tudo).
+  const failedStage: StageName | undefined = STAGE_ORDER.find((s) => {
+    const stageData = stages[s];
+    if (stageData?.status === 'error') return true;
+    const startedAtMs = stageData?.started_at ? stageData.started_at * 1000 : undefined;
+    return computeHealth(stageData?.status, startedAtMs, s) === 'stuck';
+  });
 
   if (!failedStage) {
     return NextResponse.json({
-      error: 'Nenhum stage com erro encontrado. Verifique o status do projeto.',
+      error: 'Nenhum stage travado ou com erro encontrado. Verifique o status do projeto.',
       stages: Object.fromEntries(Object.entries(stages).map(([k, v]: [string, any]) => [k, v?.status])),
     }, { status: 400 });
   }
 
-  // Reseta o stage com falha e todos os stages seguintes para pending
-  const stageOrder = ['tts', 'avatar', 'editor'] as const;
-  const failIdx    = stageOrder.indexOf(failedStage);
+  // Reseta o stage com falha e todos os stages seguintes para pending.
+  // Stages já concluídos ANTES dele não são tocados — é o que garante que o
+  // retry reprocesse só o asset quebrado, não a jornada inteira.
+  const failIdx      = STAGE_ORDER.indexOf(failedStage);
   const updateData: Record<string, unknown> = { updated_at: now };
 
-  stageOrder.slice(failIdx).forEach((s) => {
+  STAGE_ORDER.slice(failIdx).forEach((s) => {
     updateData[`stages.${s}.status`]        = 'pending';
     updateData[`stages.${s}.error_message`] = null;
     updateData[`stages.${s}.error_type`]    = null;
     updateData[`stages.${s}.started_at`]    = null;
     updateData[`stages.${s}.completed_at`]  = null;
   });
-  updateData['status'] = 'generating_media';
+  updateData['status'] = failedStage === 'publisher' ? 'awaiting_publication' : 'generating_media';
 
   await ref.update(updateData);
 
@@ -131,14 +143,48 @@ export async function POST(request: Request): Promise<Response> {
       total_cost_usd: stages.tts?.cost_real ?? 0,
       segment_count:  stages.tts?.segment_count ?? 0,
     };
-  } else {
-    // editor: reinicia com os vídeos do avatar
+  } else if (failedStage === 'editor') {
+    // editor: reinicia com os vídeos por segmento do avatar (contrato atual —
+    // AvatarCompletedMsg em agents/pipeline/shared/models.py). O avatar_job
+    // grava cada segmento em stages.avatar.segment_videos.{horizontal,vertical}
+    // como {seg_id, status, video_url} — só os segmentos "completed" entram
+    // na lista final, na mesma lógica usada pelo heygen_callback ao publicar
+    // o avatar_completed original.
+    const segmentVideos = stages.avatar?.segment_videos ?? {};
+    const hSegs = (segmentVideos.horizontal ?? []) as { seg_id: string; status: string; video_url?: string }[];
+    const vSegs = (segmentVideos.vertical   ?? []) as { seg_id: string; status: string; video_url?: string }[];
+    const completed = (segs: typeof hSegs) => segs.filter((s) => s.status === 'completed' && s.video_url);
+    const hPaths = completed(hSegs).map((s) => s.video_url);
+    const vPaths = completed(vSegs).map((s) => s.video_url);
+    if (!hPaths.length && !vPaths.length) {
+      return NextResponse.json({
+        error: 'Stage "avatar" não tem segment_videos completos no Firestore. Retente o stage "avatar" primeiro.',
+      }, { status: 409 });
+    }
     pubsubMessage = {
-      project_id:            id,
-      horizontal_video_path: stages.avatar?.lipsync_jobs?.horizontal?.video_url ?? '',
-      vertical_video_path:   stages.avatar?.lipsync_jobs?.vertical?.video_url   ?? '',
-      duration_seconds:      0,
-      total_cost_usd:        stages.avatar?.cost_real ?? 0,
+      project_id:             id,
+      horizontal_video_paths: hPaths,
+      vertical_video_paths:   vPaths,
+      segment_ids:            completed(hSegs).map((s) => s.seg_id),
+      vertical_segment_ids:   completed(vSegs).map((s) => s.seg_id),
+      duration_seconds:       0,
+      total_cost_usd:         stages.avatar?.cost_real ?? 0,
+    };
+  } else {
+    // publisher: reinicia com o vídeo final já montado pelo editor
+    const horizontalUrl = stages.editor?.horizontal_url ?? '';
+    const verticalUrl   = stages.editor?.vertical_url   ?? '';
+    if (!horizontalUrl && !verticalUrl) {
+      return NextResponse.json({
+        error: 'Stage "editor" não tem vídeo final gravado no Firestore. Retente o stage "editor" primeiro.',
+      }, { status: 409 });
+    }
+    pubsubMessage = {
+      project_id:        id,
+      horizontal_final:  horizontalUrl,
+      vertical_final:    verticalUrl,
+      duration_seconds:  0,
+      trigger:           data.publish_trigger ?? 'scheduled',
     };
   }
 

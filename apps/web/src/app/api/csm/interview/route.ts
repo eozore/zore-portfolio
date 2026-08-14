@@ -4,6 +4,7 @@ import { getEcosystemMemory, formatMemoryForPrompt } from '@/lib/retrieval';
 import { appendMessageToSession } from '@/lib/session';
 import { fetchTrendingPapersForCmo } from '@/lib/arxiv';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -34,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
       console.log(`[interview] Forwarding request to Python CMO Agent: ${cmoAgentUrl}/interview`);
       const agentRes = await fetch(`${cmoAgentUrl}/interview`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: cmoAgentHeaders(),
         body: JSON.stringify({ messages, sessionId, category }),
       });
 
@@ -79,6 +80,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const systemInstruction = `Você é o Diretor de Marketing (CMO AI) e Parceiro de Cocriação Visionária da plataforma éozoré (eozore.com).
 Você está em uma reunião executiva privada 1-on-1 com Victor Zore (CEO e Líder Técnico em GenAI & MLOps, formado em Matemática pela UFSCar).
+
+CAPITALIZAÇÃO (regra inegociável): títulos e subtítulos da pauta SEMPRE em sentence case — só a primeira letra da frase em maiúscula, mais nomes próprios e siglas (RAG, LLM, GCP). NUNCA Title Case (Cada Palavra Maiúscula é proibido). Sem emojis ou ícones em títulos e subtítulos.
 
 A FILOSOFIA INEGOCIÁVEL DO CEO:
 Ensinar o PORQUÊ (intuição geométrica, álgebra linear em LaTeX, superfície de perda) antes do COMO (código Python ou bibliotecas).

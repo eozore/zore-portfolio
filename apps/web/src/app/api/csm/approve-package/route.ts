@@ -16,6 +16,28 @@
 import { NextResponse } from 'next/server';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { loadSession, saveDraftToSession } from '@/lib/session';
+import { getEnabledChannelToggles } from '@/lib/channelToggles';
+import { isChannelEnabled, type ChannelToggles } from '@/lib/channels';
+import { planWeek, summarizePlan, PLAN_HORIZON_DAYS } from '@/lib/contentPlanner';
+
+/** Mapeia (platform, format) dos itens aprovados para o id de canal em lib/channels.ts. */
+function channelIdForItem(platform: string, format: string): string | null {
+  const key = `${platform}:${format}`;
+  const map: Record<string, string> = {
+    'linkedin:text': 'linkedin_text',
+    'linkedin:image': 'linkedin_text',
+    'threads:thread': 'threads_posts',
+    'facebook:text': 'facebook_post',
+    'facebook:image': 'facebook_post',
+    'x:text': 'x_post',
+    'instagram:reel': 'instagram_reels',
+    'instagram:short': 'youtube_shorts',
+    'instagram:carousel': 'instagram_carousel',
+    'instagram:story': 'instagram_stories',
+    'instagram:image': 'instagram_feed',
+  };
+  return map[key] ?? null;
+}
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +53,14 @@ export interface ApproveResult {
   video:    StepResult;   // YouTube, Reels   — pipeline Pub/Sub
   errors:   string[];
   approved_at: string;
+  /** Ids de canal ignorados no servidor por estarem desligados em Configurações. */
+  blockedChannels?: string[];
+  /** Calendário da semana: o que sai em cada dia e horário. */
+  plan?: {
+    day: number;
+    date: string;
+    items: { platform: string; format: string; title: string; scheduledAt: string }[];
+  }[];
 }
 
 export interface ApprovePackageRequest {
@@ -96,17 +126,24 @@ async function enqueueText(
   sessionId: string | undefined,
   session: string,
   cookie: string,
-): Promise<StepResult> {
+): Promise<StepResult & { plan?: ApproveResult['plan'] }> {
   if (!textItems.length) return { status: 'skipped' };
 
   try {
-    // O vídeo longo precisa ter prioridade. Mesmo que o usuário tenha
-    // escolhido uma data anterior, libera as peças sociais somente depois
-    // de uma janela mínima para a publicação do YouTube.
-    const socialReleaseAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    const scheduledItems = textItems.map((item) => ({
-      ...item,
-      scheduledAt: item.scheduledAt > socialReleaseAt ? item.scheduledAt : socialReleaseAt,
+    // Distribui a campanha ao longo de 7 dias em vez de enfileirar tudo com o
+    // mesmo horário (o publisher roda de hora em hora e despejaria a campanha
+    // inteira na primeira execução). O vídeo do YouTube é a âncora e sai antes,
+    // por isso nada social é agendado para o dia 0.
+    const scheduledItems = planWeek(textItems);
+    const plan = summarizePlan(scheduledItems).map((d) => ({
+      day: d.day,
+      date: d.date,
+      items: d.items.map((i) => ({
+        platform: i.platform,
+        format: i.format,
+        title: String((i as { title?: string }).title ?? ''),
+        scheduledAt: i.scheduledAt,
+      })),
     }));
 
     const res = await fetch(`${base}/api/csm/pipeline-submit`, {
@@ -128,7 +165,8 @@ async function enqueueText(
     const errors = (data.results?.errors ?? []) as string[];
     return {
       status: errors.length && !queued ? 'error' : 'ok',
-      detail: `${queued} item(s) agendado(s) na social_queue${errors.length ? ` · ${errors.length} erro(s)` : ''}`,
+      detail: `${queued} item(s) distribuído(s) ao longo de ${PLAN_HORIZON_DAYS} dias${errors.length ? ` · ${errors.length} erro(s)` : ''}`,
+      plan,
     };
   } catch (err) {
     return { status: 'error', detail: err instanceof Error ? err.message : String(err) };
@@ -188,7 +226,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const {
-    textItems = [], videoItems = [],
+    textItems: rawTextItems = [], videoItems: rawVideoItems = [],
     youtubeScript, articleSlug, articleTitle,
     sessionId, csmSession = 'authenticated',
   } = body;
@@ -196,6 +234,24 @@ export async function POST(request: Request): Promise<Response> {
   if (!articleSlug) {
     return NextResponse.json({ error: 'articleSlug required' }, { status: 400 });
   }
+
+  // Defesa em profundidade: mesmo que o client tente aprovar um item de canal
+  // desligado (bug de UI, chamada direta à API), o servidor nunca enfileira.
+  const tenantIdForChannels = request.headers.get('x-tenant-id') || null;
+  const channelToggles: ChannelToggles = await getEnabledChannelToggles(tenantIdForChannels);
+  const blockedChannels = new Set<string>();
+  const keepEnabled = <T extends { platform: string; format: string }>(items: T[]): T[] =>
+    items.filter((item) => {
+      const channelId = channelIdForItem(item.platform, item.format);
+      if (channelId && !isChannelEnabled(channelToggles, channelId)) {
+        blockedChannels.add(channelId);
+        return false;
+      }
+      return true;
+    });
+
+  const textItems = keepEnabled(rawTextItems);
+  const videoItems = keepEnabled(rawVideoItems);
 
   // O gate editorial também é validado no servidor. A UI pode esconder abas,
   // mas não deve ser possível aprovar derivações sem artigo publicado e sem
@@ -233,6 +289,8 @@ export async function POST(request: Request): Promise<Response> {
     video:       videoResult,
     errors,
     approved_at: new Date().toISOString(),
+    ...(blockedChannels.size ? { blockedChannels: [...blockedChannels] } : {}),
+    ...(('plan' in textResult && textResult.plan) ? { plan: textResult.plan } : {}),
   };
 
   // 207 Multi-Status se houver erros parciais, 200 se tudo ok ou skipped

@@ -66,6 +66,10 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
     const now = new Date(); now.setSeconds(0, 0);
     return now.toISOString().slice(0, 16);
   });
+  // Marcam edição manual: enquanto false, os campos continuam se auto-preenchendo
+  // conforme o artigo é gerado. Depois que o usuário digita, paramos de sobrescrever.
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [slugTouched, setSlugTouched] = useState(false);
   const [publishStatus, setPublishStatus] = useState<PublishStatus>('idle');
   const [publishError, setPublishError] = useState('');
   const [publishedArticles, setPublishedArticles] = useState<PublishedArticle[]>([]);
@@ -87,6 +91,34 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
     return () => { cancelled = true; };
   }, [draft.language]);
 
+  /**
+   * Preenchimento automático de título/slug/tempo de leitura.
+   *
+   * O título vinha só do bloco `META:` emitido no fim do artigo — se o modelo
+   * não emitisse o META (ou o JSON viesse quebrado), os campos ficavam vazios e
+   * o botão de publicar seguia bloqueado sem explicação. Aqui usamos uma cadeia
+   * de fallback e só paramos de auto-preencher depois que o usuário edita.
+   */
+  useEffect(() => {
+    const fromMeta  = draft.suggestedTitle?.trim();
+    const fromPauta = draft.pauta?.titulo?.trim();
+    // Último recurso: primeiro heading markdown do próprio conteúdo
+    const fromHeading = draft.generatedContent.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
+    const resolved = fromMeta || fromPauta || fromHeading || '';
+
+    if (!titleTouched && resolved && resolved !== title) setTitle(resolved);
+    if (!slugTouched) {
+      const resolvedSlug = draft.suggestedSlug?.trim() || (resolved ? slugify(resolved) : '');
+      if (resolvedSlug && resolvedSlug !== slug) setSlug(resolvedSlug);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.suggestedTitle, draft.suggestedSlug, draft.pauta?.titulo, draft.generatedContent, titleTouched, slugTouched]);
+
+  // Tempo de leitura acompanha o texto até o usuário mexer nele manualmente
+  useEffect(() => {
+    if (draft.estimatedReadTime) setReadTime(draft.estimatedReadTime);
+  }, [draft.estimatedReadTime]);
+
   const isEmpty = !draft.generatedContent.trim();
   const wordCount = draft.generatedContent.trim().split(/\s+/).filter(Boolean).length;
   const charCount = draft.generatedContent.length;
@@ -98,8 +130,9 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
   const canPublish   = isTitleValid && isSlugValid && isCoverValid && !isEmpty && publishStatus !== 'published';
 
   const handleTitleChange = (val: string) => {
+    setTitleTouched(true);
     setTitle(val);
-    if (!slug || slug === slugify(title)) setSlug(slugify(val));
+    if (!slugTouched) setSlug(slugify(val));
     updateDraft({ suggestedTitle: val, suggestedSlug: slugify(val) });
   };
 
@@ -153,10 +186,16 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
               current = parsed.content;
               updateDraft({ generatedContent: current, estimatedReadTime: estimateReadTime(current) });
             } else if (parsed.type === 'meta') {
-              setTitle(parsed.title || title);
-              setSlug(parsed.slug || slug);
-              setReadTime(parsed.readTime || readTime);
-              updateDraft({ suggestedTitle: parsed.title, suggestedSlug: parsed.slug, estimatedReadTime: parsed.readTime });
+              // Não sobrescreve o que o usuário já editou à mão; o efeito de
+              // auto-preenchimento cuida do resto a partir do draft.
+              if (!titleTouched && parsed.title) setTitle(parsed.title);
+              if (!slugTouched  && parsed.slug)  setSlug(parsed.slug);
+              if (parsed.readTime) setReadTime(parsed.readTime);
+              updateDraft({
+                ...(parsed.title    ? { suggestedTitle: parsed.title } : {}),
+                ...(parsed.slug     ? { suggestedSlug: parsed.slug } : {}),
+                ...(parsed.readTime ? { estimatedReadTime: parsed.readTime } : {}),
+              });
             } else if (parsed.type === 'error') {
               throw new Error(parsed.message);
             }
@@ -204,79 +243,89 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
     }
   };
 
-  const handleResumePackage = async (article: PublishedArticle) => {
+  const handleResumePackage = (article: PublishedArticle) => {
     setResumingArticle(article.id);
     setResumeError('');
-    try {
-      const pauta = draft.pauta ?? {
-        titulo: article.title,
-        subtitulo: '',
-        tese: 'Desenvolver uma explicação prática e rigorosa a partir do artigo publicado.',
-        publico: 'Líderes e profissionais que precisam compreender o tema.',
-        objetivo_aprendizado: 'Compreender e aplicar os conceitos principais do artigo.',
-        hardskills: [],
-        duracao_alvo: '8 min',
-        serie: 'conteudo-tecnico',
-        tipo_artigo: 'tecnico' as const,
-        nivel_tecnico: 'medio' as const,
-      };
-      const response = await fetch('/api/csm/package', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pauta,
-          chatTranscript: `Artigo publicado retomado: ${article.title}`,
-          category: article.category || draft.category,
-          language: article.language,
-          sessionId,
-          articleContent: article.content,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-      const hasScript = Boolean(data.youtubeScript?.trim() || data.manifestV2);
-      updateDraft({
+
+    const pauta = draft.pauta ?? {
+      titulo: article.title,
+      subtitulo: '',
+      tese: 'Desenvolver uma explicação prática e rigorosa a partir do artigo publicado.',
+      publico: 'Líderes e profissionais que precisam compreender o tema.',
+      objetivo_aprendizado: 'Compreender e aplicar os conceitos principais do artigo.',
+      hardskills: [],
+      duracao_alvo: '8 min',
+      serie: 'conteudo-tecnico',
+      tipo_artigo: 'tecnico' as const,
+      nivel_tecnico: 'medio' as const,
+    };
+    const articleUrl = `/${article.language}/blog/${article.slug}`;
+
+    // Navega JÁ para a aba Pacote com o estado "gerando" — a tela de progresso
+    // e o polling do Firestore assumem a partir daí. Antes, o botão ficava
+    // preso em "Gerando..." por vários minutos sem nenhum outro feedback.
+    updateDraft({
+      pauta,
+      topic: article.title,
+      generatedContent: article.content,
+      suggestedTitle: article.title,
+      suggestedSlug: article.slug,
+      publishedArticleUrl: articleUrl,
+      packageStatus: 'generating',
+      packageStartedAt: Date.now(),
+      workflowStage: 'package_generating',
+      packageError: '',
+    });
+    onPublished(articleUrl, true);
+
+    // Geração continua em background; a rota persiste o resultado na sessão e
+    // o polling do ReviewTab o captura mesmo que esta promise nunca resolva
+    // (ex.: instância reciclada no meio) — o estado fica no Firestore.
+    void fetch('/api/csm/package', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         pauta,
-        topic: article.title,
-        generatedContent: article.content,
-        suggestedTitle: article.title,
-        suggestedSlug: article.slug,
-        publishedArticleUrl: `/${article.language}/blog/${article.slug}`,
-        manifestV2: data.manifestV2 ?? null,
-        youtubeScript: data.youtubeScript ?? '',
-        manifestHtml: data.manifestHtml ?? '',
-        thumbnails: data.thumbnails ?? null,
-        specialistCopies: data.specialistCopies ?? null,
-        repurposedData: data.repurposedData ?? null,
-        packageStatus: hasScript ? 'script_ready' : 'error',
-        workflowStage: hasScript ? 'script_ready' : 'error',
-        packageError: data.partialError ?? '',
-      });
-      onPublished(`/${article.language}/blog/${article.slug}`, true);
-    } catch (error) {
-      setResumeError(error instanceof Error ? error.message : 'Falha ao gerar pacote');
-    } finally {
-      setResumingArticle(null);
-    }
+        chatTranscript: `Artigo publicado retomado: ${article.title}`,
+        category: article.category || draft.category,
+        language: article.language,
+        sessionId,
+        articleContent: article.content,
+      }),
+    }).catch(() => undefined).finally(() => setResumingArticle(null));
   };
+
+  // A lista de retomar só domina a tela quando o usuário chegou SEM projeto
+  // ativo (sem pauta e sem conteúdo) — nesse caso ela é o ponto de entrada.
+  // Com projeto em andamento, ela fica colapsada para o editor ter espaço.
+  const hasActiveProject = Boolean(draft.pauta?.titulo || draft.generatedContent.trim());
 
   return (
     <div className={styles.container}>
-      <section style={{ margin: '12px 16px 0', padding: '14px 16px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', background: 'rgba(255,255,255,0.025)' }}>
-        <div style={{ color: '#fbbf24', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', marginBottom: '6px' }}>RETOMAR ARTIGO PUBLICADO</div>
-        <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '10px' }}>Use esta lista para gerar o roteiro e o pacote de um artigo que já está no blog.</div>
-        {loadingArticles ? <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Carregando artigos...</span> : publishedArticles.length === 0 ? <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Nenhum artigo publicado encontrado.</span> : (
-          <div style={{ display: 'grid', gap: '8px' }}>
-            {publishedArticles.map((article) => (
-              <div key={article.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(0,0,0,0.16)' }}>
-                <div style={{ minWidth: 0 }}><div style={{ color: '#e2e8f0', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{article.title}</div><div style={{ color: '#64748b', fontSize: '0.72rem' }}>/{article.slug}</div></div>
-                <button type="button" onClick={() => void handleResumePackage(article)} disabled={resumingArticle !== null} style={{ flexShrink: 0, padding: '7px 11px', border: '1px solid rgba(251,191,36,0.35)', borderRadius: '7px', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', cursor: resumingArticle !== null ? 'wait' : 'pointer', fontSize: '0.75rem' }}>{resumingArticle === article.id ? 'Gerando...' : 'Gerar pacote'}</button>
-              </div>
-            ))}
-          </div>
-        )}
-        {resumeError && <div style={{ color: '#f87171', fontSize: '0.78rem', marginTop: '8px' }}>{resumeError}</div>}
-      </section>
+      <details open={!hasActiveProject} style={{ margin: '12px 16px 0', border: '1px solid rgba(30,30,30,0.1)', borderRadius: '12px', background: '#ffffff' }}>
+        <summary style={{ cursor: 'pointer', padding: '12px 16px', color: '#d97706', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem' }}>📂</span>
+          RETOMAR ARTIGO PUBLICADO
+          <span style={{ color: '#8a8a8a', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+            {loadingArticles ? '(carregando...)' : `(${publishedArticles.length} no blog)`}
+          </span>
+          <span style={{ marginLeft: 'auto', color: '#a8a8a8', fontSize: '0.7rem', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>clique para abrir/fechar</span>
+        </summary>
+        <div style={{ padding: '0 16px 14px' }}>
+          <div style={{ color: '#6b6b6b', fontSize: '0.8rem', marginBottom: '10px' }}>Use esta lista para gerar o roteiro e o pacote de um artigo que já está no blog — sem passar pelo CMO.</div>
+          {loadingArticles ? <span style={{ color: '#8a8a8a', fontSize: '0.8rem' }}>Carregando artigos...</span> : publishedArticles.length === 0 ? <span style={{ color: '#8a8a8a', fontSize: '0.8rem' }}>Nenhum artigo publicado encontrado.</span> : (
+            <div style={{ display: 'grid', gap: '8px' }}>
+              {publishedArticles.map((article) => (
+                <div key={article.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(30,30,30,0.03)' }}>
+                  <div style={{ minWidth: 0 }}><div style={{ color: '#1e1e1e', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{article.title}</div><div style={{ color: '#8a8a8a', fontSize: '0.72rem' }}>/{article.slug}</div></div>
+                  <button type="button" onClick={() => void handleResumePackage(article)} disabled={resumingArticle !== null} style={{ flexShrink: 0, padding: '7px 11px', border: '1px solid rgba(217,119,6,0.35)', borderRadius: '7px', background: 'rgba(217,119,6,0.1)', color: '#d97706', cursor: resumingArticle !== null ? 'wait' : 'pointer', fontSize: '0.75rem' }}>{resumingArticle === article.id ? 'Gerando...' : 'Gerar pacote'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {resumeError && <div style={{ color: '#dc2626', fontSize: '0.78rem', marginTop: '8px' }}>{resumeError}</div>}
+        </div>
+      </details>
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
@@ -296,26 +345,26 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
             <span className={styles.statSep} />
             <span className={styles.stat}><span className={styles.statVal}>~{rt} min</span><span className={styles.statKey}>leitura</span></span>
           </div>
-          {genError && <span style={{ color: '#f87171', fontSize: '0.8rem' }}>{genError}</span>}
+          {genError && <span style={{ color: '#dc2626', fontSize: '0.8rem' }}>{genError}</span>}
           <button onClick={triggerGeneration} disabled={isGenerating} className={styles.generateBtn} type="button"
-            style={{ background: isGenerating ? 'rgba(230,126,34,0.2)' : 'linear-gradient(135deg,#e67e22,#f39c12)', color: isGenerating ? '#f39c12' : '#000', padding: '10px 18px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            style={{ background: isGenerating ? 'rgba(230,126,34,0.2)' : 'linear-gradient(135deg,#e67e22,#f39c12)', color: isGenerating ? '#d97706' : '#ffffff', padding: '10px 18px', borderRadius: '10px', fontWeight: 'bold', border: 'none', cursor: isGenerating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {isGenerating ? `${generatingPhase} (${elapsed}s)` : isEmpty ? 'Gerar com IA' : 'Regerar Artigo'}
           </button>
         </div>
       </div>
 
       {/* Title / Slug bar */}
-      <div style={{ display: 'flex', gap: '16px', padding: '8px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '16px', padding: '8px 16px', background: 'rgba(30,30,30,0.02)', borderBottom: '1px solid rgba(30,30,30,0.05)', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: '280px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 'bold', minWidth: '48px' }}>TÍTULO:</span>
+          <span style={{ color: '#6b6b6b', fontSize: '0.72rem', fontWeight: 'bold', minWidth: '48px' }}>TÍTULO:</span>
           <input type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)}
-            style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '6px 10px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600 }}
+            style={{ flex: 1, background: 'rgba(30,30,30,0.04)', border: '1px solid rgba(30,30,30,0.08)', color: '#1e1e1e', padding: '6px 10px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600 }}
             placeholder={draft.topic || 'Título do artigo'} />
         </div>
         <div style={{ flex: 1, minWidth: '280px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 'bold', minWidth: '48px' }}>SLUG:</span>
-          <input type="text" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]+/g, '-'))}
-            style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fbbf24', fontFamily: 'monospace', padding: '6px 10px', borderRadius: '6px', fontSize: '0.85rem' }}
+          <span style={{ color: '#6b6b6b', fontSize: '0.72rem', fontWeight: 'bold', minWidth: '48px' }}>SLUG:</span>
+          <input type="text" value={slug} onChange={(e) => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]+/g, '-')); }}
+            style={{ flex: 1, background: 'rgba(30,30,30,0.04)', border: '1px solid rgba(30,30,30,0.08)', color: '#d97706', fontFamily: 'monospace', padding: '6px 10px', borderRadius: '6px', fontSize: '0.85rem' }}
             placeholder="url-amigavel" />
         </div>
       </div>
@@ -324,7 +373,7 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Editor */}
         {(pane === 'editor' || pane === 'split') && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: pane === 'split' ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: pane === 'split' ? '1px solid rgba(30,30,30,0.06)' : 'none' }}>
             <div className={styles.paneHeader}><span className={styles.paneHeaderLabel}>Markdown</span></div>
             <textarea className={styles.editor} value={draft.generatedContent}
               onChange={(e) => updateDraft({ generatedContent: e.target.value, estimatedReadTime: estimateReadTime(e.target.value) })}
@@ -337,16 +386,16 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
           <div style={{ flex: 1, overflowY: 'auto', background: '#eae9e6' }}>
             <div style={{ maxWidth: '768px', margin: '0 auto', padding: '2rem 1rem' }}>
               {isEmpty ? (
-                <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+                <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6b6b6b' }}>
                   {isGenerating ? (
                     <div>
-                      <div style={{ fontSize: '1rem', color: '#f39c12', fontWeight: 'bold', marginBottom: '8px' }}>{generatingPhase || 'Gerando...'}</div>
+                      <div style={{ fontSize: '1rem', color: '#d97706', fontWeight: 'bold', marginBottom: '8px' }}>{generatingPhase || 'Gerando...'}</div>
                       <div style={{ fontSize: '0.85rem' }}>Pipeline: Crítico → Pesquisa (arXiv) → Redação</div>
-                      <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#64748b' }}>{elapsed}s decorridos — pode levar 3-8 min</div>
+                      <div style={{ fontSize: '0.8rem', marginTop: '4px', color: '#8a8a8a' }}>{elapsed}s decorridos — pode levar 3-8 min</div>
                     </div>
                   ) : (
                     <div>
-                      <p style={{ fontSize: '1rem', color: '#fff', marginBottom: '8px' }}>Artigo vazio</p>
+                      <p style={{ fontSize: '1rem', color: '#1e1e1e', fontWeight: 600, marginBottom: '8px' }}>Nenhum artigo ainda</p>
                       <p style={{ fontSize: '0.85rem' }}>Clique em &quot;Gerar com IA&quot; para começar</p>
                     </div>
                   )}
@@ -363,28 +412,28 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
 
       {/* Publish Panel */}
       {!isEmpty && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '16px 20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ borderTop: '1px solid rgba(30,30,30,0.08)', background: 'rgba(30,30,30,0.02)', padding: '16px 20px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           {/* Cover + ReadTime + Date */}
           <div style={{ flex: 2, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 'bold', minWidth: '60px' }}>COVER:</span>
+              <span style={{ color: '#6b6b6b', fontSize: '0.72rem', fontWeight: 'bold', minWidth: '60px' }}>COVER:</span>
               <input type="text" value={coverImage} onChange={(e) => setCoverImage(e.target.value)}
-                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem' }}
+                style={{ flex: 1, background: 'rgba(30,30,30,0.04)', border: '1px solid rgba(30,30,30,0.08)', color: '#1e1e1e', padding: '6px 10px', borderRadius: '6px', fontSize: '0.8rem' }}
                 placeholder="https://..." disabled={publishStatus === 'published'} />
             </div>
             <div style={{ display: 'flex', gap: '16px' }}>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 'bold' }}>LEITURA:</span>
+                <span style={{ color: '#6b6b6b', fontSize: '0.72rem', fontWeight: 'bold' }}>LEITURA:</span>
                 <input type="number" min={1} max={120} value={readTime}
                   onChange={(e) => { const v = parseInt(e.target.value,10)||1; setReadTime(v); updateDraft({ estimatedReadTime: v }); }}
-                  style={{ width: '60px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '6px 8px', borderRadius: '6px', fontSize: '0.8rem' }}
+                  style={{ width: '60px', background: 'rgba(30,30,30,0.04)', border: '1px solid rgba(30,30,30,0.08)', color: '#1e1e1e', padding: '6px 8px', borderRadius: '6px', fontSize: '0.8rem' }}
                   disabled={publishStatus === 'published'} />
-                <span style={{ color: '#64748b', fontSize: '0.72rem' }}>min</span>
+                <span style={{ color: '#8a8a8a', fontSize: '0.72rem' }}>min</span>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 'bold' }}>DATA:</span>
+                <span style={{ color: '#6b6b6b', fontSize: '0.72rem', fontWeight: 'bold' }}>DATA:</span>
                 <input type="datetime-local" value={publishedAt} onChange={(e) => setPublishedAt(e.target.value)}
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '6px 8px', borderRadius: '6px', fontSize: '0.8rem' }}
+                  style={{ background: 'rgba(30,30,30,0.04)', border: '1px solid rgba(30,30,30,0.08)', color: '#1e1e1e', padding: '6px 8px', borderRadius: '6px', fontSize: '0.8rem' }}
                   disabled={publishStatus === 'published'} />
               </div>
             </div>
@@ -392,20 +441,27 @@ export default function ArticleTab({ draft, updateDraft, sessionId, onBack, onPu
 
           {/* Status + Publish Button */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px' }}>
-            {publishStatus === 'error' && <div style={{ color: '#f87171', fontSize: '0.8rem' }}>{publishError}</div>}
+            {publishStatus === 'error' && <div style={{ color: '#dc2626', fontSize: '0.8rem' }}>{publishError}</div>}
             {publishStatus === 'published' && (
-              <div style={{ color: '#4ade80', fontSize: '0.85rem', fontWeight: 'bold' }}>
+              <div style={{ color: '#16a34a', fontSize: '0.85rem', fontWeight: 'bold' }}>
                 ✓ Publicado — gerando pacote de conteúdo...
               </div>
             )}
             {publishStatus !== 'published' && (
               <button onClick={handlePublish} disabled={!canPublish || publishStatus === 'publishing'} type="button"
-                style={{ padding: '12px 24px', borderRadius: '10px', background: canPublish ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'rgba(124,58,237,0.2)', color: '#fff', fontWeight: 'bold', border: 'none', cursor: canPublish ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}>
+                style={{ padding: '12px 24px', borderRadius: '10px', background: canPublish ? 'linear-gradient(135deg,#e67e22,#d35400)' : 'rgba(30,30,30,0.12)', color: '#fff', fontWeight: 'bold', border: 'none', cursor: canPublish ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}>
                 {publishStatus === 'publishing' ? 'Publicando...' : '🚀 Publicar Artigo'}
               </button>
             )}
-            {!isTitleValid && <span style={{ color: '#f87171', fontSize: '0.72rem' }}>Título obrigatório</span>}
-            {!isSlugValid && slug && <span style={{ color: '#f87171', fontSize: '0.72rem' }}>Slug inválido</span>}
+            {publishStatus !== 'published' && !canPublish && (
+              <span style={{ color: '#dc2626', fontSize: '0.72rem' }}>
+                {isEmpty ? 'Gere ou cole o conteúdo do artigo primeiro.'
+                  : !isTitleValid ? 'Preencha o título (até 150 caracteres).'
+                  : !isSlugValid ? 'Slug inválido — use apenas letras minúsculas, números e hífens.'
+                  : !isCoverValid ? 'A imagem de capa precisa ser uma URL https://.'
+                  : 'Complete os campos acima para publicar.'}
+              </span>
+            )}
           </div>
         </div>
       )}

@@ -14,11 +14,12 @@ import ReviewTab from './tabs/ReviewTab';
 import TrackingTab from './tabs/TrackingTab';
 import SettingsTab from './tabs/SettingsTab';
 import TelemetryTab from './tabs/TelemetryTab';
+import OverviewTab from './tabs/OverviewTab';
 import type { ArticleCategory } from '@/types/article';
 import styles from './CsmDashboard.module.css';
 
 export type OutputFormat = 'blog' | 'youtube' | 'linkedin';
-export type ActiveTab = 'idea' | 'article' | 'review' | 'tracking' | 'settings' | 'telemetry';
+export type ActiveTab = 'idea' | 'article' | 'review' | 'tracking' | 'settings' | 'telemetry' | 'overview';
 export type ContentStatus = 'em_revisao' | 'aprovado' | 'rejeitado';
 export type PackageStatus = 'idle' | 'generating' | 'script_ready' | 'ready' | 'error';
 export type WorkflowStage =
@@ -111,6 +112,9 @@ export interface DraftState {
   packageStartedAt?: number;
   packageError?: string;
   workflowStage?: WorkflowStage;
+  /** Plano de publicação da semana (D+1..D+7), persistido na aprovação para
+   * continuar visível após reload — antes vivia só na memória do ReviewTab. */
+  publishPlan?: { day: number; date: string; items: { platform: string; format: string; title: string; scheduledAt: string }[] }[];
 }
 
 const INITIAL_DRAFT: DraftState = {
@@ -128,10 +132,32 @@ const MAIN_TABS: { id: ActiveTab; label: string; index: string; description: str
   { id: 'tracking', label: 'Publicações', index: '04', description: 'Acompanhar pipeline' },
 ];
 
+/** Frase curta de orientação por etapa — reduz a chance de o usuário se perder no fluxo. */
+const STEP_HINTS: Record<ActiveTab, string> = {
+  idea: 'Converse com o CMO sobre o tema da semana até ele fechar a pauta com título, tese e público.',
+  article: 'Revise e edite o artigo gerado. Publicar dispara automaticamente a geração do roteiro em background.',
+  review: 'Revise o roteiro, thumbnails e derivações. Aprovar dispara a produção de vídeo e a publicação agendada.',
+  tracking: 'Acompanhe o status de cada etapa da pipeline de produção em tempo real.',
+  settings: '',
+  telemetry: '',
+  overview: '',
+};
+
+/** Nome do workspace atual — hoje só existe um (Victor Zore), mas o badge já
+ * prepara a UI para múltiplos workspaces/tenants futuramente. */
+const WORKSPACE_NAME = process.env.NEXT_PUBLIC_TENANT_ID || 'éozoré · Pessoal';
+
+/**
+ * "Artigo" fica sempre destravado: além de escrever um artigo novo a partir da
+ * pauta do CMO, essa aba também lista artigos JÁ publicados para retomar o
+ * pacote (roteiro/thumbnails/copies) sem precisar conversar com o CMO de novo
+ * — CMO e artigos prontos são dois pontos de entrada independentes no fluxo,
+ * não uma sequência obrigatória.
+ */
 function isTabUnlocked(tabId: ActiveTab, draft: DraftState): boolean {
   switch (tabId) {
     case 'idea': return true;
-    case 'article': return Boolean(draft.pauta?.titulo && draft.pauta?.tese);
+    case 'article': return true;
     case 'review': return Boolean(draft.publishedArticleUrl && draft.packageStatus !== 'idle');
     case 'tracking': return ['approved', 'publishing', 'published'].includes(draft.workflowStage ?? '');
     default: return true;
@@ -139,10 +165,15 @@ function isTabUnlocked(tabId: ActiveTab, draft: DraftState): boolean {
 }
 
 function lockMessage(tabId: ActiveTab): string {
-  if (tabId === 'article') return 'Complete a pauta com o CMO primeiro';
-  if (tabId === 'review') return 'Publique o artigo para gerar o pacote';
+  if (tabId === 'review') return 'Publique um artigo (novo ou retomado) para gerar o pacote';
   if (tabId === 'tracking') return 'Aprove o pacote para acompanhar a pipeline';
   return 'Complete a etapa anterior';
+}
+
+/** Abas fora do fluxo de 4 passos — não entram no stepper nem travam navegação. */
+const META_TABS: ActiveTab[] = ['settings', 'telemetry', 'overview'];
+function isMetaTab(tab: ActiveTab): boolean {
+  return META_TABS.includes(tab);
 }
 
 export default function CsmDashboard() {
@@ -152,11 +183,30 @@ export default function CsmDashboard() {
   const [sessionId, setSessionId] = useState('');
   const [loadingSession, setLoadingSession] = useState(true);
   const [lockTooltip, setLockTooltip] = useState<string | null>(null);
+  /** Alerta ambiente: soma de projetos travados/com erro em QUALQUER sessão,
+   * não só a atual — visível no rodapé o tempo todo, sem precisar abrir a
+   * Visão Geral para descobrir que algo parou de responder. */
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     let id = localStorage.getItem('csm_session_id');
     if (!id) { id = crypto.randomUUID(); localStorage.setItem('csm_session_id', id); }
     setSessionId(id);
+  }, []);
+
+  useEffect(() => {
+    const checkAlerts = async () => {
+      try {
+        const res = await fetch('/api/csm/overview');
+        if (res.ok) {
+          const data = await res.json();
+          setAlertCount((data.stuckCount ?? 0) + (data.errorCount ?? 0));
+        }
+      } catch { /* silencioso — não é crítico */ }
+    };
+    checkAlerts();
+    const interval = setInterval(checkAlerts, 90_000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -204,12 +254,12 @@ export default function CsmDashboard() {
   }, [draft, saveDraft, sessionId]);
 
   const goToTab = (tab: ActiveTab) => {
-    if (!isTabUnlocked(tab, draft)) {
+    if (!isMetaTab(tab) && !isTabUnlocked(tab, draft)) {
       setLockTooltip(lockMessage(tab));
       setTimeout(() => setLockTooltip(null), 3000);
       return;
     }
-    if (tab !== 'settings' && tab !== 'telemetry') setLastStudioTab(tab);
+    if (!isMetaTab(tab)) setLastStudioTab(tab);
     setActiveTab(tab);
   };
 
@@ -218,6 +268,17 @@ export default function CsmDashboard() {
     const id = crypto.randomUUID();
     localStorage.setItem('csm_session_id', id);
     setDraft(INITIAL_DRAFT); setSessionId(id); setActiveTab('idea');
+  };
+
+  /** Usado pela Visão Geral: pula direto para a sessão de outro projeto. */
+  const openSession = (targetSessionId: string) => {
+    if (targetSessionId === sessionId) { setActiveTab('review'); return; }
+    localStorage.setItem('csm_session_id', targetSessionId);
+    setLoadingSession(true);
+    setSessionId(targetSessionId);
+    // O useEffect de [sessionId] recarrega o draft; manda para "Pacote" — é
+    // onde faz sentido pousar ao abrir um projeto que já tem conteúdo gerado.
+    setActiveTab('review');
   };
 
   const startPackageGeneration = useCallback(async (articleContent: string) => {
@@ -282,10 +343,16 @@ export default function CsmDashboard() {
         <div className={styles.blob1} /><div className={styles.blob2} /><div className={styles.blob3} />
         <header className={styles.header}><div className={styles.headerInner}>
           <div className={styles.headerLogo}><span className={styles.logoAccent}>é</span><span className={styles.logoBase}>ozoré</span><span className={styles.headerSep}>/</span><span className={styles.headerTitle}>Content Studio</span></div>
-          <div className={styles.headerMeta}><button onClick={startNewSession} className={styles.newSessionBtn}>Nova Reunião</button><span className={styles.badge}>Internal Tool</span></div>
+          <div className={styles.headerMeta}>
+            <span className={styles.workspaceBadge} title="Workspace atual — cada workspace terá pauta, canais e chaves isolados">
+              <span className={styles.workspaceBadgeDot} />{WORKSPACE_NAME}
+            </span>
+            <button onClick={startNewSession} className={styles.newSessionBtn}>Nova Reunião</button>
+            <span className={styles.badge}>Internal Tool</span>
+          </div>
         </div></header>
 
-        {activeTab !== 'settings' && activeTab !== 'telemetry' && <nav className={styles.tabNav}><div className={styles.tabNavInner}>
+        {!isMetaTab(activeTab) && <nav className={styles.tabNav}><div className={styles.tabNavInner}>
           {MAIN_TABS.map((tab, index) => {
             const unlocked = isTabUnlocked(tab.id, draft);
             return <button key={tab.id} onClick={() => goToTab(tab.id)} disabled={loadingSession || !unlocked} title={!unlocked ? lockMessage(tab.id) : undefined} className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabBtnActive : ''} ${index < tabIndex ? styles.tabBtnDone : ''} ${!unlocked ? styles.tabBtnLocked : ''}`}>
@@ -293,18 +360,26 @@ export default function CsmDashboard() {
             </button>;
           })}
           <div className={styles.progressBar}><div className={styles.progressFill} style={{ width: `${Math.max(0, tabIndex) / (MAIN_TABS.length - 1) * 100}%` }} /></div>
-        </div>{lockTooltip && <div className={styles.lockTooltip}>🔒 {lockTooltip}</div>}</nav>}
+        </div>{lockTooltip && <div className={styles.lockTooltip}>🔒 {lockTooltip}</div>}
+        {STEP_HINTS[activeTab] && (
+          <div className={styles.stepHint}><span className={styles.stepHintDot} />{STEP_HINTS[activeTab]}</div>
+        )}
+        </nav>}
 
         <main className={styles.main}>{loadingSession ? <div className={styles.loadingState}><div className={styles.loadingSpinner} /><span className={styles.loadingText}>carregando sessão...</span></div> : <>
           {activeTab === 'idea' && <IdeaTab draft={draft} updateDraft={updateDraft} isGenerating={false} setIsGenerating={() => undefined} sessionId={sessionId} onNext={() => goToTab('article')} />}
           {activeTab === 'article' && <ArticleTab draft={draft} updateDraft={updateDraft} sessionId={sessionId} onBack={() => goToTab('idea')} onPublished={handlePublished} />}
-          {activeTab === 'review' && <ReviewTab draft={draft} updateDraft={updateDraft} sessionId={sessionId} onBack={() => goToTab('article')} onApproved={() => { updateDraft({ workflowStage: 'approved' }); goToTab('tracking'); }} />}
+          {activeTab === 'review' && <ReviewTab draft={draft} updateDraft={updateDraft} sessionId={sessionId} onBack={() => goToTab('article')} onApproved={() => { updateDraft({ workflowStage: 'approved' }); goToTab('tracking'); }} onRetryPackage={() => void startPackageGeneration(draft.generatedContent)} />}
           {activeTab === 'tracking' && <TrackingTab draft={draft} sessionId={sessionId} onBack={() => goToTab('review')} />}
           {activeTab === 'settings' && <SettingsTab onBack={() => goToTab(lastStudioTab)} />}
           {activeTab === 'telemetry' && <TelemetryTab onBack={() => goToTab(lastStudioTab)} />}
+          {activeTab === 'overview' && <OverviewTab onBack={() => goToTab(lastStudioTab)} onOpenSession={openSession} />}
         </>}</main>
 
-        <footer className={styles.bottomBar}><span className={styles.bottomBarText}>éozoré Studio</span><div className={styles.bottomBarDivider} /><button onClick={() => goToTab(lastStudioTab)} className={`${styles.bottomBarLink} ${activeTab !== 'settings' && activeTab !== 'telemetry' ? styles.bottomBarLinkActive : ''}`}>📝 Studio</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('settings')} className={`${styles.bottomBarLink} ${activeTab === 'settings' ? styles.bottomBarLinkActive : ''}`}>⚙️ Ajustes</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('telemetry')} className={`${styles.bottomBarLink} ${activeTab === 'telemetry' ? styles.bottomBarLinkActive : ''}`}>📊 Telemetria</button></footer>
+        <footer className={styles.bottomBar}><span className={styles.bottomBarText}>éozoré Studio</span><div className={styles.bottomBarDivider} /><button onClick={() => goToTab(lastStudioTab)} className={`${styles.bottomBarLink} ${!isMetaTab(activeTab) ? styles.bottomBarLinkActive : ''}`}>📝 Studio</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('overview')} className={`${styles.bottomBarLink} ${activeTab === 'overview' ? styles.bottomBarLinkActive : ''}`} style={{ position: 'relative' }}>
+            🗂️ Visão Geral
+            {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
+          </button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('settings')} className={`${styles.bottomBarLink} ${activeTab === 'settings' ? styles.bottomBarLinkActive : ''}`}>⚙️ Ajustes</button><div className={styles.bottomBarDivider} /><button onClick={() => goToTab('telemetry')} className={`${styles.bottomBarLink} ${activeTab === 'telemetry' ? styles.bottomBarLinkActive : ''}`}>📊 Telemetria</button></footer>
       </div>
     </AuthGate>
   );

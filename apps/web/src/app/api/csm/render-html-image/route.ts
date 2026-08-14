@@ -9,6 +9,7 @@
  */
 import { NextResponse } from 'next/server';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 const CMO_AGENT_URL = process.env.CMO_AGENT_URL || 'http://localhost:8090';
 
@@ -24,7 +25,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const res = await fetch(`${CMO_AGENT_URL}/render-html-image`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cmoAgentHeaders(),
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
@@ -47,6 +48,7 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const res = await fetch(`${CMO_AGENT_URL}/render-html-image?jobId=${encodeURIComponent(jobId)}`, {
+      headers: cmoAgentHeaders(),
       signal: AbortSignal.timeout(10000),
     });
     const data = await res.json();

@@ -1,7 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { CHANNEL_REGISTRY, CHANNEL_GROUPS, type ChannelGroup, type ChannelDefinition } from '@/lib/channels';
 import styles from './SettingsTab.module.css';
+
+interface ChannelWithState extends ChannelDefinition {
+  enabled: boolean;
+}
+
+interface SecurityStatus {
+  nextjs: {
+    environment: string;
+    csmAuthConfigured: boolean;
+    cmoInternalAuthConfigured: boolean;
+    secretsBackend: string;
+  };
+  cmoAgent: {
+    environment?: string;
+    internal_auth_enforced?: boolean;
+    cors_allowed_origins?: string[];
+    ssl_verification?: boolean;
+  } | null;
+  cmoAgentReachable: boolean;
+}
 
 interface AgentConfig {
   name: string;
@@ -20,6 +41,22 @@ interface ApiKey {
 
 interface SettingsTabProps {
   onBack: () => void;
+}
+
+function SecurityRow({ label, value, ok, okLabel }: { label: string; value: string; ok: boolean; okLabel?: string }) {
+  const dotColor = ok ? '#16a34a' : '#d97706';
+  return (
+    <div className={styles.securityRow}>
+      <span className={styles.securityRowLabel}>{label}</span>
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        color: dotColor, fontSize: '0.78rem', fontWeight: 600,
+      }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
+        {value}{!ok && okLabel ? ` (esperado: ${okLabel})` : ''}
+      </span>
+    </div>
+  );
 }
 
 export default function SettingsTab({ onBack }: SettingsTabProps) {
@@ -47,6 +84,14 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
     vertical: { avatarId: '', voiceId: '' },
   });
   const [isSavingAvatars, setIsSavingAvatars] = useState(false);
+
+  // Canais & Formatos State
+  const [channels, setChannels] = useState<ChannelWithState[]>([]);
+  const [savingChannel, setSavingChannel] = useState<Record<string, boolean>>({});
+
+  // Segurança State
+  const [security, setSecurity] = useState<SecurityStatus | null>(null);
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
 
   const fetchAvatars = async () => {
     try {
@@ -90,6 +135,57 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
       alert('Erro ao salvar avatares.');
     } finally {
       setIsSavingAvatars(false);
+    }
+  };
+
+  const fetchChannels = async () => {
+    try {
+      const res = await fetch('/api/csm/config/channels', { headers: { 'x-csm-session': 'authenticated' } });
+      if (res.ok) {
+        const data = await res.json();
+        setChannels(data.channels || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch channels:', err);
+    }
+  };
+
+  const fetchSecurity = async () => {
+    setLoadingSecurity(true);
+    try {
+      const res = await fetch('/api/csm/config/security', { headers: { 'x-csm-session': 'authenticated' } });
+      if (res.ok) setSecurity(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch security status:', err);
+    } finally {
+      setLoadingSecurity(false);
+    }
+  };
+
+  const handleToggleChannel = async (channelId: string, nextValue: boolean) => {
+    const target = channels.find((c) => c.id === channelId);
+    if (!target || !target.implemented) return; // canais "Em breve" não podem ser ligados
+
+    setChannels((prev) => prev.map((c) => (c.id === channelId ? { ...c, enabled: nextValue } : c)));
+    setSavingChannel((prev) => ({ ...prev, [channelId]: true }));
+    try {
+      const nextToggles = Object.fromEntries(
+        channels.map((c) => [c.id, c.id === channelId ? nextValue : c.enabled]),
+      );
+      const res = await fetch('/api/csm/config/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csm-session': 'authenticated' },
+        body: JSON.stringify({ toggles: nextToggles }),
+      });
+      if (!res.ok) throw new Error('Falha ao salvar canal');
+      showToast(`${target.label} ${nextValue ? 'ativado' : 'desativado'}.`);
+    } catch (err) {
+      console.error(err);
+      // Reverte otimisticamente em caso de falha
+      setChannels((prev) => prev.map((c) => (c.id === channelId ? { ...c, enabled: !nextValue } : c)));
+      alert('Erro ao salvar o canal. Tente novamente.');
+    } finally {
+      setSavingChannel((prev) => ({ ...prev, [channelId]: false }));
     }
   };
 
@@ -167,7 +263,17 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
     fetchKeys();
     fetchTemplates();
     fetchAvatars();
+    fetchChannels();
   }, []);
+
+  // Carrega o status de segurança só quando o usuário abre a seção (evita
+  // uma chamada extra ao cmo-agent em toda visita à tela de Configurações).
+  useEffect(() => {
+    if (selectedAgent === 'security' && !security && !loadingSecurity) {
+      fetchSecurity();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent]);
 
   const activeAgentConfig = configs.find((c) => c.name === selectedAgent);
 
@@ -421,7 +527,7 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
     return (
       <div className={styles.card} style={{ textAlign: 'center', padding: '60px' }}>
         <div style={{ color: '#e67e22', fontSize: '2rem', animation: 'spin 2s linear infinite' }}>⚙️</div>
-        <p style={{ color: '#94a3b8', marginTop: '16px' }}>Carregando configurações de agentes...</p>
+        <p style={{ color: '#6b6b6b', marginTop: '16px' }}>Carregando configurações de agentes...</p>
       </div>
     );
   }
@@ -448,6 +554,21 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
         {/* Sidebar */}
         <div className={styles.sidebar}>
           <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Distribuição
+          </div>
+          <button
+            onClick={() => setSelectedAgent('channels')}
+            className={`${styles.agentBtn} ${selectedAgent === 'channels' ? styles.agentBtnActive : ''}`}
+          >
+            <div>🔀 Canais & Formatos</div>
+            <span className={styles.agentBadge}>
+              {channels.filter((c) => c.enabled).length}/{channels.filter((c) => c.implemented).length} ativos
+            </span>
+          </button>
+
+          <div style={{ height: '1px', background: 'rgba(30,30,30,0.06)', margin: '16px 0 8px' }} />
+
+          <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Prompts de Agentes
           </div>
           {configs.map((cfg) => {
@@ -470,7 +591,7 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
             );
           })}
           
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '16px 0 8px' }} />
+          <div style={{ height: '1px', background: 'rgba(30,30,30,0.06)', margin: '16px 0 8px' }} />
           
           <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Credenciais
@@ -499,7 +620,22 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
             </span>
           </button>
 
-          <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '16px 0 8px' }} />
+          <div style={{ height: '1px', background: 'rgba(30,30,30,0.06)', margin: '16px 0 8px' }} />
+
+          <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Sistema
+          </div>
+          <button
+            onClick={() => setSelectedAgent('security')}
+            className={`${styles.agentBtn} ${selectedAgent === 'security' ? styles.agentBtnActive : ''}`}
+          >
+            <div>🛡️ Segurança</div>
+            <span className={styles.agentBadge}>
+              GCP / Vertex AI
+            </span>
+          </button>
+
+          <div style={{ height: '1px', background: 'rgba(30,30,30,0.06)', margin: '16px 0 8px' }} />
 
           <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 12px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Templates & Design
@@ -550,7 +686,116 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
         </div>
 
         {/* Editor or Keys Panel */}
-        {selectedAgent === 'avatars' ? (
+        {selectedAgent === 'channels' ? (
+          <div className={styles.card} style={{ width: '100%' }}>
+            <div className={styles.editorPane}>
+              <div className={styles.headerRow}>
+                <h2 className={styles.paneTitle}>Canais & Formatos de Distribuição</h2>
+                {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
+              </div>
+              <p style={{ color: '#6b6b6b', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+                Ligue ou desligue cada mídia/posicionamento individualmente. Um canal desligado não é gerado,
+                não aparece na revisão do pacote e nunca é publicado — mesmo que já existisse conteúdo pronto
+                para ele. Canais marcados <b>Em breve</b> ainda não têm agente/publisher implementado.
+              </p>
+
+              {(Object.keys(CHANNEL_GROUPS) as ChannelGroup[]).map((group) => {
+                const groupChannels = channels.length
+                  ? channels.filter((c) => c.group === group)
+                  : CHANNEL_REGISTRY.filter((c) => c.group === group).map((c) => ({ ...c, enabled: false }));
+                if (!groupChannels.length) return null;
+                return (
+                  <div key={group} style={{ marginBottom: '20px' }}>
+                    <div className={styles.channelGroupLabel}>{CHANNEL_GROUPS[group]}</div>
+                    <div className={styles.channelGrid}>
+                      {groupChannels.map((c) => (
+                        <div key={c.id} className={`${styles.channelCard} ${!c.implemented ? styles.channelCardDisabled : ''}`}>
+                          <div className={styles.channelCardHead}>
+                            <span className={styles.channelCardLabel}>{c.label}</span>
+                            {c.implemented ? (
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={c.enabled}
+                                disabled={!!savingChannel[c.id]}
+                                onClick={() => handleToggleChannel(c.id, !c.enabled)}
+                                className={`${styles.toggleSwitch} ${c.enabled ? styles.toggleSwitchOn : ''}`}
+                              >
+                                <span className={styles.toggleKnob} />
+                              </button>
+                            ) : (
+                              <span className={styles.comingSoonBadge}>Em breve</span>
+                            )}
+                          </div>
+                          <p className={styles.channelCardDesc}>{c.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : selectedAgent === 'security' ? (
+          <div className={styles.card} style={{ width: '100%' }}>
+            <div className={styles.editorPane}>
+              <div className={styles.headerRow}>
+                <h2 className={styles.paneTitle}>Postura de Segurança</h2>
+                <button onClick={fetchSecurity} className={styles.btnBack} disabled={loadingSecurity}>
+                  {loadingSecurity ? 'Verificando...' : '↻ Atualizar'}
+                </button>
+              </div>
+              <p style={{ color: '#6b6b6b', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+                Painel somente leitura — reflete a configuração atual dos serviços em produção (Cloud Run).
+                Alterações exigem redeploy com as variáveis/segredos corretos no GCP Secret Manager.
+              </p>
+
+              {!security ? (
+                <div style={{ color: '#6b6b6b', fontSize: '0.85rem' }}>
+                  {loadingSecurity ? 'Consultando cmo-agent...' : 'Nenhum dado carregado ainda.'}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className={styles.securityBlock}>
+                    <h3 className={styles.securityBlockTitle}>Frontend (Next.js)</h3>
+                    <SecurityRow label="Ambiente" value={security.nextjs.environment} ok={security.nextjs.environment === 'production'} okLabel="production" />
+                    <SecurityRow label="Autenticação do painel CSM" value={security.nextjs.csmAuthConfigured ? 'Configurada' : 'Não configurada'} ok={security.nextjs.csmAuthConfigured} />
+                    <SecurityRow label="Auth interna → cmo-agent" value={security.nextjs.cmoInternalAuthConfigured ? 'Configurada' : 'Não configurada'} ok={security.nextjs.cmoInternalAuthConfigured} />
+                    <SecurityRow label="Backend de segredos" value={security.nextjs.secretsBackend} ok={security.nextjs.secretsBackend.includes('Secret Manager')} okLabel="GCP Secret Manager" />
+                  </div>
+                  <div className={styles.securityBlock}>
+                    <h3 className={styles.securityBlockTitle}>CMO Agent (Python / Vertex AI)</h3>
+                    {!security.cmoAgentReachable || !security.cmoAgent ? (
+                      <div style={{ color: '#dc2626', fontSize: '0.8rem' }}>cmo-agent inacessível no momento.</div>
+                    ) : (
+                      <>
+                        <SecurityRow label="Ambiente" value={security.cmoAgent.environment ?? '—'} ok={security.cmoAgent.environment === 'production'} okLabel="production" />
+                        <SecurityRow label="Verificação SSL de saída" value={security.cmoAgent.ssl_verification ? 'Ativa' : 'Desativada (dev)'} ok={!!security.cmoAgent.ssl_verification} />
+                        <SecurityRow label="Auth interna exigida" value={security.cmoAgent.internal_auth_enforced ? 'Exigida' : 'NÃO exigida'} ok={!!security.cmoAgent.internal_auth_enforced} />
+                        <SecurityRow
+                          label="CORS"
+                          value={security.cmoAgent.cors_allowed_origins?.length ? `${security.cmoAgent.cors_allowed_origins.length} origem(ns)` : 'Nenhuma origem de browser liberada'}
+                          ok
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(30,30,30,0.02)', borderRadius: '12px', border: '1px solid #252b36' }}>
+                <h3 style={{ color: '#d35400', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '8px' }}>Orquestração via GCP / Vertex AI</h3>
+                <p style={{ color: '#6b6b6b', fontSize: '0.8rem', lineHeight: '1.6' }}>
+                  Todos os agentes de IA chamam o Vertex AI Gemini com credenciais ADC do Cloud Run (nunca API keys
+                  em texto no cliente). Segredos (HeyGen, Tavily, auth interna) vivem no GCP Secret Manager em
+                  produção. Recomendação de reforço futuro: substituir o segredo compartilhado entre Next.js e
+                  cmo-agent por IAM invoker (tokens OIDC assinados pelo metadata server do Cloud Run), removendo
+                  <code style={{ margin: '0 4px' }}>--allow-unauthenticated</code> do serviço cmo-agent.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : selectedAgent === 'avatars' ? (
           <div className={styles.card} style={{ width: '100%' }}>
             <div className={styles.editorPane}>
               <div className={styles.headerRow}>
@@ -563,7 +808,7 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
 
               <div className={styles.keysContainer}>
                 {/* Horizontal Profile */}
-                <div style={{ padding: '16px', background: 'rgba(30, 30, 30, 0.02)', borderRadius: '12px', border: '1px solid rgba(30, 30, 30, 0.08)' }}>
+                <div style={{ padding: '16px', background: 'rgba(30,30,30,0.02)', borderRadius: '12px', border: '1px solid #252b36' }}>
                   <h3 style={{ color: '#d35400', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px' }}>📺 Perfil Horizontal (Landscape 16:9)</h3>
                   <div className={styles.keyRow} style={{ marginBottom: '12px' }}>
                     <label className={styles.keyLabel}>Avatar ID</label>
@@ -594,7 +839,7 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
                 </div>
 
                 {/* Vertical Profile */}
-                <div style={{ padding: '16px', background: 'rgba(30, 30, 30, 0.02)', borderRadius: '12px', border: '1px solid rgba(30, 30, 30, 0.08)' }}>
+                <div style={{ padding: '16px', background: 'rgba(30,30,30,0.02)', borderRadius: '12px', border: '1px solid #252b36' }}>
                   <h3 style={{ color: '#d35400', fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px' }}>📱 Perfil Vertical (Portrait 9:16)</h3>
                   <div className={styles.keyRow} style={{ marginBottom: '12px' }}>
                     <label className={styles.keyLabel}>Avatar ID</label>
@@ -652,7 +897,7 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
                 {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
               </div>
 
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5' }}>
+              <p style={{ color: '#6b6b6b', fontSize: '0.85rem', lineHeight: '1.5' }}>
                 As credenciais inseridas abaixo são protegidas com máscaras de segurança para evitar vazamento na tela. 
                 {keysEnvironment === 'production' 
                   ? ' Ao salvar em ambiente de deploy, uma nova versão do segredo será inserida no Google Cloud Secret Manager automaticamente.' 
@@ -698,7 +943,7 @@ export default function SettingsTab({ onBack }: SettingsTabProps) {
                 </h2>
                 {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
               </div>
-              <p style={{ color: '#94a3b8', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 8px 0' }}>
+              <p style={{ color: '#6b6b6b', fontSize: '0.85rem', lineHeight: '1.5', margin: '0 0 8px 0' }}>
                 {selectedAgent === 'html_templates'
                   ? 'Estes templates definem os elementos visuais animados que são sobrepostos ao vídeo final (ex: blocos de código ou equações em LaTeX). Edite o código-fonte abaixo e veja a visualização renderizada no celular simulado à direita em tempo real.'
                   : 'Estes templates definem o design e os estilos CSS de componentes renderizados no corpo do artigo de blog público (como blocos de código ou blocos matemáticos LaTeX). Edite e pré-visualize o componente em tempo real.'}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
+import { cmoAgentHeaders } from '@/lib/cmoAgent';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,9 +11,7 @@ export async function POST(req: NextRequest) {
     const cmoAgentUrl = process.env.CMO_AGENT_URL || 'http://localhost:8090';
     const res = await fetch(`${cmoAgentUrl}/retry-merge`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: cmoAgentHeaders(),
       body: JSON.stringify(body),
     });
 
@@ -38,7 +37,7 @@ export async function GET(req: NextRequest) {
     }
 
     const cmoAgentUrl = process.env.CMO_AGENT_URL || 'http://localhost:8090';
-    const res = await fetch(`${cmoAgentUrl}/retry-merge?jobId=${jobId}`);
+    const res = await fetch(`${cmoAgentUrl}/retry-merge?jobId=${jobId}`, { headers: cmoAgentHeaders() });
     const data = await res.json();
     if (!res.ok) {
       return NextResponse.json({ error: data.detail || 'Erro ao consultar status do retry-merge' }, { status: res.status });
