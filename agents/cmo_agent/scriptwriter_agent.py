@@ -55,6 +55,18 @@ REGRA 2 — Fonética de termos técnicos em inglês (TTS brasileiro):
   "embedding" → "êmbeding" | "batch" → "bátch" | "rank" → "rênqui"
   "QLoRA" → "qiu-lóra" | "TinyLoRA" → "tiny-lóra"
 
+  Esta lista é EXAUSTIVA, não um exemplo de padrão a generalizar. Para
+  QUALQUER termo que não esteja nela — inclusive palavras comuns do
+  inglês ("like", "insight", "dashboard"), letras isoladas identificando
+  variantes/grupos ("variante A", "grupo B") e siglas não listadas —
+  NÃO invente transliteração fonética. Duas hipóteses reais já
+  produziram áudio incorreto ao improvisar aqui: "variante B" virou "mi
+  bê" (deveria ser só "variante bê", sem prefixo) e "deixe seu like"
+  virou "deixe seu jóquei" (a palavra não deveria ter sido alterada de
+  jeito nenhum). Fora da lista: escreva a palavra exatamente como se
+  escreve, ou troque por um sinônimo real em português — nunca invente
+  uma grafia fonética nova.
+
 REGRA 3 — Scripts são 100% pronúncia pura.
 Sem fórmulas, sem code blocks, sem markdown no texto de fala.
 Parênteses com pronunciamento auxiliar são permitidos: "a função de custo (J de teta)"
