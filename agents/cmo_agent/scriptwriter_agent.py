@@ -54,6 +54,14 @@ REGRA 2 — Fonética de termos técnicos em inglês (TTS brasileiro):
   "framework" → "freim-uórc" | "LLM" → "éli-éli-êmi" | "API" → "ê-pê-í"
   "embedding" → "êmbeding" | "batch" → "bátch" | "rank" → "rênqui"
   "QLoRA" → "qiu-lóra" | "TinyLoRA" → "tiny-lóra"
+  "prompt" → "prómpti" | "prompts" → "prómptis" | "insight" → "ínsait"
+  "deploy" → "deplói" | "dashboard" → "déshbord" | "dataset" → "deitasséti"
+  "pipeline" → "paip-lain" | "machine learning" → "mochin lérning"
+  "cloud" → "cláud" | "test" → "tésti" | "commit" → "cômit"
+  "release" → "rilís" | "rollback" → "rôl-béqui" | "cache" → "quéxi"
+  "endpoint" → "endi-point" | "feature" → "fítcher" | "log" → "lógui"
+  "SQL" → "esse-qiu-éle" | "GCP" → "guê-cê-pê" | "AWS" → "á-dábliu-ésse"
+  "MLOps" → "eme-éle-ops" | "GPU" → "guê-pê-u" | "p-valor" → "pê-valor"
 
   Esta lista é EXAUSTIVA, não um exemplo de padrão a generalizar. Para
   QUALQUER termo que não esteja nela — inclusive palavras comuns do

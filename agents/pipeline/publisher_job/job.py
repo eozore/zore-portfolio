@@ -38,6 +38,36 @@ logger = logging.getLogger("publisher_job")
 
 COLLECTION_QUEUE = "social_queue"   # fila de publicação agendada (status = planned)
 
+# ── Placeholders de link ──────────────────────────────────────────────────────
+# Os prompts de copy_agent e distribution_agent instruem os modelos a emitir
+# estes marcadores em vez de URLs reais ("NUNCA repita URLs reais"). A etapa de
+# substituição, porém, nunca existiu: 9 ocorrências de [LINK_ARTIGO] saíam
+# LITERALMENTE nos posts de Threads e no carrossel.
+#
+# A substituição acontece na PUBLICAÇÃO, não na geração, porque é só aí que a
+# URL do vídeo existe: o contentPlanner agenda o social para D+1..D+7 e o vídeo
+# sai em D+0, então quando o publisher pega um item da fila o vídeo já subiu.
+ARTICLE_PLACEHOLDER = "[LINK_ARTIGO]"
+CHANNEL_PLACEHOLDER = "[LINK_CANAL]"
+
+BLOG_BASE_URL       = os.environ.get("BLOG_BASE_URL", "https://eozore.com").rstrip("/")
+# Fallback quando o vídeo específico ainda não existe (upload falhou, ou o item
+# foi publicado antes do vídeo): o canal é sempre um link válido. Publicar um
+# link quebrado é pior do que publicar um link mais genérico.
+YOUTUBE_CHANNEL_URL = os.environ.get(
+    "YOUTUBE_CHANNEL_URL", "https://www.youtube.com/@victorzore"
+).rstrip("/")
+
+
+def _article_url_from(data: dict[str, Any]) -> str:
+    """URL do artigo a partir do item da fila, com degradação graciosa."""
+    direct = data.get("article_url") or data.get("articleUrl")
+    if direct:
+        return str(direct)
+    slug = data.get("article_slug") or data.get("articleSlug")
+    lang = data.get("language") or "pt-BR"
+    return f"{BLOG_BASE_URL}/{lang}/blog/{slug}" if slug else f"{BLOG_BASE_URL}/pt-BR/blog"
+
 # Visibilidade do upload no YouTube: 'public' | 'unlisted' | 'private'.
 # Default 'public' preserva o comportamento existente. 'unlisted' é o modo
 # recomendado para validar um ciclo end-to-end sem o vídeo ficar visível
@@ -188,6 +218,70 @@ class PublisherJob:
         self._linkedin: Any = None
         self._meta:     Any = None
         self._youtube:  Any = None
+
+        # Uma execução da fila publica vários itens da MESMA sessão; sem cache
+        # cada item faria a mesma query em content_projects.
+        self._video_url_cache: dict[str, str | None] = {}
+
+    # ── Resolução de links ────────────────────────────────────────────────────
+
+    def _video_url_for(self, session_id: str | None, article_slug: str | None) -> str | None:
+        """
+        URL do vídeo publicado desta campanha, ou None se ainda não existe.
+
+        Procura o content_project da sessão e lê o id do vídeo gravado por
+        publish_video_ready em publish_results.youtube.
+        """
+        key = session_id or article_slug or ""
+        if not key:
+            return None
+        if key in self._video_url_cache:
+            return self._video_url_cache[key]
+
+        video_url: str | None = None
+        try:
+            field, value = ("session_id", session_id) if session_id else ("article_slug", article_slug)
+            docs = list(
+                self._db.collection("content_projects")
+                .where(field, "==", value)
+                .limit(10)
+                .get()
+            )
+            # O mais recente que já tenha vídeo publicado
+            for doc in sorted(docs, key=lambda d: str(d.to_dict().get("created_at", "")), reverse=True):
+                results = doc.to_dict().get("publish_results") or {}
+                vid = results.get("youtube")
+                if vid:
+                    video_url = f"https://youtu.be/{vid}"
+                    break
+        except Exception as exc:
+            logger.warning("[publisher] falha ao resolver URL do vídeo (%s=%s): %s",
+                           "session_id" if session_id else "article_slug", key, exc)
+
+        self._video_url_cache[key] = video_url
+        return video_url
+
+    def _resolve_placeholders(self, text: str | None, data: dict[str, Any]) -> str:
+        """
+        Troca [LINK_ARTIGO] e [LINK_CANAL] pelas URLs reais.
+
+        Sem isto o texto ia LITERAL para a rede social. O fallback do canal
+        garante que nunca publicamos um link quebrado, mesmo se o upload do
+        vídeo tiver falhado.
+        """
+        if not text:
+            return text or ""
+        if ARTICLE_PLACEHOLDER not in text and CHANNEL_PLACEHOLDER not in text:
+            return text
+
+        resolved = text.replace(ARTICLE_PLACEHOLDER, _article_url_from(data))
+        if CHANNEL_PLACEHOLDER in resolved:
+            video_url = self._video_url_for(
+                data.get("session_id") or data.get("sessionId"),
+                data.get("article_slug") or data.get("articleSlug"),
+            )
+            resolved = resolved.replace(CHANNEL_PLACEHOLDER, video_url or YOUTUBE_CHANNEL_URL)
+        return resolved
 
     # ── Clientes (lazy) ────────────────────────────────────────────────────────
 
@@ -515,6 +609,18 @@ class PublisherJob:
         """
         platform = data.get("platform", "")
         fmt      = data.get("format", "")
+
+        # Resolve [LINK_ARTIGO] / [LINK_CANAL] ANTES de qualquer publicação.
+        # Precisa cobrir tanto o copy quanto os posts de thread — o último post
+        # de toda thread termina em "Artigo completo: [LINK_ARTIGO]".
+        data = dict(data)  # não muta o documento original do chamador
+        data["copy"] = self._resolve_placeholders(data.get("copy"), data)
+        for key in ("thread_posts", "threadPosts"):
+            posts = data.get(key)
+            if isinstance(posts, list):
+                data[key] = [self._resolve_placeholders(p, data) for p in posts]
+        if isinstance(data.get("title"), str):
+            data["title"] = self._resolve_placeholders(data["title"], data)
 
         # Normaliza asset_urls
         if not data.get("asset_urls") and data.get("videoUrl"):

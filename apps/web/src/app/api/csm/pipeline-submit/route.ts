@@ -24,12 +24,14 @@ import { GoogleAuth } from 'google-auth-library';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { dbPaths } from '@/lib/dbPaths';
 import { cmoAgentHeaders } from '@/lib/cmoAgent';
+import { loadSession } from '@/lib/session';
 
 const GCP_PROJECT_ID      = process.env.FIREBASE_PROJECT_ID || 'vazfy-417019';
 const PIPELINE_TOPIC      = 'content-pipeline.package-approved';
 const CMO_AGENT_URL       = process.env.CMO_AGENT_URL || 'http://localhost:8090';
 const PUBLISHER_URL       = 'https://publisher-immediate-4zffe4l4lq-uc.a.run.app';
 const DEFAULT_COST_LIMIT  = 50.0;   // USD — gate de custo por vídeo
+const BLOG_BASE_URL       = (process.env.NEXT_PUBLIC_BASE_URL || 'https://eozore.com').replace(/\/$/, '');
 
 // Plataformas de texto — publicação imediata
 const TEXT_PLATFORMS = new Set(['linkedin', 'facebook', 'threads', 'youtube_community']);
@@ -114,6 +116,51 @@ async function publishNow(
 
 // ── Helper: cria documento do projeto no Firestore ────────────────────────────
 
+/** Metadados editoriais que o publisher_job lê para montar a publicação. */
+interface ProjectMeta {
+  description?: string;
+  tags?:        string[];
+  articleUrl?:  string;
+  subtitle?:    string;
+  category?:    string;
+}
+
+/**
+ * Monta a descrição do YouTube a partir da pauta.
+ *
+ * O publisher lia `meta.description` e caía em string vazia porque este
+ * documento nunca gravava o campo — o vídeo subiria com descrição em branco e
+ * o copy_social de LinkedIn/Threads/Instagram começaria literalmente com "...".
+ */
+function buildDescription(draft: Record<string, unknown> | undefined): string {
+  const pauta = (draft?.pauta ?? {}) as Record<string, unknown>;
+  const parts: string[] = [];
+
+  if (typeof pauta.subtitulo === 'string' && pauta.subtitulo.trim()) {
+    parts.push(pauta.subtitulo.trim());
+  }
+  if (typeof pauta.objetivo_aprendizado === 'string' && pauta.objetivo_aprendizado.trim()) {
+    parts.push(`Neste vídeo: ${pauta.objetivo_aprendizado.trim()}`);
+  }
+  const skills = Array.isArray(pauta.hardskills) ? (pauta.hardskills as string[]) : [];
+  if (skills.length) {
+    parts.push(`O que você vai desenvolver:\n${skills.map((s) => `• ${s}`).join('\n')}`);
+  }
+  return parts.join('\n\n');
+}
+
+/** Tags do YouTube derivadas da pauta, em vez das três genéricas do fallback. */
+function buildTags(draft: Record<string, unknown> | undefined, category: string): string[] {
+  const pauta = (draft?.pauta ?? {}) as Record<string, unknown>;
+  const skills = Array.isArray(pauta.hardskills) ? (pauta.hardskills as string[]) : [];
+  const fromSkills = skills
+    .flatMap((s) => s.toLowerCase().split(/[\s,/]+/))
+    .filter((w) => w.length >= 4 && !['para', 'como', 'onde', 'sobre', 'entre'].includes(w));
+  const serie = typeof pauta.serie === 'string' ? pauta.serie.replace(/-/g, ' ') : '';
+  // YouTube ignora tags além de ~500 chars no total; 15 é folgado e seguro.
+  return [...new Set([category, ...(serie ? [serie] : []), ...fromSkills, 'eozore'])].slice(0, 15);
+}
+
 async function createProjectDoc(
   projectId:    string,
   title:        string,
@@ -121,6 +168,7 @@ async function createProjectDoc(
   articleSlug:  string,
   sessionId:    string | undefined,
   tenantId:     string | null,
+  meta:         ProjectMeta = {},
 ): Promise<void> {
   const db = getFirestoreDb();
   if (!db) return;
@@ -135,6 +183,14 @@ async function createProjectDoc(
     status:       'generating_media',
     created_at:   now,
     updated_at:   now,
+    // Campos consumidos por publisher_job.publish_video_ready(). Sem eles o
+    // vídeo subia sem descrição, com tags genéricas e link para o índice do
+    // blog em vez do artigo.
+    description:  meta.description ?? '',
+    tags:         meta.tags ?? [],
+    article_url:  meta.articleUrl ?? '',
+    subtitle:     meta.subtitle ?? '',
+    category:     meta.category ?? 'ia',
     stages: {
       tts:    { status: 'pending' },
       avatar: { status: 'pending' },
@@ -165,6 +221,25 @@ export async function POST(request: Request): Promise<Response> {
   if (!approved.length && !(youtubeScript && youtubeScript.trim().length > 100)) {
     return NextResponse.json({ error: 'No approved items' }, { status: 400 });
   }
+
+  // Carrega a sessão para montar os metadados editoriais do projeto. A pauta
+  // tem subtítulo, objetivo de aprendizado e hardskills — tudo que a descrição
+  // do YouTube precisa e que antes ficava em branco.
+  const sessionDraft = sessionId
+    ? ((await loadSession(sessionId, tenantId)) as { draft?: Record<string, unknown> } | null)?.draft
+    : undefined;
+  const articleLanguage = (sessionDraft?.language as string) || 'pt-BR';
+  const articleUrl =
+    (sessionDraft?.publishedArticleUrl as string) ||
+    `${BLOG_BASE_URL}/${articleLanguage}/blog/${articleSlug}`;
+  const projectCategory = (sessionDraft?.category as string) || 'ia';
+  const projectMeta: ProjectMeta = {
+    description: buildDescription(sessionDraft),
+    tags:        buildTags(sessionDraft, projectCategory),
+    articleUrl,
+    subtitle:    ((sessionDraft?.pauta ?? {}) as Record<string, unknown>).subtitulo as string | undefined,
+    category:    projectCategory,
+  };
 
   // Token OIDC para publisher-immediate (Cloud Run autenticado)
   const publisherToken = await getCloudRunToken(PUBLISHER_URL);
@@ -207,7 +282,7 @@ export async function POST(request: Request): Promise<Response> {
       console.log(`[pipeline-submit] Manifesto criado: ${manifestPath} (${manifestData.avatar_segments} segments, ~$${manifestData.estimated_cost_usd})`);
 
       // b. Cria documento do projeto no Firestore
-      await createProjectDoc(projectId, articleTitle, manifestPath, articleSlug, sessionId, tenantId);
+      await createProjectDoc(projectId, articleTitle, manifestPath, articleSlug, sessionId, tenantId, projectMeta);
 
       // c. Publica PackageApprovedMsg no Pub/Sub
       const msg = {
@@ -251,6 +326,11 @@ export async function POST(request: Request): Promise<Response> {
             status:           'planned',
             article_slug:     articleSlug,
             article_title:    articleTitle,
+            // URL real do artigo publicado, para o publisher trocar
+            // [LINK_ARTIGO] no momento da publicação. Guardada aqui porque na
+            // hora de publicar (D+1..D+7) a sessão pode já ter sido reiniciada.
+            article_url:      articleUrl,
+            language:         articleLanguage,
             thread_posts:     item.threadPosts || null,
             image_url:        item.imageUrl    || null,
             video_url:        item.videoUrl    || null,
@@ -297,7 +377,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         const { manifest_gcs_path: manifestPath } = await manifestRes.json();
-        await createProjectDoc(projectId, item.title, manifestPath, articleSlug, sessionId, tenantId);
+        await createProjectDoc(projectId, item.title, manifestPath, articleSlug, sessionId, tenantId, projectMeta);
 
         const msg = {
           project_id:        projectId,

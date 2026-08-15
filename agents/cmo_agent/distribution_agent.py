@@ -46,7 +46,8 @@ class LinkedInPost(BaseModel):
     )
     imageHtml: str = Field(
         description="HTML completo para gerar a imagem de capa do post via Playwright. "
-                    "Design dark premium: fundo #0f172a, tipografia branca, destaque roxo #7c3aed ou laranja #e67e22. "
+                    "Design dark premium na paleta da marca: fundo #0d0f14, tipografia #eae4dc, "
+                    "destaque #e8873a (laranja) e apoio #f5b56a. NUNCA use roxo, azul ou ciano. "
                     "Deve conter: título do conceito em destaque, 1 equação central formatada visualmente, "
                     "logo 'éozoré' no canto. Tamanho alvo: 1200x628px (og:image LinkedIn). "
                     "Use apenas HTML/CSS inline, sem JavaScript, sem fontes externas."
@@ -140,7 +141,8 @@ class ImagePost(BaseModel):
     )
     imageHtml: str = Field(
         description="HTML completo da imagem 1080x1080px (formato quadrado para feed Instagram). "
-                    "Design dark premium: fundo #0f172a, destaques #7c3aed ou #06b6d4. "
+                    "Design dark premium na paleta da marca: fundo #0d0f14, tipografia #eae4dc, "
+                    "destaque #e8873a (laranja) e apoio #f5b56a. NUNCA use roxo, azul ou ciano. "
                     "Conteúdo: insight técnico central do artigo em 1-2 linhas, visual minimalista. "
                     "Use apenas HTML/CSS inline."
     )
