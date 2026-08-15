@@ -212,6 +212,20 @@ resource "google_pubsub_subscription" "publisher_sub" {
 
   ack_deadline_seconds = 600
 
+  # Sem push_config, esta subscription era PULL e ninguém a consumia: o
+  # vídeo final existia no GCS mas nunca era publicado em plataforma
+  # nenhuma. Corrigido operacionalmente antes deste arquivo ser atualizado
+  # (ver comentário em publisher_immediate/app.py:/pubsub/video-ready) — o
+  # push já estava configurado em produção, e este bloco só passa a
+  # descrever o que já era real.
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.publisher_immediate.uri}/pubsub/video-ready"
+
+    oidc_token {
+      service_account_email = local.sa_email
+    }
+  }
+
   dead_letter_policy {
     dead_letter_topic     = google_pubsub_topic.dead_letter.id
     max_delivery_attempts = 5
@@ -335,6 +349,12 @@ resource "google_cloud_run_v2_service" "heygen_callback" {
 
 # ── Cloud Run Service: publisher-immediate ────────────────────────────────
 
+
+# NOTA DE DRIFT: este resource está desatualizado em relação ao que
+# cloudbuild-pipeline.yaml realmente deploya (memory/cpu/timeout maiores,
+# secrets do YouTube, GCS_BUCKET/TENANT_ID/PLAYWRIGHT_CHROMIUM_ARGS). O
+# cloudbuild é quem roda em CI hoje; este arquivo não reflete a config viva.
+# Fica registrado para uma reconciliação futura — não bloqueia o uso normal.
 resource "google_cloud_run_v2_service" "publisher_immediate" {
   name     = "publisher-immediate"
   location = var.region

@@ -37,6 +37,18 @@ from shared.models import VideoReadyMsg
 logger = logging.getLogger("publisher_job")
 
 COLLECTION_QUEUE = "social_queue"   # fila de publicação agendada (status = planned)
+
+# Visibilidade do upload no YouTube: 'public' | 'unlisted' | 'private'.
+# Default 'public' preserva o comportamento existente. 'unlisted' é o modo
+# recomendado para validar um ciclo end-to-end sem o vídeo ficar visível
+# publicamente antes de revisão — o vídeo sobe de verdade, mas só quem tem
+# o link acessa, até o dono trocar manualmente para público.
+YOUTUBE_UPLOAD_PRIVACY = os.environ.get("YOUTUBE_UPLOAD_PRIVACY", "public").strip().lower()
+if YOUTUBE_UPLOAD_PRIVACY not in ("public", "unlisted", "private"):
+    logger.warning(
+        "YOUTUBE_UPLOAD_PRIVACY=%r inválido, usando 'public'.", YOUTUBE_UPLOAD_PRIVACY
+    )
+    YOUTUBE_UPLOAD_PRIVACY = "public"
 MAX_RETRIES      = 3
 ERROR_CODE_MAP   = {
     "token":       "TOKEN_EXPIRED",
@@ -428,12 +440,12 @@ class PublisherJob:
         platform_attempts: list[tuple[str, Any]] = [
             ("youtube", lambda: self._get_youtube().upload_video(
                 video_source=msg.horizontal_final, title=title, description=copy_long,
-                tags=tags, category_id="27", privacy="public", is_short=False,
+                tags=tags, category_id="27", privacy=YOUTUBE_UPLOAD_PRIVACY, is_short=False,
                 thumbnail_url=thumbnail_youtube_url,
             )),
             ("youtube_short", lambda: self._get_youtube().upload_video(
                 video_source=msg.vertical_final, title=f"#{title} (Short)", description=copy_short,
-                tags=tags + ["Shorts"], category_id="27", privacy="public", is_short=True,
+                tags=tags + ["Shorts"], category_id="27", privacy=YOUTUBE_UPLOAD_PRIVACY, is_short=True,
                 thumbnail_url=thumbnail_reel_url,
             )),
             ("instagram_reel", lambda: self._get_meta().publish_instagram({
