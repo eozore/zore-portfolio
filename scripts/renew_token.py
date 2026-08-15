@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import http.server
 import json
+import signal
 import subprocess
 import sys
 import threading
@@ -37,10 +38,19 @@ import urllib.request
 import webbrowser
 
 PROJECT = "vazfy-417019"
-PORT = 8080
-REDIRECT_URI = f"http://localhost:{PORT}/"
+DEFAULT_PORT = 8080
 
 _captured: dict[str, str] = {}
+
+
+def redirect_uri_for(port: int) -> str:
+    """
+    A barra final importa: o Google compara a redirect_uri caractere a
+    caractere. "http://localhost:8080" e "http://localhost:8080/" são URIs
+    diferentes para ele, e a divergência aparece como redirect_uri_mismatch.
+    Registre no console exatamente a string que este script imprime.
+    """
+    return f"http://localhost:{port}/"
 
 
 # ── Secret Manager ────────────────────────────────────────────────────────────
@@ -89,10 +99,53 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-def await_code(auth_url: str, timeout_s: int = 300) -> str:
-    server = http.server.HTTPServer(("localhost", PORT), _Handler)
+class _Server(http.server.HTTPServer):
+    # Sem isto, o socket em TIME_WAIT de uma execução anterior bloqueia o bind
+    # por ~60s e o script falha com "Address already in use".
+    allow_reuse_address = True
+
+
+def _port_owner(port: int) -> str:
+    """Quem está segurando a porta — a mensagem de erro precisa dizer isso."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip().splitlines()
+        return out[1] if len(out) > 1 else "(desconhecido)"
+    except Exception:
+        return "(não consegui identificar)"
+
+
+def await_code(auth_url: str, redirect_uri: str, port: int, timeout_s: int = 300) -> str:
+    try:
+        server = _Server(("localhost", port), _Handler)
+    except OSError as exc:
+        raise SystemExit(
+            f"\n  A porta {port} está ocupada e o script precisa dela para receber o\n"
+            f"  redirect do consentimento.\n\n"
+            f"  Quem está usando:\n    {_port_owner(port)}\n\n"
+            f"  Se for uma execução anterior deste script que ficou presa, encerre com:\n"
+            f"    lsof -nP -iTCP:{port} -sTCP:LISTEN -t | xargs kill\n\n"
+            f"  Ou use outra porta (lembre de registrá-la no app):\n"
+            f"    {sys.argv[0]} {sys.argv[1]} --port 8081\n\n"
+            f"  (detalhe do SO: {exc})"
+        ) from None
+
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
+    # SIGTERM (kill, timeout, fechar o terminal) não vira KeyboardInterrupt.
+    # Sem este handler o processo morria sem passar pelo finally e deixava a
+    # porta presa — exatamente o que fazia a execução seguinte falhar com
+    # "Address already in use".
+    def _on_term(_sig, _frm):
+        try:
+            server.server_close()
+        finally:
+            raise SystemExit("\n  Encerrado.")
+    signal.signal(signal.SIGTERM, _on_term)
+
+    print(f"\n  Servidor local escutando em {redirect_uri}")
     print("\n  Abra este link, escolha a conta e aprove:\n")
     print(f"    {auth_url}\n")
     try:
@@ -100,15 +153,33 @@ def await_code(auth_url: str, timeout_s: int = 300) -> str:
         print("  (tentei abrir no seu navegador automaticamente)\n")
     except Exception:
         pass
+    print("  Ctrl-C cancela sem deixar a porta presa.\n")
 
-    deadline = time.time() + timeout_s
-    while "code" not in _captured and time.time() < deadline:
-        time.sleep(1)
-    server.shutdown()
+    # try/finally: qualquer saída — sucesso, timeout ou Ctrl-C — libera a porta.
+    # Antes, um erro no navegador deixava este processo vivo por 300s segurando
+    # a 8080, e a execução seguinte falhava com "Address already in use".
+    try:
+        deadline = time.time() + timeout_s
+        while "code" not in _captured and "error" not in _captured and time.time() < deadline:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        raise SystemExit("\n  Cancelado.") from None
+    finally:
+        server.shutdown()
+        server.server_close()
 
+    if "error" in _captured:
+        raise SystemExit(
+            f"\n  O provedor recusou: {_captured['error']}\n"
+            f"  {_captured.get('error_description', '')}"
+        )
     if "code" not in _captured:
-        raise SystemExit(f"  Nenhum codigo recebido em {timeout_s}s. "
-                         f"Confira se {REDIRECT_URI} esta registrada no app.")
+        raise SystemExit(
+            f"\n  Nenhum código recebido em {timeout_s}s.\n"
+            f"  A causa quase sempre é a redirect URI não registrada. Registre\n"
+            f"  EXATAMENTE esta string no app (o Google compara caractere a\n"
+            f"  caractere, inclusive a barra final):\n\n    {redirect_uri}\n"
+        )
     return _captured["code"]
 
 
@@ -126,13 +197,18 @@ def get_json(url: str) -> dict:
 
 # ── YouTube ───────────────────────────────────────────────────────────────────
 
-def renew_youtube() -> None:
+def renew_youtube(port: int) -> None:
+    redirect_uri = redirect_uri_for(port)
     client_id = sec_get("youtube-oauth-client-id").strip()
     client_secret = sec_get("youtube-oauth-client-secret").strip()
 
+    print("\n  ANTES DE CONTINUAR — esta URI precisa estar registrada em")
+    print("  console.cloud.google.com -> APIs & Services -> Credentials ->")
+    print(f"  seu OAuth client -> Authorized redirect URIs:\n\n    {redirect_uri}\n")
+
     auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
         "client_id": client_id,
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": "https://www.googleapis.com/auth/youtube.upload "
                  "https://www.googleapis.com/auth/youtube.readonly",
@@ -142,11 +218,11 @@ def renew_youtube() -> None:
         "prompt": "consent",
     })
 
-    code = await_code(auth_url)
+    code = await_code(auth_url, redirect_uri, port)
     print("  codigo recebido, trocando por tokens...")
     tok = post_form("https://oauth2.googleapis.com/token", {
         "code": code, "client_id": client_id, "client_secret": client_secret,
-        "redirect_uri": REDIRECT_URI, "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri, "grant_type": "authorization_code",
     })
 
     refresh = tok.get("refresh_token")
@@ -164,23 +240,28 @@ def renew_youtube() -> None:
 
 # ── Threads ───────────────────────────────────────────────────────────────────
 
-def renew_threads() -> None:
+def renew_threads(port: int) -> None:
+    redirect_uri = redirect_uri_for(port)
     creds = json.loads(sec_get("meta-credentials"))
     app_id, app_secret = creds["app_id"], creds["app_secret"]
 
+    print("\n  ANTES DE CONTINUAR — esta URI precisa estar registrada em")
+    print("  developers.facebook.com -> seu app -> Use cases -> Threads ->")
+    print(f"  Settings -> Redirect Callback URLs:\n\n    {redirect_uri}\n")
+
     auth_url = "https://threads.net/oauth/authorize?" + urllib.parse.urlencode({
         "client_id": app_id,
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "scope": "threads_basic,threads_content_publish",
         "response_type": "code",
     })
 
-    code = await_code(auth_url)
+    code = await_code(auth_url, redirect_uri, port)
     print("  codigo recebido, trocando por token curto...")
     short = post_form("https://graph.threads.net/oauth/access_token", {
         "client_id": app_id, "client_secret": app_secret,
         "grant_type": "authorization_code",
-        "redirect_uri": REDIRECT_URI, "code": code,
+        "redirect_uri": redirect_uri, "code": code,
     })
 
     # O token curto vale 1h; a pipeline precisa do longo (60 dias).
@@ -207,12 +288,22 @@ def renew_threads() -> None:
 TARGETS = {"youtube": renew_youtube, "threads": renew_threads}
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in TARGETS:
+    args = sys.argv[1:]
+    port = DEFAULT_PORT
+    if "--port" in args:
+        i = args.index("--port")
+        try:
+            port = int(args[i + 1])
+        except (IndexError, ValueError):
+            raise SystemExit("  --port precisa de um número. Ex: --port 8081")
+        del args[i:i + 2]
+
+    if len(args) != 1 or args[0] not in TARGETS:
         print(__doc__)
-        print(f"Uso: {sys.argv[0]} [{'|'.join(TARGETS)}]")
+        print(f"Uso: {sys.argv[0]} [{'|'.join(TARGETS)}] [--port N]")
         raise SystemExit(1)
 
-    target = sys.argv[1]
+    target = args[0]
     print(f"\n=== Renovando token: {target} ===")
-    TARGETS[target]()
+    TARGETS[target](port)
     print("\n  Feito. Confirme com: ./scripts/check-credentials.sh\n")
