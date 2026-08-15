@@ -30,6 +30,8 @@ import urllib.error
 import urllib.request
 from typing import Any, Optional
 
+from google.api_core.exceptions import NotFound
+
 logger = logging.getLogger("package_job")
 
 # Campos que o frontend guarda num doc irmão por causa do teto de 1MB por
@@ -103,7 +105,18 @@ class PackageJob:
                 raise RuntimeError(
                     f"Patch do draft com {size // 1024}KB excede o limite de 1MB do Firestore"
                 )
-            self._session_ref(session_id, tenant_id).update(payload)
+            ref = self._session_ref(session_id, tenant_id)
+            try:
+                # update() interpreta o ponto como caminho de campo, que é o que
+                # queremos: sobrescreve draft.manifestV2 sem tocar no resto do
+                # draft. set() trataria "draft.manifestV2" como nome literal.
+                ref.update(payload)
+            except NotFound:
+                # A sessão sumiu entre o enfileiramento e a execução (usuário
+                # começou de novo, limpeza de dados). Recria em vez de derrubar
+                # o job — o trabalho já foi pago junto ao Vertex.
+                logger.warning("[package-job] sessão %s não existe; recriando", session_id)
+                ref.set({"draft": light, "updatedAt": payload["updatedAt"]}, merge=True)
 
         if heavy:
             self._artifacts_ref(session_id, tenant_id).set(
