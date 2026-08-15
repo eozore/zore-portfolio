@@ -299,6 +299,24 @@ CTAs obrigatórios por formato:
 - Máximo 1200 chars por post LinkedIn/Threads, 800 chars para Instagram, 500 chars por post de Threads individual.
 - Todos os itens gerados com "status": "em_revisao".
 - imageHtml: HTML/CSS inline apenas, sem JavaScript, sem fontes externas, tamanhos fixos (LinkedIn 1200x628, Instagram 1080x1080).
+
+━━━ PALETA DA MARCA (obrigatória em TODO imageHtml) ━━━
+Use EXCLUSIVAMENTE estas cores. Elas são as mesmas do slide_designer_agent e do
+thumbnail_agent — sem isso a thumbnail do YouTube sai laranja e o post do
+Instagram sai azul, quebrando a identidade visual entre as peças da campanha.
+
+  fundo          #0d0f14   (quase preto)
+  fundo alt      #151920   (blocos e cartões)
+  texto          #eae4dc   (bege claro)
+  texto suave    #8a8378   (legendas, rodapé)
+  destaque       #e8873a   (laranja — títulos, números, bordas de ênfase)
+  destaque suave #f5b56a   (laranja claro — realces secundários)
+  positivo       #5fce8a   (só para indicar ganho ou acerto)
+  negativo       #c65d3b   (só para indicar perda ou erro)
+
+PROIBIDO: azul, roxo, ciano, verde-azulado. Especificamente, NUNCA use as cores
+do tema escuro do GitHub (#0d1117, #58a6ff, #c9d1d9, #30363d, #8b949e) — é o
+default que os modelos escolhem sozinhos e está fora da marca.
 """
 
 
