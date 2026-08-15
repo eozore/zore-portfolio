@@ -5,9 +5,8 @@ renew_token.py — renova os tokens OAuth que exigem consentimento do dono da co
     ./scripts/renew_token.py youtube
     ./scripts/renew_token.py threads
 
-O que o script faz: monta a URL de consentimento correta, sobe um servidor
-local para capturar o redirect, troca o código pelo token de longa duração,
-grava no Secret Manager e testa contra a API.
+O que o script faz: monta a URL de consentimento correta, captura o código,
+troca pelo token de longa duração, grava no Secret Manager e testa na API.
 
 O que VOCÊ faz: clicar no link, escolher a conta e aprovar. O login é seu e
 acontece só no seu navegador — o script nunca vê sua senha.
@@ -17,11 +16,20 @@ tela de consentimento estiver em "Testing", Meta 60 dias) e a pipeline só
 descobre na hora de publicar, depois de já ter gasto créditos de ElevenLabs e
 HeyGen gerando o vídeo inteiro.
 
-PRÉ-REQUISITO — a URI de redirect precisa estar registrada no app:
-  YouTube  Google Cloud Console -> APIs & Services -> Credentials -> seu
-           OAuth client -> Authorized redirect URIs -> http://localhost:8080/
-  Threads  developers.facebook.com -> seu app -> Use cases -> Threads ->
-           Settings -> Redirect Callback URLs -> http://localhost:8080/
+A REDIRECT URI precisa ser byte a byte igual à registrada no app — senão o
+provedor devolve redirect_uri_mismatch. Passe a sua com --redirect-uri:
+
+    ./scripts/renew_token.py youtube --redirect-uri https://www.eozore.com.br/callback
+
+Dois modos, escolhidos automaticamente:
+
+  localhost  sobe um servidor local e captura o redirect sozinho
+             (requer http://localhost:8080/ registrada no app)
+
+  pública    modo de colagem: você aprova, copia a URL da barra de endereço
+             e cola no terminal. A página de callback NÃO precisa existir
+             nem responder — o código vem na query string, e ele está lá
+             mesmo quando o navegador mostra "não foi possível acessar".
 """
 
 from __future__ import annotations
@@ -41,6 +49,18 @@ PROJECT = "vazfy-417019"
 DEFAULT_PORT = 8080
 
 _captured: dict[str, str] = {}
+
+
+def is_local(uri: str) -> bool:
+    host = urllib.parse.urlparse(uri).hostname or ""
+    return host in ("localhost", "127.0.0.1")
+
+
+def obtain_code(auth_url: str, redirect_uri: str, port: int) -> str:
+    """Servidor local quando a redirect é localhost; colagem quando é pública."""
+    if is_local(redirect_uri):
+        return await_code(auth_url, redirect_uri, port)
+    return paste_code(auth_url, redirect_uri)
 
 
 def redirect_uri_for(port: int) -> str:
@@ -115,6 +135,45 @@ def _port_owner(port: int) -> str:
         return out[1] if len(out) > 1 else "(desconhecido)"
     except Exception:
         return "(não consegui identificar)"
+
+
+def paste_code(auth_url: str, redirect_uri: str) -> str:
+    """
+    Modo de colagem, para quando a redirect URI registrada é pública em vez de
+    localhost (ex.: https://www.eozore.com.br/callback).
+
+    A página de callback NÃO precisa existir nem responder. O provedor devolve
+    o código na query string, então ele aparece na barra de endereço mesmo que
+    o navegador mostre "não foi possível acessar o site". É só copiar a URL
+    inteira de lá.
+    """
+    print(f"\n  Redirect URI em uso:\n    {redirect_uri}")
+    print("\n  1) Abra o link abaixo, escolha a conta e aprove:\n")
+    print(f"    {auth_url}\n")
+    try:
+        webbrowser.open(auth_url)
+        print("  (tentei abrir no seu navegador automaticamente)\n")
+    except Exception:
+        pass
+    print("  2) O navegador vai tentar ir para a URL de callback. Se ela não")
+    print("     carregar, tudo bem — o que importa é a barra de endereço.")
+    print("  3) Copie a URL INTEIRA da barra e cole aqui.\n")
+
+    raw = input("  URL (ou só o code): ").strip()
+    if not raw:
+        raise SystemExit("  Nada colado. Cancelado.")
+
+    # Aceita a URL completa, um fragmento com query, ou o código puro.
+    if "code=" in raw:
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(raw).query or raw.split("?", 1)[-1])
+        if "error" in qs:
+            raise SystemExit(f"\n  O provedor recusou: {qs['error'][0]}\n"
+                             f"  {qs.get('error_description', [''])[0]}")
+        codes = qs.get("code")
+        if not codes:
+            raise SystemExit("  Não achei 'code=' na URL colada.")
+        return codes[0]
+    return raw
 
 
 def await_code(auth_url: str, redirect_uri: str, port: int, timeout_s: int = 300) -> str:
@@ -197,14 +256,14 @@ def get_json(url: str) -> dict:
 
 # ── YouTube ───────────────────────────────────────────────────────────────────
 
-def renew_youtube(port: int) -> None:
-    redirect_uri = redirect_uri_for(port)
+def renew_youtube(port: int, redirect_uri: str) -> None:
     client_id = sec_get("youtube-oauth-client-id").strip()
     client_secret = sec_get("youtube-oauth-client-secret").strip()
 
-    print("\n  ANTES DE CONTINUAR — esta URI precisa estar registrada em")
-    print("  console.cloud.google.com -> APIs & Services -> Credentials ->")
-    print(f"  seu OAuth client -> Authorized redirect URIs:\n\n    {redirect_uri}\n")
+    if is_local(redirect_uri):
+        print("\n  ANTES DE CONTINUAR — esta URI precisa estar registrada em")
+        print("  console.cloud.google.com -> APIs & Services -> Credentials ->")
+        print(f"  seu OAuth client -> Authorized redirect URIs:\n\n    {redirect_uri}\n")
 
     auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
         "client_id": client_id,
@@ -218,7 +277,7 @@ def renew_youtube(port: int) -> None:
         "prompt": "consent",
     })
 
-    code = await_code(auth_url, redirect_uri, port)
+    code = obtain_code(auth_url, redirect_uri, port)
     print("  codigo recebido, trocando por tokens...")
     tok = post_form("https://oauth2.googleapis.com/token", {
         "code": code, "client_id": client_id, "client_secret": client_secret,
@@ -240,14 +299,44 @@ def renew_youtube(port: int) -> None:
 
 # ── Threads ───────────────────────────────────────────────────────────────────
 
-def renew_threads(port: int) -> None:
-    redirect_uri = redirect_uri_for(port)
-    creds = json.loads(sec_get("meta-credentials"))
-    app_id, app_secret = creds["app_id"], creds["app_secret"]
+def renew_threads(port: int, redirect_uri: str,
+                  app_id: str | None = None, app_secret: str | None = None) -> None:
+    """
+    Atenção ao par de credenciais: a API do Threads usa um app_id/app_secret
+    PRÓPRIOS, distintos do app_id do Facebook/Instagram do mesmo app Meta.
 
-    print("\n  ANTES DE CONTINUAR — esta URI precisa estar registrada em")
-    print("  developers.facebook.com -> seu app -> Use cases -> Threads ->")
-    print(f"  Settings -> Redirect Callback URLs:\n\n    {redirect_uri}\n")
+    No console eles aparecem em Use cases -> Threads -> Configurações como
+    "ID do app do Threads" e "Chave secreta do app do Threads". Neste projeto:
+
+        app_id         817251417845143   -> Instagram Graph API (@eozore.ai)
+        threads_app_id 1029489203082194  -> API do Threads
+
+    Guardar os dois no mesmo campo quebra um dos dois lados, por isso vivem em
+    chaves separadas no segredo meta-credentials.
+    """
+    creds = json.loads(sec_get("meta-credentials"))
+
+    app_id = app_id or creds.get("threads_app_id")
+    app_secret = app_secret or creds.get("threads_app_secret")
+    if not app_id or not app_secret:
+        raise SystemExit(
+            "\n  Faltam as credenciais do app do THREADS (que não são as do\n"
+            "  Instagram). Pegue em developers.facebook.com -> seu app ->\n"
+            "  Use cases -> Acessar a API do Threads -> Configurações:\n"
+            "    'ID do app do Threads' e 'Chave secreta do app do Threads'\n\n"
+            "  E rode:\n"
+            f"    {sys.argv[0]} threads --app-id <ID> --app-secret <SECRET> \\\n"
+            f"      --redirect-uri <a URI registrada nesse mesmo painel>\n"
+        )
+
+    # Persistidos em chaves próprias para a próxima renovação não pedir de novo.
+    creds["threads_app_id"] = str(app_id)
+    creds["threads_app_secret"] = app_secret
+
+    if is_local(redirect_uri):
+        print("\n  ANTES DE CONTINUAR — esta URI precisa estar registrada em")
+        print("  developers.facebook.com -> seu app -> Use cases -> Threads ->")
+        print(f"  Settings -> Redirect Callback URLs:\n\n    {redirect_uri}\n")
 
     auth_url = "https://threads.net/oauth/authorize?" + urllib.parse.urlencode({
         "client_id": app_id,
@@ -256,7 +345,7 @@ def renew_threads(port: int) -> None:
         "response_type": "code",
     })
 
-    code = await_code(auth_url, redirect_uri, port)
+    code = obtain_code(auth_url, redirect_uri, port)
     print("  codigo recebido, trocando por token curto...")
     short = post_form("https://graph.threads.net/oauth/access_token", {
         "client_id": app_id, "client_secret": app_secret,
@@ -287,23 +376,46 @@ def renew_threads(port: int) -> None:
 
 TARGETS = {"youtube": renew_youtube, "threads": renew_threads}
 
+def _take_flag(args: list[str], flag: str) -> str | None:
+    if flag not in args:
+        return None
+    i = args.index(flag)
+    try:
+        value = args[i + 1]
+    except IndexError:
+        raise SystemExit(f"  {flag} precisa de um valor.") from None
+    del args[i:i + 2]
+    return value
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
-    port = DEFAULT_PORT
-    if "--port" in args:
-        i = args.index("--port")
-        try:
-            port = int(args[i + 1])
-        except (IndexError, ValueError):
-            raise SystemExit("  --port precisa de um número. Ex: --port 8081")
-        del args[i:i + 2]
+
+    port_raw = _take_flag(args, "--port")
+    try:
+        port = int(port_raw) if port_raw else DEFAULT_PORT
+    except ValueError:
+        raise SystemExit("  --port precisa de um número. Ex: --port 8081") from None
+
+    # A redirect URI PRECISA ser byte a byte igual à registrada no app, tanto no
+    # pedido de consentimento quanto na troca do código. Por isso é parâmetro:
+    # cada app tem a sua, e adivinhar dá redirect_uri_mismatch.
+    redirect_uri = _take_flag(args, "--redirect-uri") or redirect_uri_for(port)
+    app_id = _take_flag(args, "--app-id")
+    app_secret = _take_flag(args, "--app-secret")
 
     if len(args) != 1 or args[0] not in TARGETS:
         print(__doc__)
-        print(f"Uso: {sys.argv[0]} [{'|'.join(TARGETS)}] [--port N]")
+        print(f"Uso: {sys.argv[0]} [{'|'.join(TARGETS)}] "
+              f"[--redirect-uri URI] [--port N] [--app-id ID --app-secret SECRET]")
         raise SystemExit(1)
 
     target = args[0]
     print(f"\n=== Renovando token: {target} ===")
-    TARGETS[target](port)
+    if target == "threads":
+        renew_threads(port, redirect_uri, app_id, app_secret)
+    else:
+        if app_id or app_secret:
+            raise SystemExit("  --app-id/--app-secret só se aplicam ao threads.")
+        TARGETS[target](port, redirect_uri)
     print("\n  Feito. Confirme com: ./scripts/check-credentials.sh\n")
