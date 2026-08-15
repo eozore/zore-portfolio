@@ -89,6 +89,13 @@ resource "google_storage_bucket_iam_member" "sa_bucket_access" {
 
 # ── Pub/Sub Topics ─────────────────────────────────────────────────────────
 
+# Geracao do pacote editorial (roteiro/derivacoes). Fica ANTES da aprovacao:
+# e o trabalho que antes rodava dentro do request HTTP do Next.js e morria
+# junto com a aba do navegador ou com o timeout de 600s do frontend.
+resource "google_pubsub_topic" "package_requested" {
+  name = "content-pipeline.package-requested"
+}
+
 resource "google_pubsub_topic" "package_approved" {
   name = "content-pipeline.package-approved"
 }
@@ -114,6 +121,28 @@ resource "google_pubsub_topic" "dead_letter" {
 # recebe push HTTP e aciona os Cloud Run Jobs via Run API.
 # As URLs de push so ficam validas apos o primeiro deploy do service.
 # Terraform gerencia o service e as subscriptions em conjunto.
+
+resource "google_pubsub_subscription" "package_job_sub" {
+  name  = "package-job-sub"
+  topic = google_pubsub_topic.package_requested.name
+
+  # A geracao leva de 4 a 8 min; o job e disparado de forma assincrona pelo
+  # trigger, entao o ack acontece rapido. 600s e folga para o trigger responder.
+  ack_deadline_seconds = 600
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.pipeline_trigger.uri}/trigger/package"
+
+    oidc_token {
+      service_account_email = local.sa_email
+    }
+  }
+
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.dead_letter.id
+    max_delivery_attempts = 3
+  }
+}
 
 resource "google_pubsub_subscription" "tts_job_sub" {
   name  = "tts-job-sub"
@@ -353,6 +382,52 @@ resource "google_cloud_run_v2_service" "publisher_immediate" {
 }
 
 # ── Cloud Run Jobs ─────────────────────────────────────────────────────────
+
+resource "google_cloud_run_v2_job" "package_job" {
+  name     = "package-job"
+  location = var.region
+
+  template {
+    template {
+      service_account = local.sa_email
+      max_retries     = 0   # o job persiste o erro na sessao; retry e do usuario
+      # 1h: scriptwriter + slide_designer (1 chamada LLM por slide) + manifest.
+      # O limite antigo era o timeout de 600s do servico frontend.
+      timeout = "3600s"
+
+      containers {
+        image   = var.pipeline_image
+        command = ["python", "-m", "package_job"]
+
+        resources {
+          limits = {
+            memory = "1Gi"
+            cpu    = "1"
+          }
+        }
+
+        dynamic "env" {
+          for_each = local.env_vars
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        env {
+          name  = "PYTHONPATH"
+          value = "/app"
+        }
+
+        # URL do cmo-agent, que hospeda os agentes especialistas.
+        env {
+          name  = "CMO_AGENT_URL"
+          value = var.cmo_agent_url
+        }
+      }
+    }
+  }
+}
 
 resource "google_cloud_run_v2_job" "tts_job" {
   name     = "tts-job"

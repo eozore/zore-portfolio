@@ -301,6 +301,27 @@ class PackageApprovedMsg:
 
 
 @dataclass
+class PackageRequestedMsg:
+    """
+    Publicado por /api/csm/package (Next.js) → consumido por package-job.
+
+    Existe para tirar a geração do pacote editorial do caminho HTTP síncrono.
+    Antes, o navegador segurava um fetch de 4 a 8 minutos que atravessava
+    Next.js → cmo-agent → Vertex; fechar a aba, uma reciclagem de instância do
+    Cloud Run ou o timeout do serviço matavam a geração inteira sem deixar
+    estado recuperável.
+
+    Agora a rota só publica esta mensagem e devolve 202. O job escreve
+    checkpoints em csm_sessions/{session_id} a cada etapa, e o polling que o
+    ReviewTab já fazia passa a mostrar progresso real.
+    """
+    session_id: str
+    phase:      str            # "script" | "derivatives"
+    requested_at: str          # ISO 8601
+    tenant_id:  Optional[str] = None
+
+
+@dataclass
 class TtsCompletedMsg:
     """
     Publicado por tts-job → consumido por avatar-job.

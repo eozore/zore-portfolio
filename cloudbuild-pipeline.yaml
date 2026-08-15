@@ -124,6 +124,28 @@ steps:
     waitFor: [push]
 
   # ── Step 6: Update tts-job ────────────────────────────────────
+  # ── package-job: geração do pacote editorial fora do request HTTP ──
+  # `jobs update` falha se o job ainda não existir; o `|| jobs create` cobre
+  # o primeiro deploy sem exigir que o Terraform rode antes.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-package-job
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        FLAGS="--image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA \
+          --region=$_REGION \
+          --command=python \
+          --args=-m,package_job \
+          --memory=1Gi \
+          --cpu=1 \
+          --task-timeout=3600s \
+          --max-retries=0 \
+          --service-account=$_SA_EMAIL \
+          --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,CMO_AGENT_URL=$$(gcloud run services describe cmo-agent --region=$_REGION --format='value(status.url)')"
+        gcloud run jobs update package-job $$FLAGS || gcloud run jobs create package-job $$FLAGS
+    waitFor: [push]
+
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: deploy-tts-job
     entrypoint: gcloud

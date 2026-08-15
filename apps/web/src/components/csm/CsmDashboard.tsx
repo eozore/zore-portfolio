@@ -111,6 +111,11 @@ export interface DraftState {
   packageStatus?: PackageStatus;
   packageStartedAt?: number;
   packageError?: string;
+  /** Checkpoint publicado pelo package-job (ex.: "script:persistindo").
+   *  É o que transforma o spinner cego em progresso legível. */
+  packageStage?: string;
+  packageStageDetail?: string;
+  packageStageAt?: number;
   workflowStage?: WorkflowStage;
   /** Plano de publicação da semana (D+1..D+7), persistido na aprovação para
    * continuar visível após reload — antes vivia só na memória do ReviewTab. */
@@ -332,12 +337,23 @@ export default function CsmDashboard() {
     setActiveTab('review');
   };
 
+  /**
+   * Enfileira a geração do pacote e volta na hora.
+   *
+   * Antes esta função aguardava o fetch inteiro — de 4 a 8 minutos — e só
+   * gravava estado quando a promise resolvia. Fechar a aba no meio perdia
+   * tudo. Agora /api/csm/package devolve 202 e o package-job (Cloud Run Job)
+   * executa em background gravando checkpoints; o polling do ReviewTab lê
+   * esses checkpoints do Firestore e mostra o progresso real.
+   */
   const startPackageGeneration = useCallback(async (articleContent: string) => {
     updateDraft({
       packageStatus: 'generating',
       packageStartedAt: Date.now(),
       workflowStage: 'package_generating',
-    });
+      packageStage: 'script:enviando',
+      packageError: '',
+    } as Partial<DraftState>);
 
     try {
       const response = await fetch('/api/csm/package', {
@@ -350,32 +366,17 @@ export default function CsmDashboard() {
           language: draft.language,
           sessionId,
           articleContent,
+          phase: 'script',
         }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-
-      const hasScript = Boolean(data.youtubeScript?.trim() || data.manifestV2);
-      updateDraft({
-        generatedContent: data.articleContent ?? articleContent,
-        suggestedTitle: data.suggestedTitle ?? draft.suggestedTitle,
-        suggestedSlug: data.suggestedSlug ?? draft.suggestedSlug,
-        estimatedReadTime: data.estimatedReadTime ?? draft.estimatedReadTime,
-        manifestV2: data.manifestV2 ?? null,
-        youtubeScript: data.youtubeScript ?? '',
-        manifestHtml: data.manifestHtml ?? '',
-        thumbnails: data.thumbnails ?? null,
-        specialistCopies: data.specialistCopies ?? null,
-        repurposedData: data.repurposedData ?? null,
-        packageStatus: hasScript ? 'script_ready' : 'error',
-        workflowStage: hasScript ? 'script_ready' : 'error',
-        packageError: data.partialError ?? (hasScript ? '' : 'Roteiro não foi gerado.'),
-      } as Partial<DraftState>);
+      // 202 — a partir daqui quem manda é o job. O estado vem do polling.
     } catch (error) {
       updateDraft({
         packageStatus: 'error',
         workflowStage: 'error',
-        packageError: error instanceof Error ? error.message : 'Falha ao gerar pacote',
+        packageError: error instanceof Error ? error.message : 'Falha ao enfileirar a geração do pacote',
       } as Partial<DraftState>);
     }
   }, [draft, sessionId, updateDraft]);

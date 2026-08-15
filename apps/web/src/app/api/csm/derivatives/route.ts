@@ -1,30 +1,32 @@
 /**
  * POST /api/csm/derivatives
  *
- * Segunda fase do pacote editorial: recebe um roteiro já revisado e gera as
- * derivações omnicanal com base nele. A rota é deliberadamente separada da
- * geração do roteiro para preservar o gate de aprovação do usuário.
+ * Segunda fase do pacote editorial: thumbnails, copies especializados e
+ * derivações omnicanal, a partir de um roteiro já revisado pelo usuário.
+ *
+ * Assim como /api/csm/package, esta rota deixou de executar o trabalho dentro
+ * do request. Ela valida o gate editorial (artigo publicado + roteiro
+ * aguardando aprovação), enfileira uma PackageRequestedMsg com phase
+ * "derivatives" e devolve 202. Quem executa é o package-job.
+ *
+ * O gate continua no servidor de propósito: a UI pode esconder o botão, mas
+ * não deve ser possível gerar derivações chamando a API direto.
  */
 
 import { NextResponse } from 'next/server';
+import { PubSub } from '@google-cloud/pubsub';
 import { loadSession, saveDraftToSession } from '@/lib/session';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
-import { cmoAgentHeaders } from '@/lib/cmoAgent';
-import { getEnabledChannelToggles } from '@/lib/channelToggles';
-import { filterDerivativesByChannels } from '@/lib/channels';
 
-export const maxDuration = 600;
+const PACKAGE_TOPIC = 'content-pipeline.package-requested';
+const GCP_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'vazfy-417019';
 
-function baseUrl(request: Request): string {
-  const origin = request.headers.get('origin') ?? request.headers.get('x-forwarded-host');
-  if (origin) return origin.startsWith('http') ? origin : `https://${origin}`;
-  const host = request.headers.get('host') ?? 'localhost:3000';
-  return host.includes('localhost') ? `http://${host}` : `https://${host}`;
-}
+export const maxDuration = 60;
 
 function scriptFromManifest(manifest: unknown): string {
-  const segments = (manifest as { youtube?: { segments?: { script?: string }[] } } | null)?.youtube?.segments;
-  return segments?.map((segment) => segment.script ?? '').filter(Boolean).join('\n\n') ?? '';
+  const segments = (manifest as { youtube?: { segments?: { script?: string }[] } } | null)
+    ?.youtube?.segments;
+  return segments?.map((s) => s.script ?? '').filter(Boolean).join('\n\n') ?? '';
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -36,7 +38,6 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-
   if (!body.sessionId) {
     return NextResponse.json({ error: 'sessionId required' }, { status: 400 });
   }
@@ -44,6 +45,7 @@ export async function POST(request: Request): Promise<Response> {
   const tenantId = request.headers.get('x-tenant-id') || null;
   const session = await loadSession(body.sessionId, tenantId);
   const draft = (session as { draft?: Record<string, unknown> } | null)?.draft;
+
   if (!draft?.publishedArticleUrl) {
     return NextResponse.json({ error: 'O artigo precisa estar publicado antes das derivações.' }, { status: 409 });
   }
@@ -60,80 +62,38 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    let specialistCopies: unknown = draft.specialistCopies ?? null;
-    let thumbnails: unknown = draft.thumbnails ?? null;
-    const cmoAgentUrl = process.env.CMO_AGENT_URL;
-    if (cmoAgentUrl) {
-      const specialistResponse = await fetch(`${cmoAgentUrl}/package`, {
-        method: 'POST',
-        headers: cmoAgentHeaders(tenantId),
-        body: JSON.stringify({
-          pauta: draft.pauta,
-          articleContent: content,
-          category: draft.category || 'ml',
-          language: draft.language || 'pt-BR',
-          sessionId: body.sessionId,
-          phase: 'derivatives',
-          manifest: draft.manifestV2,
-        }),
-        signal: AbortSignal.timeout(480_000),
-      });
-      if (!specialistResponse.ok) {
-        throw new Error(`Falha nos agentes especialistas (${specialistResponse.status})`);
-      }
-      const specialistData = await specialistResponse.json();
-      specialistCopies = specialistData.copies ?? specialistCopies;
-      thumbnails = specialistData.thumbnails ?? thumbnails;
-    }
-
-    const response = await fetch(`${baseUrl(request)}/api/csm/repurpose`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: request.headers.get('cookie') || '',
-      },
-      body: JSON.stringify({
-        title: draft.suggestedTitle || (draft.pauta as { titulo?: string } | undefined)?.titulo || 'Campanha',
-        slug: draft.suggestedSlug || undefined,
-        content,
-        category: draft.category || 'ml',
-        language: draft.language || 'pt-BR',
-        youtubeScript,
-      }),
-      signal: AbortSignal.timeout(540_000),
-    });
-
-    const rawRepurposedData = await response.json().catch(() => null);
-    if (!response.ok || !rawRepurposedData) {
-      return NextResponse.json(
-        { error: rawRepurposedData?.error || `Falha nas derivações (${response.status})` },
-        { status: 502 },
-      );
-    }
-
-    // Remove os canais desligados em Configurações → Canais & Formatos antes
-    // de expor o resultado ao frontend ou persistir na sessão.
-    const channelToggles = await getEnabledChannelToggles(tenantId);
-    const repurposedData = filterDerivativesByChannels(rawRepurposedData as Record<string, unknown>, channelToggles);
-    const filteredSpecialistCopies = specialistCopies && typeof specialistCopies === 'object'
-      ? filterDerivativesByChannels(specialistCopies as Record<string, unknown>, channelToggles)
-      : specialistCopies;
-
     await saveDraftToSession(body.sessionId, {
       ...draft,
       youtubeScript,
-      specialistCopies: filteredSpecialistCopies,
-      thumbnails,
-      repurposedData,
-      packageStatus: 'ready',
-      workflowStage: 'package_ready',
+      packageStatus: 'generating',
+      workflowStage: 'package_generating',
+      packageStage: 'derivatives:enfileirado',
+      packageStartedAt: Date.now(),
       packageError: '',
     }, tenantId);
 
-    return NextResponse.json({ success: true, repurposedData, youtubeScript });
+    const pubsub = new PubSub({ projectId: GCP_PROJECT_ID });
+    const messageId = await pubsub.topic(PACKAGE_TOPIC).publishMessage({
+      data: Buffer.from(JSON.stringify({
+        session_id: body.sessionId,
+        phase: 'derivatives',
+        requested_at: new Date().toISOString(),
+        tenant_id: tenantId,
+      })),
+    });
+
+    console.log(`[csm/derivatives] enfileirado session=${body.sessionId} msg=${messageId}`);
+    return NextResponse.json({ queued: true, phase: 'derivatives', messageId }, { status: 202 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('[csm/derivatives] generation failed:', error);
+    console.error('[csm/derivatives] enqueue failed:', message);
+    // Não deixa a sessão presa em "generating" — senão o spinner nunca acaba.
+    await saveDraftToSession(body.sessionId, {
+      ...draft,
+      packageStatus: 'script_ready',
+      workflowStage: 'script_ready',
+      packageError: `Não foi possível enfileirar as derivações: ${message}`,
+    }, tenantId).catch(() => undefined);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

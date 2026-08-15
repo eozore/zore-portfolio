@@ -51,6 +51,20 @@ function beatClass(beat: string): string {
   return styles.beatDefault;
 }
 
+/** Checkpoints do package-job traduzidos para linguagem de usuário. */
+const STAGE_LABELS: Record<string, string> = {
+  'script:enviando':          'Enviando pauta e artigo para a fila…',
+  'script:enfileirado':       'Na fila — o job vai começar em instantes',
+  'script:iniciado':          'Escrevendo o roteiro segmentado e desenhando os slides',
+  'script:persistindo':       'Salvando roteiro e deck',
+  'script:concluido':         'Roteiro pronto',
+  'derivatives:enfileirado':  'Na fila — derivações vão começar em instantes',
+  'derivatives:iniciado':     'Gerando thumbnails e copies de LinkedIn/Threads',
+  'derivatives:omnicanal':    'Gerando reels, shorts, carrosséis e stories',
+  'derivatives:persistindo':  'Salvando derivações',
+  'derivatives:concluido':    'Pacote completo',
+};
+
 const PACKAGE_STATUS_LABELS: Record<string, string> = {
   idle:       'Aguardando publicação',
   generating: 'Gerando pacote de conteúdo...',
@@ -99,7 +113,15 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
   const linkedinPosts = spCopies?.linkedin_posts ?? rd?.linkedinPosts ?? [];
   const threads       = spCopies?.threads ?? rd?.threads ?? [];
 
-  // Poll Firestore para ver se o pacote ficou pronto
+  /**
+   * Polling do estado escrito pelo package-job.
+   *
+   * A geração agora roda num Cloud Run Job; esta aba é a única fonte de
+   * verdade sobre o progresso. A condição de parada é o packageStatus deixar
+   * de ser "generating" — antes era "chegou manifestV2 ou repurposedData",
+   * que nunca terminava na fase de derivações (o manifesto já existia desde a
+   * fase anterior) e não tinha como distinguir erro de "ainda processando".
+   */
   useEffect(() => {
     if (!isGenerating || !sessionId) return;
     const interval = setInterval(async () => {
@@ -108,24 +130,31 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
         if (!res.ok) return;
         const data = await res.json();
         const d = data.draft;
-        if (d?.manifestV2 || d?.repurposedData) {
-          updateDraft({
-            manifestV2:       d.manifestV2 ?? null,
-            manifestHtml:     d.manifestHtml ?? '',
-            thumbnails:       d.thumbnails ?? null,
-            specialistCopies: d.specialistCopies ?? null,
-            repurposedData:   d.repurposedData ?? null,
-            youtubeScript:    d.youtubeScript ?? prevYoutubeScript(d.manifestV2),
-            packageStatus:    d.packageStatus ?? (d.repurposedData ? 'ready' : 'script_ready'),
-            workflowStage:    d.workflowStage ?? (d.repurposedData ? 'package_ready' : 'script_ready'),
-          });
-          clearInterval(interval);
-        }
+        if (!d) return;
+
+        const done = d.packageStatus && d.packageStatus !== 'generating';
+        updateDraft({
+          manifestV2:       d.manifestV2 ?? draft.manifestV2 ?? null,
+          manifestHtml:     d.manifestHtml ?? draft.manifestHtml ?? '',
+          thumbnails:       d.thumbnails ?? draft.thumbnails ?? null,
+          specialistCopies: d.specialistCopies ?? draft.specialistCopies ?? null,
+          repurposedData:   d.repurposedData ?? draft.repurposedData ?? null,
+          youtubeScript:    d.youtubeScript ?? prevYoutubeScript(d.manifestV2),
+          packageStage:     d.packageStage ?? '',
+          packageStageDetail: d.packageStageDetail ?? '',
+          ...(done ? {
+            packageStatus: d.packageStatus,
+            workflowStage: d.workflowStage ?? (d.packageStatus === 'ready' ? 'package_ready' : 'script_ready'),
+            packageError:  d.packageError ?? '',
+          } : {}),
+        } as Partial<DraftState>);
+
+        if (done) clearInterval(interval);
         setPollCount((c) => c + 1);
       } catch { /* silent */ }
     }, 8_000); // poll a cada 8s
     return () => clearInterval(interval);
-  }, [isGenerating, sessionId, updateDraft]);
+  }, [isGenerating, sessionId, updateDraft, draft.manifestV2, draft.manifestHtml, draft.thumbnails, draft.specialistCopies, draft.repurposedData]);
 
   const handleApproveScript = useCallback(async () => {
     if (packageStatus !== 'script_ready' || isGeneratingDerivatives || !sessionId) return;
@@ -139,18 +168,20 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      // 202 — o package-job assume daqui. Entrar em "generating" religa o
+      // polling acima, que traz o resultado quando o job terminar.
       updateDraft({
-        repurposedData: data.repurposedData ?? null,
-        youtubeScript: data.youtubeScript ?? draft.youtubeScript,
-        packageStatus: 'ready',
-        workflowStage: 'package_ready',
-      });
+        packageStatus: 'generating',
+        workflowStage: 'package_generating',
+        packageStage: 'derivatives:enfileirado',
+        packageError: '',
+      } as Partial<DraftState>);
     } catch (err) {
-      setApproveError(err instanceof Error ? err.message : 'Falha ao gerar derivações');
+      setApproveError(err instanceof Error ? err.message : 'Falha ao enfileirar as derivações');
     } finally {
       setIsGeneratingDerivatives(false);
     }
-  }, [packageStatus, isGeneratingDerivatives, sessionId, updateDraft, draft.youtubeScript]);
+  }, [packageStatus, isGeneratingDerivatives, sessionId, updateDraft]);
 
   // ── Aprovação final: dispara pipeline TTS + HeyGen + render ─────────────
   const handleApprove = useCallback(async () => {
@@ -306,10 +337,12 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
           <div>
             <div className={styles.generatingTitle}>Gerando pacote de conteúdo em background…</div>
             <div className={styles.generatingPhase}>
-              Roteiro + assets de apoio — pode levar 4-8 minutos
+              {/* Checkpoint real publicado pelo package-job a cada etapa. */}
+              {STAGE_LABELS[draft.packageStage ?? ''] ?? 'Roteiro + assets de apoio — pode levar 4-8 minutos'}
+              {draft.packageStageDetail ? ` · ${draft.packageStageDetail}` : ''}
             </div>
             <div className={styles.elapsedLabel}>
-              Polling {pollCount}x · atualiza automaticamente quando pronto
+              Polling {pollCount}x · roda num job dedicado — pode fechar esta aba sem perder o progresso
             </div>
           </div>
         </div>

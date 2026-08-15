@@ -5,9 +5,10 @@ Cloud Run Service que recebe Pub/Sub push subscriptions e aciona
 os Cloud Run Jobs correspondentes via Google Cloud Run Jobs API.
 
 Endpoints:
-  POST /trigger/tts          <- package-approved -> tts-job
-  POST /trigger/avatar       <- tts-completed    -> avatar-job
-  POST /trigger/video-editor <- avatar-completed -> video-editor-job
+  POST /trigger/package      <- package-requested -> package-job
+  POST /trigger/tts          <- package-approved  -> tts-job
+  POST /trigger/avatar       <- tts-completed     -> avatar-job
+  POST /trigger/video-editor <- avatar-completed  -> video-editor-job
 
 Cada endpoint recebe o envelope Pub/Sub e passa a mensagem como
 override de env var PUBSUB_MESSAGE para o job, via Cloud Run Jobs
@@ -134,6 +135,21 @@ async def trigger_tts(request: Request) -> dict:
     pubsub_message = _parse_pubsub_envelope(body)
     log.info("[trigger/tts] Acionando tts-job size=%d", len(pubsub_message))
     result = _execute_job("tts-job", pubsub_message)
+    return {"status": "triggered", "execution": result.get("name")}
+
+
+@app.post("/trigger/package")
+async def trigger_package(request: Request) -> dict:
+    """
+    Pub/Sub push para content-pipeline.package-requested -> aciona package-job.
+
+    Diferente dos demais, este trigger fica ANTES da aprovação: é a geração do
+    roteiro/derivações que antes rodava dentro do request HTTP do Next.js.
+    """
+    body = await request.body()
+    pubsub_message = _parse_pubsub_envelope(body)
+    log.info("[trigger/package] Acionando package-job size=%d", len(pubsub_message))
+    result = _execute_job("package-job", pubsub_message)
     return {"status": "triggered", "execution": result.get("name")}
 
 

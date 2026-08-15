@@ -1,19 +1,29 @@
 /**
  * POST /api/csm/package
  *
- * Sprint 1 — G5 parcial: recebe uma pauta aprovada (PautaConcebida) e
- * dispara em paralelo a geração do artigo (SSE → texto) + derivações
- * (repurpose). Retorna um JSON consolidado com artigo + repurposedData.
+ * Enfileira a geração do pacote editorial e devolve 202 imediatamente.
  *
- * Autenticação: Firebase Admin ADC (nunca API Key hardcoded).
+ * Antes, esta rota fazia todo o trabalho dentro do próprio request: gerava o
+ * artigo (SSE), chamava o cmo-agent para roteiro/slides/thumbnails/copies, e
+ * só então respondia — de 4 a 8 minutos com o navegador segurando o fetch.
+ * Três coisas matavam isso na prática: o timeout de 600s do serviço frontend
+ * no Cloud Run, o usuário fechar a aba, e a reciclagem de instância. Como o
+ * estado só era persistido quando a promise resolvia, uma morte no meio não
+ * deixava nada para retomar.
+ *
+ * Agora a rota apenas garante que a sessão tem artigo + pauta, publica uma
+ * PackageRequestedMsg no Pub/Sub e sai. O package-job (Cloud Run Job, 1h de
+ * task-timeout) executa e grava checkpoints na sessão a cada etapa; o polling
+ * que o ReviewTab já fazia passa a mostrar progresso real.
  */
 
 import { NextResponse } from 'next/server';
+import { PubSub } from '@google-cloud/pubsub';
 import { loadSession, saveDraftToSession } from '@/lib/session';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
-import { cmoAgentHeaders } from '@/lib/cmoAgent';
-import { getEnabledChannelToggles } from '@/lib/channelToggles';
-import { filterDerivativesByChannels } from '@/lib/channels';
+
+const PACKAGE_TOPIC = 'content-pipeline.package-requested';
+const GCP_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'vazfy-417019';
 
 export interface PautaConcebida {
   titulo: string;
@@ -29,42 +39,26 @@ export interface PautaConcebida {
 }
 
 export interface PackageRequest {
-  pauta: PautaConcebida;
-  chatTranscript: string;
-  category: string;
+  pauta?: PautaConcebida;
+  chatTranscript?: string;
+  category?: string;
   language?: 'pt-BR' | 'en';
   sessionId?: string;
-  /** Se fornecido, pula a geração do artigo e usa este conteúdo diretamente */
+  /** Artigo já publicado; a geração de artigo não passa mais por aqui. */
   articleContent?: string;
-  /** Mantido explícito para evitar gerar derivações antes da aprovação do roteiro. */
-  generateDerivatives?: boolean;
+  /** "script" (padrão) ou "derivatives". */
+  phase?: 'script' | 'derivatives';
 }
 
-export interface PackageResult {
-  pauta: PautaConcebida;
-  /** Artigo em Markdown (conteúdo gerado pelo agente escritor) */
-  articleContent: string;
-  suggestedTitle: string;
-  suggestedSlug: string;
-  estimatedReadTime: number;
-  /** Derivações omnicanal já estruturadas */
-  repurposedData: unknown | null;
-  /** Manifesto v2 com anchors[] (Sprint 3 / G3) — retornado pelo scriptwriter_agent */
-  manifestV2?: unknown | null;
-  /** Roteiro falado extraído do manifesto, usado pela aprovação e pela pipeline */
-  youtubeScript?: string;
-  /** HTML do manifesto v2 (deck Playwright-ready para preview) */
-  manifestHtml?: string;
-  /** Thumbnails HTML 1200×628 (Sprint 2 / G1) */
-  thumbnails?: { option_minimal: string; option_provocative: string } | null;
-  /** Copies especializados (LinkedIn + Threads) do copy_agent (Sprint 2 / G1) */
-  specialistCopies?: { linkedin_posts: unknown[]; threads: unknown[] } | null;
-  /** Flag de erro parcial (ex: repurpose falhou mas artigo ok) */
-  partialError?: string;
+export interface PackageQueuedResult {
+  queued: true;
+  phase: 'script' | 'derivatives';
+  messageId: string;
+  sessionId: string;
 }
 
-// Tempo máximo: 15 minutos (artigo + repurpose + specialists podem levar até 12 min)
-export const maxDuration = 900;
+// A rota agora só enfileira — segundos, não minutos.
+export const maxDuration = 60;
 
 function slugify(str: string): string {
   return str
@@ -78,92 +72,6 @@ function slugify(str: string): string {
     .slice(0, 100);
 }
 
-/**
- * Consume o stream SSE de /api/csm/generate e retorna o texto final limpo.
- * Extrai também o bloco META: {...} para título/slug/readTime.
- */
-async function consumeGenerateStream(
-  baseUrl: string,
-  body: object,
-  cookie: string,
-): Promise<{ content: string; title: string; slug: string; readTime: number }> {
-  const res = await fetch(`${baseUrl}/api/csm/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: cookie },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok || !res.body) {
-    const errText = await res.text().catch(() => res.statusText);
-    throw new Error(`generate stream error ${res.status}: ${errText}`);
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let content = '';
-  let title = '';
-  let slug = '';
-  let readTime = 10;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith('data: ')) continue;
-      const jsonStr = trimmed.slice(6).trim();
-      if (!jsonStr || jsonStr === '[DONE]') continue;
-
-      try {
-        const parsed = JSON.parse(jsonStr);
-        if (parsed.type === 'content') {
-          content += parsed.chunk ?? '';
-        } else if (parsed.type === 'replace') {
-          content = parsed.content ?? content;
-        } else if (parsed.type === 'meta') {
-          title = parsed.title ?? title;
-          slug = parsed.slug ?? slug;
-          readTime = parsed.readTime ?? readTime;
-        } else if (parsed.type === 'error') {
-          throw new Error(parsed.message ?? 'generate stream internal error');
-        }
-      } catch {
-        // linha incompleta — ignorar
-      }
-    }
-  }
-
-  // Limpeza final: strip thinking blocks + extrair META inline se não chegou via evento
-  content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-
-  if (!title) {
-    const metaMatch = content.match(/META:\s*(\{[^}]+\})/);
-    if (metaMatch) {
-      try {
-        const meta = JSON.parse(metaMatch[1].replace(/,\s*([}\]])/g, '$1'));
-        title = meta.title ?? '';
-        slug = meta.slug ? slugify(meta.slug) : slugify(title);
-        readTime = Number.isInteger(meta.readTime) ? meta.readTime : 10;
-      } catch {
-        // ignora parse error
-      }
-    }
-  }
-
-  content = content.replace(/\n?META:\s*\{[^}]+\}\s*/g, '').trimEnd();
-
-  if (!title) title = ''; // será preenchido pelo caller com pauta.titulo
-  if (!slug) slug = '';
-
-  return { content, title, slug, readTime };
-}
-
 export async function POST(request: Request): Promise<Response> {
   if (!isCsmAuthenticated(request)) return csmUnauthorized();
 
@@ -174,242 +82,90 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const {
-    pauta, chatTranscript, category, language = 'pt-BR', sessionId,
-    articleContent: prebuiltArticle, generateDerivatives = false,
-  } = body;
+  const { pauta, category, language = 'pt-BR', sessionId, articleContent, phase = 'script' } = body;
+  const tenantId = request.headers.get('x-tenant-id') || null;
 
-  if (!pauta?.titulo || pauta.titulo.trim().length < 5) {
+  if (!sessionId) {
+    return NextResponse.json({ error: 'sessionId é obrigatório' }, { status: 400 });
+  }
+  if (phase !== 'script' && phase !== 'derivatives') {
+    return NextResponse.json({ error: `phase inválida: ${phase}` }, { status: 400 });
+  }
+
+  // O job lê tudo da sessão no Firestore, então o que veio no corpo precisa
+  // estar persistido ANTES de publicar a mensagem — senão o job corre contra
+  // um autosave do cliente que ainda não aconteceu.
+  const session = await loadSession(sessionId, tenantId);
+  const currentDraft = (session as { draft?: Record<string, unknown> } | null)?.draft ?? {};
+
+  const resolvedPauta = pauta ?? (currentDraft.pauta as PautaConcebida | undefined);
+  const resolvedArticle =
+    (articleContent && articleContent.trim().length > 100)
+      ? articleContent
+      : (currentDraft.generatedContent as string | undefined) ?? '';
+
+  if (!resolvedPauta?.titulo || resolvedPauta.titulo.trim().length < 5) {
+    return NextResponse.json({ error: 'pauta.titulo é obrigatório (mín. 5 caracteres)' }, { status: 400 });
+  }
+  if (resolvedArticle.trim().length < 100) {
     return NextResponse.json(
-      { error: 'pauta.titulo is required (min 5 chars)' },
-      { status: 400 }
+      { error: 'O artigo precisa estar gerado antes de montar o pacote.' },
+      { status: 422 },
+    );
+  }
+  if (phase === 'derivatives' && !currentDraft.manifestV2) {
+    return NextResponse.json(
+      { error: 'O roteiro precisa existir antes de gerar as derivações.' },
+      { status: 409 },
     );
   }
 
-  // Monta contexto rico para o gerador de artigo
-  const context = `=== PAUTA APROVADA PELO CMO ===
-Título: ${pauta.titulo}
-Subtítulo: ${pauta.subtitulo}
-Tese escolhida: ${pauta.tese}
-Público-alvo: ${pauta.publico}
-Duração alvo (vídeo): ${pauta.duracao_alvo}
-Série: ${pauta.serie}
-tipo_artigo: ${pauta.tipo_artigo ?? 'tecnico'}
-Nível Técnico: ${pauta.nivel_tecnico ?? 'medio'}
-Objetivo de aprendizado: ${pauta.objetivo_aprendizado ?? ''}
-Hardskills: ${(pauta.hardskills ?? []).join(', ')}
-
-=== TRANSCRIÇÃO DA REUNIÃO CEO × CMO ===
-${chatTranscript}`.trim();
-
-  // Base URL para chamadas internas (API route para API route via fetch)
-  const baseUrl = process.env.NEXTAUTH_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-  const cookie = request.headers.get('cookie') || '';
-
-  // ── Disparo paralelo: artigo + repurpose (repurpose recebe placeholder no início) ──
-  const generatePayload = {
-    topic: pauta.titulo,
-    context,
-    format: 'blog',
-    category,
-    language,
-    sessionId,
-  };
-
-  let articleContent = '';
-  let suggestedTitle = pauta.titulo;
-  let suggestedSlug = slugify(pauta.titulo);
-  let estimatedReadTime = 10;
-  let repurposedData: unknown = null;
-  let partialError: string | undefined;
-
-  if (prebuiltArticle && prebuiltArticle.trim().length > 100) {
-    // Artigo já foi gerado e publicado — usa diretamente, pula geração
-    articleContent    = prebuiltArticle;
-    suggestedTitle    = pauta.titulo;
-    suggestedSlug     = slugify(pauta.titulo);
-    estimatedReadTime = Math.max(1, Math.round(prebuiltArticle.trim().split(/\s+/).length / 200));
-    console.log('[csm/package] Usando artigo pré-gerado — pulando etapa de geração.');
-  } else {
-    try {
-      const articleResult = await consumeGenerateStream(baseUrl, generatePayload, cookie);
-      articleContent    = articleResult.content;
-      suggestedTitle    = articleResult.title || pauta.titulo;
-      suggestedSlug     = articleResult.slug  || slugify(pauta.titulo);
-      estimatedReadTime = articleResult.readTime;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'article generation failed';
-      console.error('[csm/package] Article generation error:', msg);
-      if (sessionId) {
-        try {
-          const tenantId = request.headers.get('x-tenant-id') || null;
-          const session = await loadSession(sessionId, tenantId);
-          const currentDraft = (session as { draft?: Record<string, unknown> } | null)?.draft ?? {};
-          await saveDraftToSession(sessionId, {
-            ...currentDraft,
-            packageStatus: 'error',
-            workflowStage: 'error',
-            packageError: msg,
-          }, tenantId);
-        } catch (persistError) {
-          console.error('[csm/package] failed to persist article error', persistError);
-        }
-      }
-      return NextResponse.json({ error: `Falha na geração do artigo: ${msg}` }, { status: 500 });
-    }
+  try {
+    await saveDraftToSession(sessionId, {
+      ...currentDraft,
+      pauta: resolvedPauta,
+      generatedContent: resolvedArticle,
+      category: category ?? currentDraft.category ?? 'ml',
+      language,
+      suggestedTitle: currentDraft.suggestedTitle || resolvedPauta.titulo,
+      suggestedSlug: currentDraft.suggestedSlug || slugify(resolvedPauta.titulo),
+      packageStatus: 'generating',
+      workflowStage: 'package_generating',
+      packageStage: `${phase}:enfileirado`,
+      packageStartedAt: Date.now(),
+      packageError: '',
+    }, tenantId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'falha ao persistir a sessão';
+    console.error('[csm/package] persist failed:', msg);
+    return NextResponse.json({ error: `Não foi possível salvar a sessão: ${msg}` }, { status: 500 });
   }
 
-  // Etapa 2: roteiro principal e artefatos especialistas.
-  // As derivações sociais só podem ser criadas depois que o roteiro existe.
-  // Chamada ao endpoint /package do CMO Agent Python (Sprint 2/3)
-  let manifestV2: unknown = null;
-  let manifestHtml = '';
-  let thumbnails: { option_minimal: string; option_provocative: string } | null = null;
-  let specialistCopies: { linkedin_posts: unknown[]; threads: unknown[] } | null = null;
-  let generatedYoutubeScript = '';
-
-  const cmoAgentUrl = process.env.CMO_AGENT_URL;
-  if (cmoAgentUrl && articleContent) {
-    try {
-      const specialistRes = await fetch(`${cmoAgentUrl}/package`, {
-        method: 'POST',
-        headers: { ...cmoAgentHeaders(), Cookie: cookie },
-        body: JSON.stringify({
-          pauta: {
-            titulo:               pauta.titulo,
-            subtitulo:            pauta.subtitulo,
-            tese:                 pauta.tese,
-            publico:              pauta.publico,
-            duracao_alvo:         pauta.duracao_alvo,
-            serie:                pauta.serie,
-            objetivo_aprendizado: pauta.objetivo_aprendizado ?? '',
-            hardskills:           pauta.hardskills ?? [],
-            tipo_artigo:          pauta.tipo_artigo ?? 'tecnico',
-            nivel_tecnico:        pauta.nivel_tecnico ?? 'medio',
-          },
-          articleContent,
-          category,
-          language,
-          sessionId,
-          phase: 'script',
-        }),
-        signal: AbortSignal.timeout(480_000),  // 8 min — scriptwriter+thumbnail+copy em paralelo
-      });
-
-      if (specialistRes.ok) {
-        const spData = await specialistRes.json();
-        manifestV2       = spData.manifest      ?? null;
-        manifestHtml     = spData.manifestHtml  ?? '';
-        thumbnails       = spData.thumbnails    ?? null;
-        specialistCopies = spData.copies        ?? null;
-        if (spData.partialErrors?.length) {
-          partialError = (partialError ? partialError + ' | ' : '') +
-            `specialist: ${spData.partialErrors.join('; ')}`;
-        }
-        console.log('[csm/package] Specialist agents completed (manifest+thumbnails+copies)');
-      } else {
-        const errText = await specialistRes.text().catch(() => specialistRes.statusText);
-        partialError = (partialError ? partialError + ' | ' : '') +
-          `specialist-agents (${specialistRes.status}): ${errText.slice(0, 200)}`;
-        console.warn('[csm/package] Specialist agents partial error:', partialError);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'specialist agents timeout';
-      partialError = (partialError ? partialError + ' | ' : '') + `specialist-agents: ${msg}`;
-      console.warn('[csm/package] Specialist agents failed (non-fatal):', msg);
-    }
-  }
-
-  // Etapa 3: derivações omnicanal baseadas no artigo e no roteiro gerado.
-  // Esta etapa só roda depois que o usuário aprova o roteiro na ReviewTab.
-  const manifest = manifestV2 as { youtube?: { segments?: { script?: string }[] } } | null;
-  generatedYoutubeScript = manifest?.youtube?.segments
-    ?.map((segment) => segment.script ?? '')
-    .filter(Boolean)
-    .join('\n\n') ?? '';
-
-  if (generateDerivatives) try {
-    const repurposeRes = await fetch(`${baseUrl}/api/csm/repurpose`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: cookie },
-      body: JSON.stringify({
-        title: suggestedTitle,
-        slug: suggestedSlug,
-        content: articleContent,
-        category,
-        language,
-        youtubeScript: generatedYoutubeScript,
-      }),
-      signal: AbortSignal.timeout(480_000),
+  try {
+    const pubsub = new PubSub({ projectId: GCP_PROJECT_ID });
+    const messageId = await pubsub.topic(PACKAGE_TOPIC).publishMessage({
+      data: Buffer.from(JSON.stringify({
+        session_id: sessionId,
+        phase,
+        requested_at: new Date().toISOString(),
+        tenant_id: tenantId,
+      })),
     });
 
-    if (repurposeRes.ok) {
-      repurposedData = await repurposeRes.json();
-    } else {
-      const errText = await repurposeRes.text().catch(() => repurposeRes.statusText);
-      partialError = `Derivações falharam (${repurposeRes.status}): ${errText.slice(0, 200)}`;
-      console.warn('[csm/package] Repurpose partial error:', partialError);
-    }
+    console.log(`[csm/package] enfileirado session=${sessionId} phase=${phase} msg=${messageId}`);
+    const result: PackageQueuedResult = { queued: true, phase, messageId, sessionId };
+    return NextResponse.json(result, { status: 202 });
   } catch (err) {
-    partialError = err instanceof Error ? err.message : 'repurpose timeout or network error';
-    console.warn('[csm/package] Repurpose partial error:', partialError);
+    // Se o enfileiramento falhar, a sessão não pode ficar presa em "generating"
+    // — senão a UI mostra um spinner que nunca termina.
+    const msg = err instanceof Error ? err.message : 'falha ao publicar no Pub/Sub';
+    console.error('[csm/package] publish failed:', msg);
+    await saveDraftToSession(sessionId, {
+      ...currentDraft,
+      packageStatus: 'error',
+      workflowStage: 'error',
+      packageError: `Não foi possível enfileirar a geração: ${msg}`,
+    }, tenantId).catch(() => undefined);
+    return NextResponse.json({ error: `Falha ao enfileirar: ${msg}` }, { status: 502 });
   }
-
-  // Remove das derivações qualquer canal que o usuário tenha desligado em
-  // Configurações → Canais & Formatos, antes de expor o resultado ou persistir.
-  const tenantIdForChannels = request.headers.get('x-tenant-id') || null;
-  const channelToggles = await getEnabledChannelToggles(tenantIdForChannels);
-  const filteredRepurposedData = repurposedData && typeof repurposedData === 'object'
-    ? filterDerivativesByChannels(repurposedData as Record<string, unknown>, channelToggles)
-    : repurposedData;
-  const filteredSpecialistCopies = specialistCopies && typeof specialistCopies === 'object'
-    ? filterDerivativesByChannels(specialistCopies as Record<string, unknown>, channelToggles)
-    : specialistCopies;
-
-  const result: PackageResult = {
-    pauta,
-    articleContent,
-    suggestedTitle,
-    suggestedSlug,
-    estimatedReadTime,
-    repurposedData: filteredRepurposedData,
-    manifestV2,
-    youtubeScript: generatedYoutubeScript,
-    manifestHtml,
-    thumbnails,
-    specialistCopies: filteredSpecialistCopies as PackageResult['specialistCopies'],
-    ...(partialError ? { partialError } : {}),
-  };
-
-  // O pacote é assíncrono em relação à publicação do artigo. Persistir o
-  // resultado aqui é obrigatório para que a aba de revisão sobreviva a
-  // reloads e a uma troca de instância do Cloud Run.
-  if (sessionId) {
-    try {
-      const tenantId = tenantIdForChannels;
-      const session = await loadSession(sessionId, tenantId);
-      const currentDraft = (session as { draft?: Record<string, unknown> } | null)?.draft ?? {};
-      await saveDraftToSession(sessionId, {
-        ...currentDraft,
-        generatedContent: articleContent,
-        suggestedTitle,
-        suggestedSlug,
-        estimatedReadTime,
-        manifestV2,
-        youtubeScript: generatedYoutubeScript,
-        manifestHtml,
-        thumbnails,
-        specialistCopies: filteredSpecialistCopies,
-        repurposedData: filteredRepurposedData,
-        packageStatus: generatedYoutubeScript ? (generateDerivatives ? 'ready' : 'script_ready') : 'error',
-        workflowStage: generatedYoutubeScript ? (generateDerivatives ? 'package_ready' : 'script_ready') : 'error',
-        packageError: partialError ?? '',
-      }, tenantId);
-    } catch (err) {
-      console.error('[csm/package] failed to persist package state', err);
-    }
-  }
-
-  return NextResponse.json(result);
 }
