@@ -37,6 +37,7 @@ from __future__ import annotations
 import http.server
 import json
 import signal
+import ssl
 import subprocess
 import sys
 import threading
@@ -247,16 +248,68 @@ def await_code(auth_url: str, redirect_uri: str, port: int, timeout_s: int = 300
     return _captured["code"]
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """
+    O Python do instalador python.org no macOS não lê o keychain do sistema e
+    vem sem CA bundle: `ssl.create_default_context().get_ca_certs()` devolve
+    lista vazia, e TODA chamada HTTPS morre com CERTIFICATE_VERIFY_FAILED —
+    inclusive a troca do código OAuth, depois do usuário já ter aprovado no
+    navegador e gasto um código que só serve uma vez.
+
+    Usa o bundle do certifi, que é o mesmo que o `requests` usa. Verificação
+    de certificado nunca é desligada: sem ela, qualquer um na rede poderia
+    interceptar a troca do token.
+    """
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        ctx = ssl.create_default_context()
+        if not ctx.get_ca_certs():
+            raise SystemExit(
+                "\n  Este Python não tem CA bundle e o certifi não está instalado,\n"
+                "  então nenhuma chamada HTTPS vai funcionar. Resolva com:\n\n"
+                "    pip3 install certifi\n\n"
+                "  ou rode o instalador de certificados que veio com o Python:\n"
+                "    /Applications/Python*/Install\\ Certificates.command\n"
+            ) from None
+        return ctx
+
+
+def _call(req: urllib.request.Request | str, what: str) -> dict:
+    """
+    Erro de API vira mensagem legível, não traceback. Importa porque o caso
+    mais comum aqui — código de autorização reutilizado ou expirado — devolve
+    400 com uma descrição útil no corpo, que o traceback do urllib esconde.
+    """
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", "replace")
+        try:
+            err = json.loads(raw)
+            detail = (err.get("error_description")
+                      or (err.get("error") or {}).get("message")
+                      or err.get("error") or raw)
+        except Exception:
+            detail = raw[:300]
+        hint = ""
+        if "invalid_grant" in raw or "expired" in raw.lower():
+            hint = ("\n  Códigos de autorização valem uma única vez e expiram em\n"
+                    "  poucos minutos. Rode o script de novo para gerar outro.")
+        raise SystemExit(f"\n  {what} falhou (HTTP {exc.code}): {detail}{hint}") from None
+    except urllib.error.URLError as exc:
+        raise SystemExit(f"\n  {what} falhou (rede): {exc.reason}") from None
+
+
 def post_form(url: str, data: dict[str, str]) -> dict:
     body = urllib.parse.urlencode(data).encode()
-    req = urllib.request.Request(url, data=body, method="POST")
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
+    return _call(urllib.request.Request(url, data=body, method="POST"), "Troca do código")
 
 
 def get_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=30) as r:
-        return json.loads(r.read())
+    return _call(url, "Chamada à API")
 
 
 # ── YouTube ───────────────────────────────────────────────────────────────────
