@@ -59,7 +59,12 @@ def is_local(uri: str) -> bool:
 def obtain_code(auth_url: str, redirect_uri: str, port: int) -> str:
     """Servidor local quando a redirect é localhost; colagem quando é pública."""
     if is_local(redirect_uri):
-        return await_code(auth_url, redirect_uri, port)
+        # A porta TEM que ser a da própria redirect URI. Se ela disser :8080 e
+        # o servidor subir em outra, o navegador bate numa porta onde não há
+        # ninguém escutando e o código se perde. O path (/callback, /, ...)
+        # não importa: o handler aceita qualquer um.
+        parsed = urllib.parse.urlparse(redirect_uri)
+        return await_code(auth_url, redirect_uri, parsed.port or port)
     return paste_code(auth_url, redirect_uri)
 
 
