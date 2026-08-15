@@ -138,9 +138,11 @@ resource "google_pubsub_subscription" "package_job_sub" {
     }
   }
 
+  # 5 e o minimo aceito pelo Pub/Sub. O job em si nao retenta (max_retries=0):
+  # estas tentativas sao do PUSH ao pipeline-trigger, nao da geracao.
   dead_letter_policy {
     dead_letter_topic     = google_pubsub_topic.dead_letter.id
-    max_delivery_attempts = 3
+    max_delivery_attempts = 5
   }
 }
 
