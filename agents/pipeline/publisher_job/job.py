@@ -135,8 +135,15 @@ def _gcs_to_signed_url(gcs_url: str, expiration_minutes: int = 60) -> str:
         return gcs_url  # URL externa — retorna como está
 
     try:
+        # cloud-platform, não só devstorage.read_only: o passo abaixo assina a
+        # URL chamando a API remota do IAM (signBlob), que exige escopo IAM no
+        # token — devstorage.read_only só cobre LER o bucket, não assinar.
+        # Erro real visto em produção: "ACCESS_TOKEN_SCOPE_INSUFFICIENT" ao
+        # chamar iamcredentials.googleapis.com, que derrubava a assinatura,
+        # caía no fallback de gs:// cru, e quebrava Instagram (não consegue
+        # buscar gs://) e a thumbnail customizada do YouTube (mesmo motivo).
         credentials, project = google.auth.default(
-            scopes=["https://www.googleapis.com/auth/devstorage.read_only"]
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
         # Força renovação para ter token fresco
         from google.auth.transport.requests import Request as GoogleAuthRequest
