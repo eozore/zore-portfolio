@@ -13,6 +13,7 @@ import type {
 } from '../CsmDashboard';
 import type { ApproveResult, StepStatus } from '@/app/api/csm/approve-package/route';
 import { normalizeChannelToggles, isChannelEnabled, type ChannelToggles } from '@/lib/channels';
+import DerivativesReview, { type ExcludedSet } from './DerivativesReview';
 import styles from './PackageTab.module.css';
 
 interface ReviewTabProps {
@@ -81,6 +82,10 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
   const [approveError, setApproveError] = useState('');
   const [channelToggles, setChannelToggles] = useState<ChannelToggles>(() => normalizeChannelToggles(null));
   const [retryingAsset, setRetryingAsset] = useState<'thumbnails' | 'copies' | null>(null);
+  /** Peças que o usuário excluiu na revisão — chave `${tipo}:${id}`. Vive só
+   *  nesta sessão de revisão: reprovar uma peça é decisão do momento da
+   *  aprovação, não estado que deva sobreviver a uma regeneração. */
+  const [excluded, setExcluded] = useState<ExcludedSet>(() => new Set());
   const [assetRetryError, setAssetRetryError] = useState('');
 
   // Carrega os canais ligados/desligados em Configurações → Canais & Formatos,
@@ -223,7 +228,14 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
           scheduledAt: new Date().toISOString(), status: 'aprovado' as const,
         }));
 
-    const videoItems = reelItems.map((r, i) => ({
+    // A exclusão feita na revisão precisa valer aqui, senão o toggle é
+    // decorativo: o usuário marca "excluída" e a peça publica assim mesmo.
+    const incluido = (kind: string, id: string | undefined, i: number) =>
+      !excluded.has(`${kind}:${id ?? i}`);
+
+    const videoItems = reelItems
+      .filter((r, i) => incluido('reel', (r as { id?: string }).id, i))
+      .map((r, i) => ({
       id: (r as { id?: string }).id ?? `reel-${i}`,
       platform: 'instagram' as const, format: 'reel',
       title: (r as { title?: string }).title ?? `Reel ${i + 1}`,
@@ -253,6 +265,7 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
 
     if (carouselOn) {
       (rd?.carousels ?? []).forEach((c, i) => {
+        if (!incluido('carousel', c.id, i)) return;
         const urls = (c as { imageUrls?: string[] }).imageUrls ?? [];
         if (urls.length < 2) return;   // Instagram exige 2+ imagens no carrossel
         mediaItems.push({
@@ -265,6 +278,7 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
     }
     if (storiesOn) {
       (rd?.storiesIdeas ?? []).forEach((s, i) => {
+        if (!incluido('story', s.id, i)) return;
         const url = (s as { imageUrl?: string }).imageUrl;
         if (!url) return;
         mediaItems.push({
@@ -277,6 +291,7 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
     }
     if (feedOn) {
       (rd?.imagePosts ?? []).forEach((p, i) => {
+        if (!incluido('image', p.id, i)) return;
         const url = (p as { imageUrl?: string }).imageUrl;
         if (!url) return;
         mediaItems.push({
@@ -316,7 +331,7 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
     } finally {
       setIsApproving(false);
     }
-  }, [hasPackage, packageStatus, isApproving, draft, spCopies, rd, ytSegments, sessionId, onApproved, channelToggles, updateDraft]);
+  }, [hasPackage, packageStatus, isApproving, draft, spCopies, rd, ytSegments, sessionId, onApproved, channelToggles, updateDraft, excluded]);
 
   const linkedinChannelOn = isChannelEnabled(channelToggles, 'linkedin_text') || isChannelEnabled(channelToggles, 'threads_posts');
   const derivacoesChannelOn = ['instagram_reels', 'instagram_stories', 'instagram_feed', 'instagram_carousel', 'youtube_shorts', 'youtube_community']
@@ -552,26 +567,16 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
         {/* Derivações */}
         {activeTab === 'derivacoes' && (
           <div className={styles.panel}>
-            <div className={styles.card}>
-              <div className={styles.cardTitle}>Resumo das Derivações</div>
-              {[
-                ['Reels',      rd?.reelsScripts?.length  ?? 0, 'instagram_reels'],
-                ['Threads',    threads.length,                 'threads_posts'],
-                ['Shorts YT',  rd?.youtubeShorts?.length ?? 0, 'youtube_shorts'],
-                ['Carrosséis', rd?.carousels?.length     ?? 0, 'instagram_carousel'],
-                ['Stories',    rd?.storiesIdeas?.length  ?? 0, 'instagram_stories'],
-              ].map(([label, count, channelId]) => {
-                const enabled = isChannelEnabled(channelToggles, channelId as string);
-                return (
-                  <div key={label as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(30,30,30,0.04)', opacity: enabled ? 1 : 0.5 }}>
-                    <span style={{ color: '#6b6b6b', fontSize: '0.85rem' }}>{label as string}</span>
-                    {enabled
-                      ? <span style={{ color: '#1e1e1e', fontWeight: 'bold', fontSize: '0.85rem' }}>{count as number}</span>
-                      : <span style={{ color: '#8a8a8a', fontSize: '0.75rem', fontStyle: 'italic' }}>Desligado em Configurações</span>}
-                  </div>
-                );
+            <DerivativesReview
+              draft={draft}
+              channelToggles={channelToggles}
+              excluded={excluded}
+              onToggle={(key) => setExcluded((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key); else next.add(key);
+                return next;
               })}
-            </div>
+            />
           </div>
         )}
       </>)}

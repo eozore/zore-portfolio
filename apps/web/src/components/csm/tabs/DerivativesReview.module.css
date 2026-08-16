@@ -1,0 +1,324 @@
+/* Tokens herdados de PackageTab.module.css — mesma paleta editorial clara:
+   laranja #e67e22, texto #1e1e1e, apoio #8a8a8a, superfície #ffffff sobre
+   #f2f0ec, borda rgba(30,30,30,0.12), raio 14px em card e 10px em aninhado. */
+
+.wrap { padding: 4px 0 40px; }
+
+/* ── Resumo ──────────────────────────────────────────────────────────────── */
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  background: rgba(230, 126, 34, 0.06);
+  border: 1px solid rgba(245, 181, 106, 0.25);
+  border-radius: 12px;
+}
+.summaryCount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e67e22;
+  line-height: 1;
+}
+.summaryLabel { font-size: 0.85rem; color: #4a4a4a; }
+.warn {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: #dc2626;
+  cursor: help;
+}
+
+/* ── Seção por formato ───────────────────────────────────────────────────── */
+
+.section { margin-bottom: 30px; }
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(30, 30, 30, 0.08);
+}
+.sectionTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e1e1e;
+  margin: 0;
+}
+.sectionMeta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a8a8a8;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────────── */
+
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  transition: opacity 0.18s, border-color 0.18s;
+}
+.card:hover { border-color: #eae9e6; }
+
+/* Peça excluída continua legível — o usuário precisa poder reconsiderar —
+   mas sai visualmente do conjunto que será publicado. */
+.cardOff { opacity: 0.42; }
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.cardTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1e1e1e;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Toggle incluir/excluir ──────────────────────────────────────────────── */
+
+.toggle {
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  padding: 5px 11px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.toggleOn {
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  color: #16a34a;
+}
+.toggleOff {
+  background: rgba(30, 30, 30, 0.05);
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  color: #8a8a8a;
+}
+
+/* ── Carrossel: scroll horizontal espelha o swipe ────────────────────────── */
+
+.swipe {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+}
+.swipe::-webkit-scrollbar { height: 6px; }
+.swipe::-webkit-scrollbar-thumb { background: rgba(30, 30, 30, 0.15); border-radius: 3px; }
+
+.swipeItem {
+  position: relative;
+  flex: 0 0 168px;
+  aspect-ratio: 1 / 1;      /* 1080x1080 real */
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  background: #f2f0ec;
+  cursor: zoom-in;
+  scroll-snap-align: start;
+}
+.swipeItem img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.swipeNum {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(13, 15, 20, 0.75);
+  color: #eae4dc;
+}
+
+/* ── Stories: 9:16, a proporção em que serão vistos ──────────────────────── */
+
+.storyRow { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.storyCard { flex: 0 0 132px; display: flex; flex-direction: column; gap: 7px; }
+.storyDay {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+.storyImg {
+  aspect-ratio: 9 / 16;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  background: #f2f0ec;
+  cursor: zoom-in;
+}
+.storyImg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.storyImgMissing {
+  aspect-ratio: 9 / 16;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(220, 38, 38, 0.4);
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.04);
+}
+
+/* ── Posts de feed ───────────────────────────────────────────────────────── */
+
+.feedRow { display: flex; flex-wrap: wrap; gap: 14px; }
+.feedCard {
+  display: flex;
+  gap: 14px;
+  flex: 1 1 420px;
+  background: #ffffff;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  transition: opacity 0.18s;
+}
+.feedImg {
+  flex: 0 0 148px;
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(30, 30, 30, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  background: #f2f0ec;
+  cursor: zoom-in;
+}
+.feedImg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.feedBody { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+
+/* ── Gancho: o elemento dominante em Reels e Shorts ──────────────────────── */
+
+.hook {
+  background: rgba(230, 126, 34, 0.07);
+  border-left: 3px solid #e67e22;
+  border-radius: 0 10px 10px 0;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.hookLabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #e67e22;
+}
+.hookText {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1e1e1e;
+  margin: 4px 0 0;
+}
+
+.script {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #4a4a4a;
+  margin: 0;
+  white-space: pre-wrap;
+}
+.visual {
+  font-size: 0.75rem;
+  color: #8a8a8a;
+  margin: 9px 0 0;
+  font-style: italic;
+}
+.caption {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #4a4a4a;
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+}
+
+.dur {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: #8a8a8a;
+  flex-shrink: 0;
+}
+.durWarn { color: #dc2626; font-weight: 700; }
+
+.missing {
+  padding: 14px;
+  border: 1px dashed rgba(220, 38, 38, 0.4);
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.04);
+  font-size: 0.78rem;
+  color: #dc2626;
+}
+
+/* ── Lightbox ────────────────────────────────────────────────────────────── */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(13, 15, 20, 0.88);
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  cursor: zoom-out;
+}
+.lightbox img {
+  max-width: min(92vw, 720px);
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.lightboxClose {
+  position: absolute;
+  top: 22px;
+  right: 26px;
+  width: 40px;
+  height: 40px;
+  border-radius: 99px;
+  border: 1px solid rgba(234, 228, 220, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #eae4dc;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* ── Vazio ───────────────────────────────────────────────────────────────── */
+
+.empty { text-align: center; padding: 56px 24px; }
+.emptyIcon { font-size: 2rem; margin-bottom: 12px; }
+.emptyTitle {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e1e1e;
+  margin-bottom: 6px;
+}
+.emptyDesc { font-size: 0.82rem; color: #8a8a8a; }
+
+@media (max-width: 760px) {
+  .feedCard { flex: 1 1 100%; }
+  .swipeItem { flex-basis: 140px; }
+}
