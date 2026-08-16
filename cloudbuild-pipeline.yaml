@@ -119,11 +119,13 @@ steps:
       - --timeout=600
       - --service-account=$_SA_EMAIL
       - --no-allow-unauthenticated
-      # YOUTUBE_UPLOAD_PRIVACY: public (default) | unlisted | private — ver
-      # publisher_job/job.py. Sobrescrever com `gcloud run services update
-      # publisher-immediate --update-env-vars=YOUTUBE_UPLOAD_PRIVACY=unlisted`
-      # para validar um ciclo E2E sem publicar o vídeo publicamente.
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,YOUTUBE_UPLOAD_PRIVACY=public,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
+      # YOUTUBE_UPLOAD_PRIVACY: unlisted (default) | public | private.
+      # Default 'unlisted' por decisão do dono do canal — ele assiste todo
+      # vídeo antes de tornar público. Não afeta a campanha social: os posts
+      # saem no cronograma e o link funciona normalmente. Para publicar direto
+      # como público, trocar aqui (versionado) em vez de por comando manual,
+      # que este --set-env-vars sobrescreveria no deploy seguinte.
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,YOUTUBE_UPLOAD_PRIVACY=unlisted,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
       - --set-secrets=YOUTUBE_OAUTH_CLIENT_ID=youtube-oauth-client-id:latest,YOUTUBE_OAUTH_CLIENT_SECRET=youtube-oauth-client-secret:latest,YOUTUBE_OAUTH_REFRESH_TOKEN=youtube-oauth-refresh-token:latest
     waitFor: [push]
 

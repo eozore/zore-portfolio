@@ -69,11 +69,16 @@ def _article_url_from(data: dict[str, Any]) -> str:
     return f"{BLOG_BASE_URL}/{lang}/blog/{slug}" if slug else f"{BLOG_BASE_URL}/pt-BR/blog"
 
 # Visibilidade do upload no YouTube: 'public' | 'unlisted' | 'private'.
-# Default 'public' preserva o comportamento existente. 'unlisted' é o modo
-# recomendado para validar um ciclo end-to-end sem o vídeo ficar visível
-# publicamente antes de revisão — o vídeo sobe de verdade, mas só quem tem
-# o link acessa, até o dono trocar manualmente para público.
-YOUTUBE_UPLOAD_PRIVACY = os.environ.get("YOUTUBE_UPLOAD_PRIVACY", "public").strip().lower()
+#
+# Default 'unlisted' por decisão do dono do canal: ele assiste todo vídeo antes
+# de torná-lo público. A assimetria de risco também favorece isso — um vídeo
+# 'unlisted' por engano custa um clique no YouTube Studio; um vídeo público por
+# engano já foi visto, indexado e possivelmente notificado aos inscritos.
+#
+# Importante: 'unlisted' NÃO bloqueia a campanha social. Os posts agendados
+# saem normalmente e o link funciona para quem clicar — 'unlisted' só remove o
+# vídeo da busca e das recomendações do YouTube.
+YOUTUBE_UPLOAD_PRIVACY = os.environ.get("YOUTUBE_UPLOAD_PRIVACY", "unlisted").strip().lower()
 if YOUTUBE_UPLOAD_PRIVACY not in ("public", "unlisted", "private"):
     logger.warning(
         "YOUTUBE_UPLOAD_PRIVACY=%r inválido, usando 'public'.", YOUTUBE_UPLOAD_PRIVACY
