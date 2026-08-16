@@ -146,11 +146,21 @@ def _gcs_to_signed_url(gcs_url: str, expiration_minutes: int = 60) -> str:
         bucket = client.bucket(bucket_name)
         blob   = bucket.blob(blob_name)
 
+        # blob.generate_signed_url() sem service_account_email/access_token
+        # tenta assinar LOCALMENTE, o que exige uma chave privada de arquivo
+        # JSON — a identidade anexada do Cloud Run (Compute Engine credentials)
+        # nunca tem uma. Isso derrubava toda publicação no Instagram/Facebook:
+        # caía no except, devolvia a gs:// URL original, e o Meta não consegue
+        # buscar um objeto de bucket privado. Passando service_account_email +
+        # access_token, a assinatura acontece via API remota do IAM
+        # (signBlob) em vez de local — funciona com identidade anexada, desde
+        # que a SA tenha roles/iam.serviceAccountTokenCreator sobre si mesma.
         signed_url = blob.generate_signed_url(
             expiration=dt.timedelta(minutes=expiration_minutes),
             method="GET",
             version="v4",
-            credentials=credentials,
+            service_account_email=credentials.service_account_email,
+            access_token=credentials.token,
         )
         logger.debug(f"Signed URL gerada para {blob_name} ({expiration_minutes}min)")
         return signed_url

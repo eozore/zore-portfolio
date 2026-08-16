@@ -184,7 +184,26 @@ class YouTubeClient:
         return video_id
 
     def _fetch_video_bytes(self, source: str) -> bytes:
-        """Baixa vídeo de URL ou lê de path local."""
+        """
+        Baixa vídeo de URL, GCS, ou lê de path local.
+
+        gs:// nunca foi tratado: video_editor_job publica o path final como
+        "gs://bucket/projects/.../final_horizontal.mp4", e isso caía direto no
+        fallback `open(source)`, que tenta abrir "gs://..." como caminho de
+        arquivo local — sempre FileNotFoundError. Todo upload de YouTube
+        falhava por esse motivo, incluindo os dois primeiros vídeos reais
+        gerados por esta pipeline.
+
+        Download via API do GCS, não Signed URL: isto roda dentro do próprio
+        job/serviço com a identidade da service account, então é acesso
+        servidor-a-servidor direto — não precisa de URL assinada, que é só
+        para quando um terceiro externo (Instagram, Facebook) precisa buscar
+        o arquivo por fora.
+        """
+        if source.startswith("gs://"):
+            from google.cloud import storage
+            bucket_name, blob_name = source[5:].split("/", 1)
+            return storage.Client().bucket(bucket_name).blob(blob_name).download_as_bytes()
         if source.startswith("http://") or source.startswith("https://"):
             r = requests.get(source, timeout=120, stream=False)
             if r.status_code != 200:

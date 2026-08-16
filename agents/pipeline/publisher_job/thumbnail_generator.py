@@ -76,9 +76,19 @@ def extract_frame(video_path: str, timestamp_s: float = 3.0) -> bytes:
         tmp_path = tmp.name
 
     try:
-        # Baixa o vídeo se for URL
+        # Baixa o vídeo se for URL ou gs://. Sem o ramo gs://, video_path
+        # chegava intacto ao ffmpeg como "gs://bucket/..." — falha sempre,
+        # é exatamente o "FFmpeg frame extract failed" visto nos primeiros
+        # vídeos reais publicados. Não é fatal (thumbnail é best-effort), mas
+        # sem imagem customizada o YouTube usa um frame aleatório do vídeo.
         local_path = video_path
-        if video_path.startswith("http"):
+        if video_path.startswith("gs://"):
+            from google.cloud import storage
+            bucket_name, blob_name = video_path[5:].split("/", 1)
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as vf:
+                storage.Client().bucket(bucket_name).blob(blob_name).download_to_file(vf)
+                local_path = vf.name
+        elif video_path.startswith("http"):
             import requests
             r = requests.get(video_path, timeout=120, stream=True)
             r.raise_for_status()
@@ -108,7 +118,7 @@ def extract_frame(video_path: str, timestamp_s: float = 3.0) -> bytes:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         # Limpa vídeo baixado se for URL
-        if video_path.startswith("http") and "local_path" in locals() and local_path != video_path:
+        if video_path != local_path and "local_path" in locals():
             try:
                 os.unlink(local_path)
             except Exception:
@@ -119,11 +129,20 @@ def find_best_frame_timestamp(video_path: str) -> float:
     """
     Encontra o melhor timestamp para thumbnail:
     20-25% da duração (geralmente uma boa expressão/pose).
+
+    Não fatal quando falha (cai no default de 3s) — por isso o mesmo bug de
+    gs:// nunca travou nada aqui, só produzia thumbnails piores em silêncio.
+    ffprobe lê metadados via HTTP Range Request, então uma Signed URL funciona
+    sem baixar o arquivo inteiro; gs:// puro não é lido por rede por ele.
     """
     try:
+        probe_path = video_path
+        if video_path.startswith("gs://"):
+            from publisher_job.job import _gcs_to_signed_url
+            probe_path = _gcs_to_signed_url(video_path, expiration_minutes=15)
         r = subprocess.run(
             ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-of", "csv=p=0", video_path],
+             "-of", "csv=p=0", probe_path],
             capture_output=True, text=True, timeout=15,
         )
         duration = float(r.stdout.strip())
