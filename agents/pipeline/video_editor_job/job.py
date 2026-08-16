@@ -42,7 +42,15 @@ from shared.models import AvatarCompletedMsg, Manifest, Segment, VideoReadyMsg
 from shared.pubsub_client import PubSubClient
 
 # Sprint 3 / G3 — anchor-driven slide transitions
-from anchor_resolver import resolve_anchors, SlideTransition
+#
+# Import qualificado pelo pacote, não `from anchor_resolver import ...`: o
+# runtime roda com PYTHONPATH=/app (raiz da pipeline) e cada job é um pacote
+# (video_editor_job/__init__.py existe), então o nome do módulo top-level
+# nunca existiu de verdade. Isso derrubava TODA execução do job com
+# ModuleNotFoundError antes de processar um único frame — inclusive as duas
+# primeiras execuções reais desta pipeline, com avatar_completed já publicado
+# e créditos HeyGen já gastos.
+from video_editor_job.anchor_resolver import resolve_anchors, SlideTransition
 
 logger = logging.getLogger(__name__)
 
