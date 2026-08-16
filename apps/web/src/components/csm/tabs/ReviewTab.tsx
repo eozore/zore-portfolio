@@ -231,6 +231,63 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
       scheduledAt: new Date().toISOString(), status: 'aprovado' as const,
     }));
 
+    /**
+     * Carrossel, stories e posts de imagem.
+     *
+     * Estes três eram gerados, exibidos nesta aba, e então DESCARTADOS: nunca
+     * entravam no payload da aprovação, então nada além de LinkedIn, Threads e
+     * Reels chegava a publicar. Só entram itens com imagem renderizada — o
+     * Instagram rejeita post sem mídia, e enfileirar um item fadado a falhar só
+     * gera ruído na fila.
+     */
+    const carouselOn = isChannelEnabled(channelToggles, 'instagram_carousel');
+    const storiesOn  = isChannelEnabled(channelToggles, 'instagram_stories');
+    const feedOn     = isChannelEnabled(channelToggles, 'instagram_feed');
+
+    type MediaItem = {
+      id: string; platform: string; format: string; title: string; copy: string;
+      imageUrl?: string; imageUrls?: string[];
+      scheduledAt: string; status: 'aprovado';
+    };
+    const mediaItems: MediaItem[] = [];
+
+    if (carouselOn) {
+      (rd?.carousels ?? []).forEach((c, i) => {
+        const urls = (c as { imageUrls?: string[] }).imageUrls ?? [];
+        if (urls.length < 2) return;   // Instagram exige 2+ imagens no carrossel
+        mediaItems.push({
+          id: c.id ?? `carousel-${i}`, platform: 'instagram', format: 'carousel',
+          title: c.title ?? `Carrossel ${i + 1}`, copy: c.caption ?? '',
+          imageUrls: urls,
+          scheduledAt: new Date().toISOString(), status: 'aprovado',
+        });
+      });
+    }
+    if (storiesOn) {
+      (rd?.storiesIdeas ?? []).forEach((s, i) => {
+        const url = (s as { imageUrl?: string }).imageUrl;
+        if (!url) return;
+        mediaItems.push({
+          id: s.id ?? `story-${i}`, platform: 'instagram', format: 'story',
+          title: s.angle ?? `Story ${i + 1}`, copy: s.copy ?? '',
+          imageUrl: url,
+          scheduledAt: new Date().toISOString(), status: 'aprovado',
+        });
+      });
+    }
+    if (feedOn) {
+      (rd?.imagePosts ?? []).forEach((p, i) => {
+        const url = (p as { imageUrl?: string }).imageUrl;
+        if (!url) return;
+        mediaItems.push({
+          id: p.id ?? `image-${i}`, platform: 'instagram', format: 'image',
+          title: p.title ?? `Post ${i + 1}`, copy: p.copy ?? '',
+          imageUrl: url,
+          scheduledAt: new Date().toISOString(), status: 'aprovado',
+        });
+      });
+    }
+
     try {
       const res = await fetch('/api/csm/approve-package', {
         method: 'POST',
@@ -238,6 +295,7 @@ export default function ReviewTab({ draft, updateDraft, sessionId, onBack, onApp
         body: JSON.stringify({
           textItems:     textItems.length  ? textItems  : undefined,
           videoItems:    videoItems.length ? videoItems : undefined,
+          mediaItems:    mediaItems.length ? mediaItems : undefined,
           youtubeScript: hasYT ? (draft.youtubeScript || ytSegments.map((s) => s.script).join('\n\n')) : undefined,
           articleSlug,
           articleTitle,

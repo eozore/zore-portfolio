@@ -161,6 +161,97 @@ class PackageJob:
         except urllib.error.URLError as exc:
             raise RuntimeError(f"cmo-agent inacessível: {exc.reason}") from exc
 
+    # ── Renderização de imagens sociais ──────────────────────────────────────
+
+    def _render_and_upload(self, html: str, size: tuple[int, int], name: str,
+                           session_id: str, fb_title: str = "", fb_body: str = "") -> str | None:
+        """HTML → PNG → GCS. Devolve URL pública, ou None se falhar."""
+        try:
+            from publisher_job.html_image_renderer import render_html_image
+            from google.cloud import storage
+
+            png = render_html_image(html, size[0], size[1],
+                                    fallback_title=fb_title, fallback_body=fb_body)
+            bucket_name = os.environ.get("GCS_BUCKET", "vazfy-417019-pipeline-media")
+            blob_path = f"social/{session_id}/{name}.png"
+            blob = storage.Client().bucket(bucket_name).blob(blob_path)
+            blob.upload_from_string(png, content_type="image/png")
+            return f"https://storage.googleapis.com/{bucket_name}/{blob_path}"
+        except Exception as exc:
+            logger.warning("[package-job] falha ao renderizar %s: %s", name, exc)
+            return None
+
+    def _render_social_images(self, repurposed: dict, session_id: str, series: str = "") -> dict:
+        """
+        Renderiza as imagens que faltavam para o Instagram aceitar os posts.
+
+        Sem isto, três formatos eram gerados e descartados: o distribution_agent
+        produz `imageHtml` para posts de imagem e LinkedIn, mas nada para
+        carrossel (só heading/body) nem stories (só copy) — e ninguém no fluxo
+        convertia HTML em PNG. O publisher espera `imageUrl` pronto.
+        """
+        from shared.social_images import (
+            CAROUSEL_SIZE, FEED_SIZE, LINKEDIN_SIZE,
+            carousel_slide_html, story_html, fallback_image_html,
+        )
+        if not isinstance(repurposed, dict):
+            return repurposed
+
+        rendered = 0
+
+        # Posts de imagem e de LinkedIn: já vêm com imageHtml do agente.
+        for key, size in (("imagePosts", FEED_SIZE), ("linkedinPosts", LINKEDIN_SIZE)):
+            for i, item in enumerate(repurposed.get(key) or []):
+                if not isinstance(item, dict) or item.get("imageUrl"):
+                    continue
+                html = item.get("imageHtml") or fallback_image_html(
+                    item.get("title") or item.get("hook") or "", item.get("copy") or "", *size)
+                url = self._render_and_upload(
+                    html, size, f"{key}-{i+1}", session_id,
+                    fb_title=item.get("title") or "", fb_body=item.get("copy") or "")
+                if url:
+                    item["imageUrl"] = url
+                    rendered += 1
+
+        # Carrossel: sem HTML nenhum — cada slide vira imagem via template.
+        for c_idx, carousel in enumerate(repurposed.get("carousels") or []):
+            if not isinstance(carousel, dict) or carousel.get("imageUrls"):
+                continue
+            slides = carousel.get("slides") or []
+            urls: list[str] = []
+            for s in slides:
+                n = int(s.get("slideNumber") or len(urls) + 1)
+                url = self._render_and_upload(
+                    carousel_slide_html(s.get("heading") or "", s.get("body") or "",
+                                        n, len(slides), series),
+                    CAROUSEL_SIZE, f"carousel-{c_idx+1}-slide-{n}", session_id,
+                    fb_title=s.get("heading") or "", fb_body=s.get("body") or "")
+                if url:
+                    urls.append(url)
+            # O Instagram exige 2+ imagens para publicar como carrossel.
+            if len(urls) >= 2:
+                carousel["imageUrls"] = urls
+                rendered += len(urls)
+            else:
+                logger.warning("[package-job] carrossel %d com só %d slide(s) renderizado(s) — ignorado",
+                               c_idx + 1, len(urls))
+
+        # Stories: idem, só copy + elemento interativo.
+        for i, story in enumerate(repurposed.get("storiesIdeas") or []):
+            if not isinstance(story, dict) or story.get("imageUrl"):
+                continue
+            url = self._render_and_upload(
+                story_html(story.get("copy") or "", story.get("interactiveElement") or "",
+                           story.get("angle") or ""),
+                (1080, 1920), f"story-{i+1}", session_id,
+                fb_title=story.get("angle") or "", fb_body=story.get("copy") or "")
+            if url:
+                story["imageUrl"] = url
+                rendered += 1
+
+        logger.info("[package-job] %d imagem(ns) social(is) renderizada(s)", rendered)
+        return repurposed
+
     @staticmethod
     def _script_from_manifest(manifest: Any) -> str:
         segments = ((manifest or {}).get("youtube") or {}).get("segments") or []
@@ -234,6 +325,19 @@ class PackageJob:
                 except Exception as exc:
                     partial.append(f"repurpose: {exc}")
                     logger.warning("[package-job] repurpose falhou (não-fatal): %s", exc)
+
+                # Renderiza aqui, na geração, e não na publicação: assim as
+                # imagens aparecem na aba de revisão e podem ser reprovadas
+                # ANTES de ir ao ar — que é o ponto de ter uma etapa de revisão.
+                if repurposed:
+                    self._checkpoint(session_id, tenant_id, "derivatives:imagens",
+                                     "renderizando carrossel, stories e posts de imagem")
+                    try:
+                        repurposed = self._render_social_images(
+                            repurposed, session_id, str(pauta.get("serie") or ""))
+                    except Exception as exc:
+                        partial.append(f"imagens: {exc}")
+                        logger.warning("[package-job] render de imagens falhou (não-fatal): %s", exc)
 
                 self._checkpoint(session_id, tenant_id, "derivatives:persistindo", "")
                 self._patch_draft(session_id, tenant_id, {

@@ -51,6 +51,8 @@ interface SubmitItem {
   slides?: { slideNumber: number; heading: string; body: string }[];
   videoUrl?: string;
   imageUrl?: string;
+  /** Carrossel: 2+ imagens já renderizadas e no GCS. */
+  imageUrls?: string[];
   imageDescription?: string;
 }
 
@@ -334,7 +336,13 @@ export async function POST(request: Request): Promise<Response> {
             thread_posts:     item.threadPosts || null,
             image_url:        item.imageUrl    || null,
             video_url:        item.videoUrl    || null,
-            asset_urls:       item.imageUrl ? [item.imageUrl] : item.videoUrl ? [item.videoUrl] : [],
+            // Carrossel publica N imagens numa chamada só, então asset_urls
+            // precisa levar todas — pegar só a primeira transformaria o
+            // carrossel num post de imagem única, silenciosamente.
+            asset_urls:       (item.imageUrls && item.imageUrls.length)
+                                ? item.imageUrls
+                                : item.imageUrl ? [item.imageUrl]
+                                : item.videoUrl ? [item.videoUrl] : [],
             session_id:       sessionId || null,
             retry_count:      0,
             error_message:    null,

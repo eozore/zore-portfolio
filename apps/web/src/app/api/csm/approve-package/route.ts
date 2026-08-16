@@ -88,6 +88,19 @@ export interface ApprovePackageRequest {
     scheduledAt: string;
     status:   'aprovado';
   }[];
+  /** Carrossel, stories e posts de imagem — já com imagem renderizada.
+   *  Antes eram gerados e descartados: nunca chegavam à publicação. */
+  mediaItems?: {
+    id:        string;
+    platform:  string;
+    format:    string;
+    title:     string;
+    copy:      string;
+    imageUrl?:  string;
+    imageUrls?: string[];
+    scheduledAt: string;
+    status:    'aprovado';
+  }[];
   /** Slug do artigo já publicado — usado como referência */
   articleSlug:  string;
   /** Título do artigo já publicado */
@@ -226,7 +239,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const {
-    textItems: rawTextItems = [], videoItems: rawVideoItems = [],
+    textItems: rawTextItems = [], videoItems: rawVideoItems = [], mediaItems: rawMediaItems = [],
     youtubeScript, articleSlug, articleTitle,
     sessionId, csmSession = 'authenticated',
   } = body;
@@ -252,6 +265,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const textItems = keepEnabled(rawTextItems);
   const videoItems = keepEnabled(rawVideoItems);
+  const mediaItems = keepEnabled(rawMediaItems);
 
   // O gate editorial também é validado no servidor. A UI pode esconder abas,
   // mas não deve ser possível aprovar derivações sem artigo publicado e sem
@@ -276,8 +290,12 @@ export async function POST(request: Request): Promise<Response> {
   const videoResult = (youtubeScript || videoItems.length)
     ? await triggerVideoPipeline(base, youtubeScript, videoItems, articleSlug, articleTitle, sessionId, csmSession, cookie)
     : { status: 'skipped' as const };
-  const textResult = textItems.length
-    ? await enqueueText(base, textItems, articleSlug, articleTitle, sessionId, csmSession, cookie)
+  // Media e texto compartilham a fila social e o mesmo planejamento semanal —
+  // o publisher-scheduled trata ambos, e o contentPlanner intercala por
+  // plataforma, então enfileirar juntos distribui melhor a campanha.
+  const queueItems = [...textItems, ...mediaItems];
+  const textResult = queueItems.length
+    ? await enqueueText(base, queueItems, articleSlug, articleTitle, sessionId, csmSession, cookie)
     : { status: 'skipped' as const };
 
   const errors = [textResult, videoResult]
