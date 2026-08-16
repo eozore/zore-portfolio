@@ -50,6 +50,20 @@ async def main() -> None:
     doc = await db.document("agent_configurations/api_keys").get()
     heygen_key: str = doc.to_dict()["HEYGEN_API_KEY"]
 
+    # Token embutido na URL, não em header: o HeyGen só faz POST na URL exata
+    # configurada em callback_url, sem suporte a header customizado. É esta
+    # query string que autentica o webhook depois que heygen-callback passa a
+    # aceitar tráfego não-autenticado por IAM (ver heygen_callback/app.py).
+    callback_url = HEYGEN_CALLBACK_URL
+    try:
+        callback_token = get_secret("heygen-callback-token", GCP_PROJECT_ID)
+        if callback_token:
+            sep = "&" if "?" in callback_url else "?"
+            callback_url = f"{callback_url}{sep}token={callback_token}"
+    except Exception as exc:
+        logger.warning("[AvatarJob] heygen-callback-token indisponível (%s) — "
+                       "callback seguirá sem autenticação de aplicação.", exc)
+
     firestore_client = FirestoreClient(GCP_PROJECT_ID)
     pubsub_client    = PubSubClient(GCP_PROJECT_ID)
 
@@ -58,7 +72,7 @@ async def main() -> None:
         pubsub=pubsub_client,
         heygen_api_key=heygen_key,
         gcs_bucket=GCS_BUCKET,
-        callback_url=HEYGEN_CALLBACK_URL,
+        callback_url=callback_url,
         tenant_id=TENANT_ID,
     )
     await job.run(msg)

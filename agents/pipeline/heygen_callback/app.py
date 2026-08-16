@@ -94,6 +94,7 @@ async def health_check() -> dict:
 @app.post("/heygen-video-callback", response_model=CallbackResponse)
 async def heygen_video_callback(
     payload: HeyGenVideoCallbackPayload,
+    token: Optional[str] = None,
     x_heygen_token: Optional[str] = Header(default=None, alias="X-HeyGen-Token"),
 ) -> CallbackResponse:
     """
@@ -102,8 +103,16 @@ async def heygen_video_callback(
     BUG2 fix: callback_id agora é "{project_id}__{target}__{seg_id}".
     Cada segmento individual chega aqui separadamente.
     Quando TODOS os segmentos de AMBOS os targets completarem → publica avatar_completed.
+
+    Autenticação: token na QUERY STRING, não header. O HeyGen não suporta
+    header customizado em webhook — ele só faz POST na URL exata que você
+    configurou em callback_url. Um header de app não protege nada se o Cloud
+    Run também exigir IAM na frente: o HeyGen não tem como enviar OIDC do
+    Google, então --no-allow-unauthenticated bloqueia 100% dos callbacks
+    antes mesmo de chegar aqui — foi exatamente isso que travou os primeiros
+    4 projetos de vídeo em produção, já com créditos HeyGen consumidos.
     """
-    if _callback_token and x_heygen_token != _callback_token:
+    if _callback_token and token != _callback_token and x_heygen_token != _callback_token:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     status = payload.status or (
@@ -144,13 +153,14 @@ async def heygen_video_callback(
 @app.post("/heygen-callback", response_model=CallbackResponse)
 async def heygen_lipsync_callback(
     payload: HeyGenLipsyncCallbackPayload,
+    token: Optional[str] = None,
     x_heygen_token: Optional[str] = Header(default=None, alias="X-HeyGen-Token"),
 ) -> CallbackResponse:
     """
     Callback do Lipsync API (mantido para compatibilidade).
     Também recebe callbacks do Video Generation API que usem este endpoint.
     """
-    if _callback_token and x_heygen_token != _callback_token:
+    if _callback_token and token != _callback_token and x_heygen_token != _callback_token:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     lipsync_id = payload.lipsync_id or ""

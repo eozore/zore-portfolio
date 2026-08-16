@@ -92,7 +92,15 @@ steps:
       - --cpu=1
       - --timeout=60
       - --service-account=$_SA_EMAIL
-      - --no-allow-unauthenticated
+      # PÚBLICO DE PROPÓSITO: o HeyGen chama este endpoint via webhook comum,
+      # sem OIDC do Google — --no-allow-unauthenticated bloqueava 100% dos
+      # callbacks antes de chegarem ao código, travando a produção de vídeo
+      # com créditos HeyGen já consumidos. A defesa fica em heygen_callback/
+      # app.py: token verificado por query string em callback_url (HeyGen não
+      # suporta header customizado em webhook). O serviço lê o secret
+      # heygen-callback-token direto via Secret Manager no startup — não
+      # precisa de --set-secrets, que só injetaria um env var não lido.
+      - --allow-unauthenticated
       - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default
     waitFor: [push]
 
