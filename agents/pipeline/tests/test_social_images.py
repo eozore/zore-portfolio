@@ -82,6 +82,28 @@ def test_story_sem_elemento_interativo_nao_quebra():
     assert "Só texto" in html and "<body" in html
 
 
+def test_story_separa_opcoes_embutidas_no_copy():
+    # Caso real: o agente coloca as alternativas dentro do copy e manda só um
+    # rótulo genérico em interactiveElement. Sem separar, a pergunta e as
+    # opções viram um parágrafo único e o story perde a cara de enquete.
+    html = story_html(
+        "O que um LLM calcula?\nOpção A: Probabilidade de tokens Opção B: Inferência causal",
+        "Enquete interativa", "Quiz",
+    )
+    assert html.count("border-radius:18px") == 2   # duas alternativas viraram botões
+    assert "O que um LLM calcula?" in html
+    # O rótulo genérico não deve aparecer quando já há botões de verdade
+    assert "Enquete interativa" not in html
+
+
+def test_story_distribui_conteudo_na_altura_toda():
+    # 1920px de altura: sem space-between o conteúdo empilhava no topo e
+    # sobrava metade da imagem vazia.
+    html = story_html("Texto curto", "", "Dica")
+    assert "space-between" in html
+    assert "justify-content:center" in html   # corpo centralizado dentro do espaço
+
+
 # ── Segurança do HTML ─────────────────────────────────────────────────────────
 
 def test_escapa_html_do_texto_gerado():

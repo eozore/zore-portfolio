@@ -21,6 +21,7 @@ distribution_agent. Se mudar lá, mude aqui.
 from __future__ import annotations
 
 import html as html_escape
+import re
 
 # ── Paleta da marca ───────────────────────────────────────────────────────────
 BG          = "#0d0f14"
@@ -94,30 +95,46 @@ def story_html(copy: str, interactive: str = "", angle: str = "") -> str:
     sticker que o Instagram só permite adicionar manualmente no app, então a
     imagem mostra as opções para o post fazer sentido sozinho.
     """
-    c = html_escape.escape(copy or "")
+    raw = str(copy or "")
     a = html_escape.escape(angle or "")
-    block = ""
-    if interactive:
-        options = [o.strip() for o in str(interactive).split("|") if o.strip()]
-        if len(options) > 1:
-            botoes = "".join(
-                f'<div style="background:{BG_ALT};border:2px solid {ACCENT};border-radius:18px;'
-                f'padding:28px;margin-top:22px;font-size:36px;color:{TEXT}">{html_escape.escape(o)}</div>'
-                for o in options
-            )
-            block = f'<div style="margin-top:60px">{botoes}</div>'
-        else:
-            block = (f'<p class="accent" style="margin-top:60px;font-size:34px;font-weight:700">'
-                     f'{html_escape.escape(str(interactive))}</p>')
 
+    # O agente às vezes coloca as opções dentro do copy ("...? Opção A: x
+    # Opção B: y") e manda só um rótulo em interactiveElement. Nesse caso a
+    # pergunta e as alternativas precisam ser separadas, senão viram um
+    # parágrafo único e o story perde a cara de enquete.
+    options: list[str] = []
+    question = raw
+    marcadores = re.split(r"(?=\bOpç[ãa]o\s+[A-Z0-9]\s*[:\-])", raw)
+    if len(marcadores) > 1:
+        question = marcadores[0].strip()
+        options = [m.strip() for m in marcadores[1:] if m.strip()]
+    elif interactive and "|" in str(interactive):
+        options = [o.strip() for o in str(interactive).split("|") if o.strip()]
+
+    q = html_escape.escape(question)
+    label = ""
+    if interactive and not options:
+        label = (f'<p class="accent" style="font-size:34px;font-weight:700;margin-top:40px">'
+                 f'{html_escape.escape(str(interactive))}</p>')
+    botoes = "".join(
+        f'<div style="background:{BG_ALT};border:2px solid {ACCENT};border-radius:18px;'
+        f'padding:30px;margin-top:24px;font-size:34px;line-height:1.3;color:{TEXT}">'
+        f'{html_escape.escape(o)}</div>'
+        for o in options
+    )
+    block = f'<div style="margin-top:50px">{botoes}</div>' if botoes else label
+
+    # Um story tem 1920px de altura: sem distribuir os blocos, o conteúdo fica
+    # empilhado no topo e sobra metade da tela vazia. `space-between` com um
+    # corpo centralizado usa a área toda e mantém o rodapé ancorado embaixo.
     return _shell(f"""
-<div style="display:flex;flex-direction:column;height:100%;justify-content:center">
-  {f'<span class="soft" style="font-size:30px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:40px">{a}</span>' if a else ''}
-  <p style="font-size:{54 if len(c) < 200 else 44}px;line-height:1.4;font-weight:600">{c}</p>
-  {block}
-  <div style="margin-top:auto;padding-top:60px" class="soft">
-    <span style="font-size:28px">eozore.com</span>
+<div style="display:flex;flex-direction:column;height:100%;justify-content:space-between">
+  <div>{f'<span class="soft" style="font-size:30px;letter-spacing:.16em;text-transform:uppercase">{a}</span>' if a else ''}</div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 0">
+    <p style="font-size:{56 if len(q) < 150 else 46}px;line-height:1.35;font-weight:600">{q}</p>
+    {block}
   </div>
+  <div class="soft"><span style="font-size:28px">eozore.com</span></div>
 </div>""", *STORY_SIZE, padding=100)
 
 
