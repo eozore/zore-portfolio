@@ -571,6 +571,34 @@ class PublisherJob:
             ("threads", lambda: self._get_meta().publish_threads({"copy": copy_social})),
         ]
 
+        # Só publica nos canais aprovados para ESTE projeto. Sem este filtro,
+        # todo projeto publicava nos 5 canais — então cada Reel de ~22s também
+        # virava um vídeo longo no canal do YouTube. Um ciclo com 1 vídeo + 3
+        # Reels gerava 4 vídeos indevidos no canal, e o vídeo principal (que é
+        # o único que deveria estar lá) nem chegava a subir.
+        #
+        # A lista vem do doc do projeto porque se perde na cadeia Pub/Sub: o
+        # pipeline-submit a define corretamente na PackageApprovedMsg, mas
+        # tts-job → avatar-job → video-editor-job não a propagam adiante.
+        #
+        # Lista vazia = projeto antigo, anterior a este campo: mantém o
+        # comportamento de publicar em tudo para não quebrar retry de projeto
+        # já em andamento.
+        approved = set(meta.get("channels_approved") or [])
+        if approved:
+            skipped = [p for p, _ in platform_attempts if p not in approved]
+            if skipped:
+                logger.info(
+                    "[publisher] %s: canais fora de channels_approved, pulando: %s",
+                    project_id, ", ".join(skipped),
+                )
+            platform_attempts = [(p, a) for p, a in platform_attempts if p in approved]
+        else:
+            logger.warning(
+                "[publisher] %s sem channels_approved — publicando em todos os canais "
+                "(projeto criado antes deste campo existir).", project_id,
+            )
+
         platforms_status: dict[str, str] = dict(already_ok)  # preserva sucessos anteriores
         for platform, attempt in platform_attempts:
             if already_ok.get(platform):

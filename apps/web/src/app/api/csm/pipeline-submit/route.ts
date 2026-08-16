@@ -120,6 +120,9 @@ async function publishNow(
 
 /** Metadados editoriais que o publisher_job lê para montar a publicação. */
 interface ProjectMeta {
+  /** Canais que este projeto pode publicar. O publisher lê do doc do projeto,
+   *  porque a lista se perde na cadeia Pub/Sub (tts → avatar → editor). */
+  channelsApproved?: string[];
   description?: string;
   tags?:        string[];
   articleUrl?:  string;
@@ -193,6 +196,7 @@ async function createProjectDoc(
     article_url:  meta.articleUrl ?? '',
     subtitle:     meta.subtitle ?? '',
     category:     meta.category ?? 'ia',
+    channels_approved: meta.channelsApproved ?? [],
     stages: {
       tts:    { status: 'pending' },
       avatar: { status: 'pending' },
@@ -284,13 +288,19 @@ export async function POST(request: Request): Promise<Response> {
       console.log(`[pipeline-submit] Manifesto criado: ${manifestPath} (${manifestData.avatar_segments} segments, ~$${manifestData.estimated_cost_usd})`);
 
       // b. Cria documento do projeto no Firestore
-      await createProjectDoc(projectId, articleTitle, manifestPath, articleSlug, sessionId, tenantId, projectMeta);
+      // O vídeo principal é o lançamento: vai para o canal, vira Short, Reel,
+      // e é anunciado no LinkedIn/Threads. É o único projeto que publica no
+      // canal como vídeo longo.
+      const mainChannels = ['youtube', 'youtube_short', 'instagram_reel', 'linkedin', 'threads'];
+
+      await createProjectDoc(projectId, articleTitle, manifestPath, articleSlug, sessionId, tenantId,
+                             { ...projectMeta, channelsApproved: mainChannels });
 
       // c. Publica PackageApprovedMsg no Pub/Sub
       const msg = {
         project_id:        projectId,
         manifest_gcs_path: manifestPath,
-        channels_approved: ['youtube', 'youtube_short', 'instagram_reel'],
+        channels_approved: mainChannels,
         approved_at:       new Date().toISOString(),
         cost_limit:        DEFAULT_COST_LIMIT,
       };
@@ -385,12 +395,24 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         const { manifest_gcs_path: manifestPath } = await manifestRes.json();
-        await createProjectDoc(projectId, item.title, manifestPath, articleSlug, sessionId, tenantId, projectMeta);
+        // Um Reel é uma peça vertical curta: vai para o Instagram, NÃO vira
+        // vídeo do canal. Um Short vertical vai para o YouTube Shorts. Antes,
+        // ambos caíam em 'instagram_reel' e — pior — o publisher ignorava esta
+        // lista e publicava em TODAS as plataformas, então cada Reel virava
+        // também um vídeo longo no canal. Foi assim que 3 Reels de ~22s viraram
+        // 4 vídeos indevidos no YouTube do Victor.
+        const itemChannels =
+          format === 'shorts' ? ['youtube_short']
+          : format === 'reel' ? ['instagram_reel']
+          : ['youtube'];
+
+        await createProjectDoc(projectId, item.title, manifestPath, articleSlug, sessionId, tenantId,
+                               { ...projectMeta, channelsApproved: itemChannels });
 
         const msg = {
           project_id:        projectId,
           manifest_gcs_path: manifestPath,
-          channels_approved: [orientation === 'vertical' ? 'instagram_reel' : 'youtube'],
+          channels_approved: itemChannels,
           approved_at:       new Date().toISOString(),
           cost_limit:        DEFAULT_COST_LIMIT,
         };
