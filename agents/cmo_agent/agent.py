@@ -10,8 +10,8 @@ import logging
 import base64
 import json
 import subprocess
-from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from datetime import datetime, timedelta, timezone
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
@@ -49,6 +49,7 @@ from tools import get_ecosystem_memory, fetch_trending_papers, get_article_by_sl
 import db_paths
 from fastapi import Header
 import time
+from tenancy import TenantAuthError, resolve_tenant_sync
 
 # Subagents imports
 from research_agent import run_research, RESEARCH_INSTRUCTION
@@ -56,7 +57,8 @@ from writing_agent import stream_writing, WRITING_INSTRUCTION, stream_youtube_sc
 from distribution_agent import run_distribution, DISTRIBUTION_INSTRUCTION
 from critic_agent import run_critic, CRITIC_INSTRUCTION
 from speak_extractor_agent import extract_spoken_text
-from model_config import get_model_config
+from model_config import get_model_config, DEFAULT_MODEL_NAME, MODEL_PRICING_USD_PER_1M
+from vertex_generate import VERTEX_MODEL
 
 # Sprint 2 — Specialist agents (G1)
 from scriptwriter_agent import run_scriptwriter, SCRIPTWRITER_INSTRUCTION
@@ -72,6 +74,9 @@ from validator_agent import validate_article, validate_package, VALIDATOR_INSTRU
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cmo_agent")
+
+from observability import init_tracing
+init_tracing()
 
 app = FastAPI(title="éozoré CMO Agent Service (Multi-Agent)", version="2.0.0")
 
@@ -113,6 +118,53 @@ async def enforce_internal_auth(request, call_next):
             "CMO_INTERNAL_SECRET not configured — endpoint %s is reachable by anyone with the URL. "
             "Set the secret in Secret Manager and redeploy.", request.url.path
         )
+    return await call_next(request)
+
+
+# ── Identidade de tenant verificada ─────────────────────────────────────────
+#
+# Antes deste middleware, `x_tenant_id: Optional[str] = Header(None)` era
+# aceito em ~20 endpoints e passado direto para `db_paths.set_tenant_id()` —
+# qualquer chamador que já tivesse o segredo interno (middleware acima)
+# conseguia se declarar dono de QUALQUER tenant só mandando o header. Sem
+# problema prático enquanto só existe um tenant, mas deixa de ser inofensivo
+# no dia em que um segundo existir.
+#
+# Roda DEPOIS do enforce_internal_auth (mais barato rejeitar primeiro por
+# segredo ausente do que consultar o Firestore). Resolve UMA vez por
+# requisição e substitui o header por sua versão verificada — os ~20
+# endpoints que já leem `x_tenant_id: Optional[str] = Header(None)` continuam
+# funcionando sem qualquer mudança de assinatura, porque o Starlette relê o
+# header de `request.headers` a cada acesso e este middleware não pode
+# reescrevê-lo — em vez disso, o valor verificado fica em
+# `request.state.tenant`, e é ele que os endpoints devem preferir daqui para
+# frente (ver TenantContext).
+@app.middleware("http")
+async def enforce_tenant_identity(request, call_next):
+    if request.url.path in _PUBLIC_PATHS or request.method == "OPTIONS":
+        return await call_next(request)
+
+    raw_tenant_id = request.headers.get("x-tenant-id")
+    tenant_key    = request.headers.get("x-tenant-key")
+
+    try:
+        tenant = await asyncio.to_thread(resolve_tenant_sync, db, raw_tenant_id, tenant_key)
+    except TenantAuthError as exc:
+        logger.warning("[tenancy] Rejeitado %s: %s", request.url.path, exc)
+        return JSONResponse(status_code=403, content={"detail": str(exc)})
+    except RuntimeError as exc:
+        # TENANT_KEY_PEPPER ausente. Só acontece para tenant != default — o
+        # tenant default retorna antes de tocar no pepper, então o operador
+        # único nunca é afetado por este erro mesmo sem o secret configurado.
+        logger.error("[tenancy] %s", exc)
+        return JSONResponse(status_code=500, content={"detail": "Tenant auth misconfigured"})
+
+    request.state.tenant = tenant
+    # Mantém o ContextVar em sincronia — é ele que db_paths.py e todo o resto
+    # do código já leem. tenant_id=None para o default preserva os caminhos de
+    # coleção de hoje (`csm_sessions`, não `tenants/default/...`).
+    db_paths.set_tenant_id(None if tenant.is_default else tenant.tenant_id)
+
     return await call_next(request)
 
 # Background Worker Tasks Registers
@@ -328,30 +380,71 @@ def update_generation_checkpoint(stage: str, progress_percent: int = None, statu
     except Exception as e:
         logger.warning(f"Failed to update local project state file: {e}")
 
-def log_python_usage(stage: str, model_name: str, prompt_text: str, response_text: str, latency_ms: int):
+def log_python_usage(
+    stage: str,
+    model_name: Optional[str],
+    prompt_text: str,
+    response_text: str,
+    latency_ms: int,
+    status: str = "ok",
+):
+    """
+    Trilha de auditoria de uma chamada de IA, em usage_logs do tenant.
+
+    Duas correções em relação à versão anterior:
+
+    1. O preço vem da tabela do modelo REALMENTE usado. Antes, a conta era
+       fixa em $0.075/$0.30 por 1M de tokens — a tabela do gemini-1.5-flash —
+       enquanto o SDK rodava 2.5-flash, que custa $0.30/$2.50. O log
+       subestimava o gasto de saída em mais de 8x.
+
+    2. Chamadas que FALHARAM também são registradas (status="error"). Uma
+       geração que estourou já consumiu tokens de entrada, e a taxa de falha
+       por tenant é justamente o que se quer enxergar quando algo degrada.
+    """
     if db is None:
         return
-        
-    # Estimativa de tokens baseada em caracteres (1 token ~= 3.5 caracteres)
-    input_tokens = max(1, len(prompt_text) // 3)
-    output_tokens = max(1, len(response_text) // 3)
-    
-    cost_input = (input_tokens * 0.075) / 1000000.0
-    cost_output = (output_tokens * 0.30) / 1000000.0
-    estimated_cost_usd = cost_input + cost_output
-    
+
+    model_name = model_name or DEFAULT_MODEL_NAME
+    pricing = MODEL_PRICING_USD_PER_1M.get(model_name)
+    if pricing is None:
+        # Modelo fora da tabela: registra assim mesmo, com custo zero e um
+        # aviso. Perder o registro seria pior do que perder o valor.
+        logger.warning(
+            "[usage] Modelo '%s' sem preço na tabela — custo não estimado.", model_name
+        )
+        pricing = {"input": 0.0, "output": 0.0}
+
+    # Estimativa por caracteres (~3 chars/token). O SDK não devolve a contagem
+    # real de tokens, então isto é uma aproximação — nomeada como tal no campo.
+    input_tokens  = max(1, len(prompt_text or "") // 3)
+    output_tokens = max(1, len(response_text or "") // 3)
+    estimated_cost_usd = (
+        input_tokens  * pricing["input"]  / 1_000_000.0
+        + output_tokens * pricing["output"] / 1_000_000.0
+    )
+
     try:
         logs_ref = db.collection(db_paths.get_usage_logs_path())
         logs_ref.add({
-            "timestamp": int(datetime.utcnow().timestamp() * 1000),
+            "timestamp": int(datetime.now(timezone.utc).timestamp() * 1000),
             "stage": stage,
             "model": model_name,
+            "status": status,
+            # Redundante com o caminho da coleção para tenants não-default,
+            # mas o tenant default grava na coleção raiz `usage_logs`, onde o
+            # caminho não carrega identidade nenhuma.
+            "tenantId": db_paths.get_tenant_id() or "default",
             "inputTokens": input_tokens,
             "outputTokens": output_tokens,
+            "tokensAreEstimated": True,
             "estimatedCostUsd": estimated_cost_usd,
-            "latencyMs": latency_ms
+            "latencyMs": latency_ms,
         })
-        logger.info(f"[usage] Logged cost of ${estimated_cost_usd:.6f} for stage {stage} in path {db_paths.get_usage_logs_path()}")
+        logger.info(
+            "[usage] stage=%s model=%s status=%s ~$%.6f",
+            stage, model_name, status, estimated_cost_usd,
+        )
     except Exception as e:
         logger.warning(f"Failed to log usage metrics to Firestore: {e}")
 
@@ -464,7 +557,7 @@ async def interview_endpoint(req: InterviewRequest, x_tenant_id: Optional[str] =
                 "response": response_text
             })
             
-            log_python_usage("cmo_interview", "gemini-1.5-flash", prompt, response_text, 1000)
+            log_python_usage("cmo_interview", DEFAULT_MODEL_NAME, prompt, response_text, 1000)
             
             return {"text": response_text}
 
@@ -501,7 +594,7 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
             logger.warning(f"[generate] Critic falhou (non-fatal): {critic_err}. Continuando sem notas do critic.")
             critic_notes = f"Tópico: {req.topic}. Contexto: {req.context or ''}."
         log_studio_execution("generate", "critic_done", {"critic_notes": critic_notes})
-        log_python_usage("article_critic", "gemini-1.5-flash", req.topic, critic_notes, int((time.time() - start_time) * 1000))
+        log_python_usage("article_critic", DEFAULT_MODEL_NAME, req.topic, critic_notes, int((time.time() - start_time) * 1000))
 
         # Fase 2: Pesquisa Avançada
         update_generation_checkpoint("researching", 40, "Buscando referências científicas no arXiv...")
@@ -512,7 +605,7 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
             logger.warning(f"[generate] Research falhou (non-fatal): {research_err}. Continuando sem notas de pesquisa.")
             research_notes = ""
         log_studio_execution("generate", "research_done", {"research_notes": research_notes})
-        log_python_usage("article_research", "gemini-1.5-flash", req.topic, research_notes, int((time.time() - start_time) * 1000))
+        log_python_usage("article_research", DEFAULT_MODEL_NAME, req.topic, research_notes, int((time.time() - start_time) * 1000))
         
         # Fase 3: Redação do Artigo
         update_generation_checkpoint("writing", 60, "Escrevendo rascunho com o Writer Agent...")
@@ -545,7 +638,7 @@ async def run_article_generation_pipeline(req: GenerateRequest, x_tenant_id: str
             if agent is not None:
                 await agent.__aexit__(None, None, None)
             
-        log_python_usage("article_generation", "gemini-1.5-flash", req.topic, full_text, int((time.time() - start_writing_time) * 1000))
+        log_python_usage("article_generation", VERTEX_MODEL, req.topic, full_text, int((time.time() - start_writing_time) * 1000))
         update_generation_checkpoint("coding", 85, "Executando sandbox e gerando gráficos...")
 
         # Fase 4: Execução do Ambiente de Código
@@ -777,7 +870,7 @@ async def run_youtube_generation_pipeline(req: YouTubeRequest, x_tenant_id: str,
             if agent is not None:
                 await agent.__aexit__(None, None, None)
                 
-        log_python_usage("youtube_script", "gemini-1.5-flash", req.title, full_text, int((time.time() - start_time) * 1000))
+        log_python_usage("youtube_script", VERTEX_MODEL, req.title, full_text, int((time.time() - start_time) * 1000))
         
         # BUG FIX #2 (YouTube): Clean thoughts and META then always send replace
         import re
@@ -928,7 +1021,7 @@ async def repurpose_endpoint(req: RepurposeRequest, x_tenant_id: Optional[str] =
             system_instruction=dynamic_distribution_prompt,
             youtube_script=req.youtubeScript
         )
-        log_python_usage("social_repurpose", "gemini-1.5-flash", req.title, json.dumps(data), int((time.time() - start_time) * 1000))
+        log_python_usage("social_repurpose", VERTEX_MODEL, req.title, json.dumps(data), int((time.time() - start_time) * 1000))
         return data
     except Exception as e:
         logger.exception("Failed to run distribution agent")
@@ -1086,6 +1179,11 @@ async def package_endpoint(
     return {
         "manifest":     manifest_dict,
         "manifestHtml": manifest_html,
+        # Os HTMLs crus por slide, além do deck já montado. O pipeline-submit
+        # precisa deles para reenviar o manifesto aprovado ao /build-manifest
+        # e remontar o deck no momento da produção — sem isso, o vídeo teria
+        # que ser feito a partir de um HTML congelado na hora da revisão.
+        "slideHtmls":   slide_htmls,
         "thumbnails":   thumbnails,
         "copies":       copies,
         "partialErrors": partial_errors,
@@ -1279,7 +1377,7 @@ async def async_repurpose_and_save(title: str, slug: str, content: str, category
             language, 
             system_instruction=dynamic_distribution_prompt
         )
-        log_python_usage("social_repurpose", "gemini-1.5-flash", title, json.dumps(repurposed_data), int((time.time() - start_time) * 1000))
+        log_python_usage("social_repurpose", VERTEX_MODEL, title, json.dumps(repurposed_data), int((time.time() - start_time) * 1000))
         save_repurposed_to_firestore(title, slug, repurposed_data)
         logger.info(f"Background task completed successfully for: {slug}")
     except Exception as e:
@@ -1895,11 +1993,29 @@ async def check_render_html_image(jobId: str):
 
 # ── Build Manifest ─────────────────────────────────────────────────────────────
 
+# Tarifa do HeyGen por segundo de avatar gerado, em USD. Espelha
+# agents/pipeline/shared/cost_tracker.py — a estimativa mostrada na aprovação
+# tem que bater com o gate de custo que roda antes da geração.
+#
+# A conta antiga aqui dividia esta constante por 60, tratando um valor por
+# SEGUNDO como se fosse por minuto: o custo estimado saía 60x menor e a tela de
+# aprovação prometia centavos para uma produção de dólares.
+HEYGEN_USD_PER_SECOND = 0.0335
+
+
 class BuildManifestRequest(BaseModel):
-    script:     str             # Roteiro YouTube em Markdown (conteúdo da Aba 4)
     title:      str             # Título do vídeo
     project_id: str             # ID do projeto (usado no caminho GCS)
     language:   Optional[str]   = "pt-BR"
+    # Caminho preferido: o manifesto v2 que o scriptwriter já produziu e que o
+    # dono do canal já revisou. Chega pronto e só é serializado para HTML.
+    manifest:    Optional[dict] = None
+    # HTMLs dos slides (slide_id → documento) gerados pelo slide_designer.
+    slide_htmls: Optional[dict] = None
+    # Caminho legado: roteiro em Markdown, reparseado em cenas. Só usado quando
+    # `manifest` não vem. Foi ele que achatou 8 segmentos em 1 e produziu um
+    # vídeo de avatar puro — não use para conteúdo novo.
+    script:     Optional[str]   = None
 
 
 @app.post("/build-manifest")
@@ -1908,71 +2024,135 @@ async def build_manifest_endpoint(
     x_tenant_id: Optional[str] = Header(None),
 ):
     """
-    Converte o roteiro YouTube (Markdown da Aba 4) em manifesto HTML
-    e salva no GCS. Retorna o gs:// URI do manifesto.
+    Serializa o manifesto v2 em HTML e salva no GCS. Retorna o gs:// URI.
 
     O manifesto é o contrato consumido pelo pipeline:
       tts_job → avatar_job → video_editor_job
 
-    Body:
-      script      — Roteiro YouTube em Markdown (contém spokenText e visualCues)
-      title       — Título do vídeo
-      project_id  — ID do projeto (usado no path GCS: projects/{project_id}/manifest.html)
-      language    — Idioma (default: "pt-BR")
+    Dois caminhos:
+
+      1. `manifest` presente (preferido) — é o mesmo dict que o scriptwriter
+         produziu e que o dono do canal revisou na aba Pacote. Só é envolvido
+         em HTML, com os slides do slide_designer embutidos, e enviado ao GCS.
+         Nada é reinterpretado: o que foi aprovado é o que vira vídeo.
+
+      2. `script` presente — caminho legado, reparseia Markdown em cenas.
+         Mantido para retomar projetos antigos. Ele foi a causa do vídeo de
+         163s de avatar puro: o roteiro chegava achatado, sem marcadores de
+         seção, e os 8 segmentos colapsavam em 1 sem slide nenhum.
 
     Returns:
-      { "manifest_gcs_path": "gs://vazfy-417019-pipeline-media/projects/.../manifest.html",
-        "segment_count": int,
-        "avatar_segments": int,
-        "slide_segments": int,
-        "estimated_cost_usd": float }
+      { "manifest_gcs_path": "gs://…/projects/{project_id}/manifest.html",
+        "segment_count", "avatar_segments", "slide_segments",
+        "avatar_share", "total_duration_s", "vertical_cut_count",
+        "violations": [...], "estimated_cost_usd": float }
     """
     import os as _os
     try:
-        from manifest_builder import build_manifest, build_and_upload_manifest, _parse_markdown_to_scenes
-
-        gcs_bucket = _os.environ.get("GCS_BUCKET", "vazfy-417019-pipeline-media")
-
-        # Gera e salva no GCS
-        gcs_uri = build_and_upload_manifest(
-            script_markdown = req.script,
-            title           = req.title,
-            project_id      = req.project_id,
-            gcs_bucket      = gcs_bucket,
-            language        = req.language or "pt-BR",
+        from manifest_builder import (
+            build_and_upload_manifest,
+            wrap_scriptwriter_manifest,
+            validate_manifest,
         )
 
-        # Valida e coleta estatísticas sem importar shared.models
-        from google.cloud import storage as _gcs
-        import json as _json
-        from bs4 import BeautifulSoup as _BS
+        gcs_bucket = _os.environ.get("GCS_BUCKET", "vazfy-417019-pipeline-media")
+        language   = req.language or "pt-BR"
 
-        client      = _gcs.Client()
-        bucket_name, blob_path = gcs_uri.replace("gs://", "").split("/", 1)
-        html        = client.bucket(bucket_name).blob(blob_path).download_as_text()
-        soup        = _BS(html, "lxml")
-        script_tag  = soup.find("script", {"type": "application/json"})
-        manifest    = _json.loads(script_tag.string)
+        if req.manifest:
+            manifest = dict(req.manifest)
+            manifest.setdefault("video_id", req.project_id)
+            manifest.setdefault("title", req.title)
+            html = wrap_scriptwriter_manifest(
+                manifest,
+                language    = language,
+                slide_htmls = req.slide_htmls or {},
+            )
+            from google.cloud import storage as _gcs
+            blob_name = f"projects/{req.project_id}/manifest.html"
+            _gcs.Client().bucket(gcs_bucket).blob(blob_name).upload_from_string(
+                html, content_type="text/html; charset=utf-8"
+            )
+            gcs_uri = f"gs://{gcs_bucket}/{blob_name}"
+            logger.info(
+                "[build-manifest] Manifesto v2 aprovado enviado direto: %s "
+                "(%d slides embutidos)", gcs_uri, len(req.slide_htmls or {}),
+            )
+        elif req.script:
+            gcs_uri = build_and_upload_manifest(
+                script_markdown = req.script,
+                title           = req.title,
+                project_id      = req.project_id,
+                gcs_bucket      = gcs_bucket,
+                language        = language,
+            )
+            # Relê do HTML só no caminho legado, onde o dict é construído lá dentro.
+            from google.cloud import storage as _gcs
+            import json as _json
+            from bs4 import BeautifulSoup as _BS
+            bucket_name, blob_path = gcs_uri.replace("gs://", "").split("/", 1)
+            html_out = _gcs.Client().bucket(bucket_name).blob(blob_path).download_as_text()
+            tag      = _BS(html_out, "lxml").find("script", {"type": "application/json"})
+            manifest = _json.loads(tag.string)
+            logger.warning(
+                "[build-manifest] Caminho legado (Markdown) para %s — "
+                "o manifesto aprovado não foi enviado.", req.project_id,
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="build-manifest exige `manifest` (preferido) ou `script`.",
+            )
 
-        h_segments  = manifest.get("youtube", {}).get("segments", [])
-        v_segments  = manifest.get("reels", [{}])[0].get("segments", []) if manifest.get("reels") else []
+        violations, stats = validate_manifest(manifest)
 
-        avatar_h    = [s for s in h_segments if s.get("script")]
-        slide_h     = [s for s in h_segments if not s.get("script") and s.get("slide") is not None]
-        total_chars = sum(len(s["script"]) for s in avatar_h)
+        # Slide declarado no manifesto mas sem HTML desenhado vira um
+        # placeholder — uma tela preta com o id do segmento escrito. O vídeo
+        # seria montado normalmente e só na hora de assistir se descobriria
+        # que a ilustração não existe. Sessões geradas antes de `slideHtmls`
+        # ser persistido caem exatamente aqui: o remédio é regerar o pacote.
+        if req.manifest:
+            declarados = {
+                s["slide"] for s in manifest.get("youtube", {}).get("segments", [])
+                if s.get("slide")
+            } | {
+                i["slide"] for i in manifest.get("vertical_cut", {}).get("segments", [])
+                if i.get("slide")
+            }
+            faltando = sorted(declarados - set((req.slide_htmls or {}).keys()))
+            if faltando:
+                violations.append(
+                    f"slides sem HTML desenhado: {', '.join(faltando)} — "
+                    "regere o pacote na aba Pacote antes de aprovar"
+                )
+
+        if violations:
+            logger.error(
+                "[build-manifest] %s viola a regra do produto: %s",
+                req.project_id, "; ".join(violations),
+            )
+
+        total_chars = sum(
+            len(s.get("script") or "")
+            for s in manifest.get("youtube", {}).get("segments", [])
+        )
+        # Só segmento de avatar consome HeyGen; ilustração é TTS + Playwright.
+        avatar_seconds = sum(
+            float(s.get("min_duration_s") or 0)
+            for s in manifest.get("youtube", {}).get("segments", [])
+            if (s.get("kind") or ("slide" if s.get("slide") else "avatar")) == "avatar"
+        )
 
         return {
             "manifest_gcs_path": gcs_uri,
-            "segment_count":     len(h_segments),
-            "avatar_segments":   len(avatar_h),
-            "slide_segments":    len(slide_h),
+            **stats,
+            "violations":        violations,
             "estimated_cost_usd": round(
-                total_chars * 0.00005
-                + sum(s.get("min_duration_s", 5.0) for s in avatar_h) * 0.0335 / 60,
-                4
+                total_chars * 0.00005 + avatar_seconds * HEYGEN_USD_PER_SECOND, 4
             ),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("[build-manifest] Erro")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2008,3 +2188,264 @@ async def extract_speak_endpoint(req: ExtractSpeakRequest):
             fallback_lines.append(stripped)
         fallback = ' '.join(fallback_lines)
         return {"success": False, "cleanedScript": fallback, "error": str(e)}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TIME DE MARKETING — grafo LangGraph
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Três endpoints dirigem o fluxo inteiro:
+#   POST /graph/start    — conversa vira tema, o time começa a trabalhar
+#   GET  /graph/state    — o que existe agora (visibilidade da revisão)
+#   POST /graph/approve  — decisão do gate; retoma o grafo de onde parou
+#
+# O grafo NÃO fica rodando entre um gate e outro. Ele persiste no Firestore e
+# a execução termina; /graph/approve reconstrói e retoma. É o que permite a
+# aprovação acontecer dias depois, em outra instância de Cloud Run.
+
+class GraphStartRequest(BaseModel):
+    sessionId: str
+    tema:      str
+    contexto:  Optional[str] = ""
+    idioma:    Optional[str] = "pt-BR"
+
+
+class GraphApproveRequest(BaseModel):
+    sessionId:  str
+    gate:       str                      # "artigo" | "video"
+    decisao:    str                      # "aprovado" | "ajustar" | "rejeitado"
+    comentario: Optional[str] = ""
+    # URL do artigo já gravado no blog, enviada pelo /api/csm/studio no gate do
+    # artigo. Entra no estado ANTES da retomada porque o nó social monta as
+    # peças com [LINK_ARTIGO] apontando para ela — se chegasse depois, a
+    # primeira geração sairia sem link.
+    artigoUrl:  Optional[str] = None
+
+
+def _graph_tenant(request) -> Optional[str]:
+    """Tenant já verificado pelo middleware; None = tenant default."""
+    tenant = getattr(request.state, "tenant", None)
+    if tenant is None or tenant.is_default:
+        return None
+    return tenant.tenant_id
+
+
+def _build_graph(tenant_id: Optional[str]):
+    """
+    Compila o grafo. Exige Firestore: é onde o checkpoint dos gates vive, e
+    sem ele o fluxo não sobreviveria à primeira reciclagem de instância —
+    melhor recusar na entrada do que perder o pacote no meio.
+    """
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Firestore indisponível — o fluxo precisa dele para os gates de aprovação.",
+        )
+    from graph.build import construir_grafo
+    return construir_grafo(db, tenant_id)
+
+
+@app.post("/graph/start")
+async def graph_start(req: GraphStartRequest, request: Request):
+    """Dispara o time de marketing. Roda até o primeiro gate e para."""
+    from graph.build import config_thread
+    from graph.state import novo_estado
+
+    tenant_id = _graph_tenant(request)
+    app_graph = _build_graph(tenant_id)
+    cfg       = config_thread(tenant_id or "default", req.sessionId)
+
+    estado = novo_estado(
+        tenant_id=tenant_id or "default",
+        session_id=req.sessionId,
+        tema=req.tema,
+        contexto=req.contexto or "",
+        idioma=req.idioma or "pt-BR",
+    )
+    try:
+        await app_graph.ainvoke(estado, cfg)
+    except Exception as exc:
+        logger.exception("[graph/start] falhou")
+        raise HTTPException(status_code=500, detail=str(exc)[:300])
+
+    snap = await app_graph.aget_state(cfg)
+    return {
+        "threadId":   cfg["configurable"]["thread_id"],
+        "fase":       snap.values.get("fase"),
+        "aguardando": list(snap.next),
+        "trilha":     snap.values.get("trilha", []),
+        "erros":      snap.values.get("erros", []),
+    }
+
+
+@app.get("/graph/slides")
+async def graph_slides(sessionId: str, request: Request):
+    """
+    HTMLs dos slides, separados do /graph/state de propósito.
+
+    São ~85KB — peso morto na listagem de revisão, que só mostra a contagem.
+    Mas o disparo da produção PRECISA deles: sem os HTMLs o /build-manifest
+    monta o deck com placeholders, e o vídeo sai com telas pretas escritas
+    "// yt-02" no lugar das ilustrações.
+    """
+    from graph.build import config_thread
+
+    tenant_id = _graph_tenant(request)
+    app_graph = _build_graph(tenant_id)
+    snap = await app_graph.aget_state(config_thread(tenant_id or "default", sessionId))
+    if not snap.values:
+        raise HTTPException(status_code=404, detail="Nenhum fluxo para esta sessão")
+    return {"slides": snap.values.get("slide_htmls") or {}}
+
+
+@app.get("/graph/state")
+async def graph_state(sessionId: str, request: Request):
+    """
+    Tudo que já foi produzido, para a tela de revisão.
+
+    Devolve o conteúdo INTEIRO (artigo, roteiro, plano social) porque o ponto
+    desta rota é dar visibilidade do que vai ao ar antes de ir. Os slides HTML
+    saem como contagem, não como corpo: são ~85KB que a tela não usa nesta
+    listagem.
+    """
+    from graph.build import config_thread
+
+    tenant_id = _graph_tenant(request)
+    app_graph = _build_graph(tenant_id)
+    cfg       = config_thread(tenant_id or "default", sessionId)
+
+    snap = await app_graph.aget_state(cfg)
+    if not snap.values:
+        raise HTTPException(status_code=404, detail="Nenhum fluxo para esta sessão")
+
+    v = snap.values
+    return {
+        "fase":       v.get("fase"),
+        "aguardando": list(snap.next),
+        "tema":       v.get("tema"),
+        # O idioma decide a rota do artigo no blog (/pt-BR/blog/... ou
+        # /en/blog/...) e o campo `language` do documento, que é como
+        # `getAllArticles` filtra. Sai daqui para a publicação não ter que
+        # adivinhar.
+        "idioma":     v.get("idioma") or "pt-BR",
+        "pauta":      v.get("pauta"),
+        "artigo": {
+            "titulo":   v.get("artigo_titulo"),
+            "markdown": v.get("artigo_markdown"),
+            "slug":     v.get("artigo_slug"),
+            "resumo":   v.get("artigo_resumo"),
+            "url":      v.get("artigo_url"),
+        },
+        "video": {
+            "titulo":    v.get("video_titulo"),
+            "manifesto": v.get("manifesto"),
+            "slides":    len(v.get("slide_htmls") or {}),
+            "projectId": v.get("video_project_id"),
+            "url":       v.get("video_url"),
+        },
+        "planoSocial": v.get("plano_social"),
+        "trilha":      v.get("trilha", []),
+        "erros":       v.get("erros", []),
+    }
+
+
+@app.post("/graph/approve")
+async def graph_approve(req: GraphApproveRequest, request: Request):
+    """
+    Registra a decisão do gate e retoma o grafo.
+
+    `ajustar` volta ao nó anterior com o comentário no estado — o agente
+    refaz a peça sabendo o que foi criticado, e a crítica também entra na
+    memória episódica para as próximas gerações.
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    from graph.build import config_thread
+
+    if req.gate not in ("artigo", "video"):
+        raise HTTPException(status_code=400, detail="gate deve ser 'artigo' ou 'video'")
+    if req.decisao not in ("aprovado", "ajustar", "rejeitado"):
+        raise HTTPException(status_code=400, detail="decisão inválida")
+
+    tenant_id = _graph_tenant(request)
+    app_graph = _build_graph(tenant_id)
+    cfg       = config_thread(tenant_id or "default", req.sessionId)
+
+    snap = await app_graph.aget_state(cfg)
+    if not snap.values:
+        raise HTTPException(status_code=404, detail="Nenhum fluxo para esta sessão")
+
+    campo = f"aprovacao_{req.gate}"
+    patch: dict = {
+        campo: {
+            "decisao":    req.decisao,
+            "comentario": req.comentario or "",
+            "em":         _dt.now(_tz.utc).isoformat(),
+        }
+    }
+    if req.artigoUrl:
+        patch["artigo_url"] = req.artigoUrl
+    await app_graph.aupdate_state(cfg, patch)
+
+    try:
+        await app_graph.ainvoke(None, cfg)
+    except Exception as exc:
+        logger.exception("[graph/approve] retomada falhou")
+        raise HTTPException(status_code=500, detail=str(exc)[:300])
+
+    novo = await app_graph.aget_state(cfg)
+    return {
+        "fase":       novo.values.get("fase"),
+        "aguardando": list(novo.next),
+        "trilha":     novo.values.get("trilha", []),
+        "erros":      novo.values.get("erros", []),
+    }
+
+
+class GraphEnqueueRequest(BaseModel):
+    sessionId: str
+
+
+@app.post("/graph/social/enqueue")
+async def graph_social_enqueue(req: GraphEnqueueRequest, request: Request):
+    """
+    Manda o plano social aprovado para a fila de publicação.
+
+    É o elo que faltava: o nó social escrevia o `PlanoSocial` no checkpoint do
+    grafo, e o `publisher-scheduled` lê `social_queue`. Duas coleções que nunca
+    se falaram — o plano era gerado, exibido na tela e nunca publicado.
+
+    Ação explícita, e não um passo automático do grafo, pelo mesmo motivo dos
+    dois gates: agendar uma semana de posts sob a marca do dono do canal é
+    decisão dele, tomada depois de ver as peças.
+    """
+    from graph.build import config_thread
+    from social_publish import enfileirar
+
+    tenant_id = _graph_tenant(request)
+    app_graph = _build_graph(tenant_id)
+    snap = await app_graph.aget_state(config_thread(tenant_id or "default", req.sessionId))
+    if not snap.values:
+        raise HTTPException(status_code=404, detail="Nenhum fluxo para esta sessão")
+
+    v = snap.values
+    plano = v.get("plano_social") or {}
+    if not plano:
+        raise HTTPException(
+            status_code=409,
+            detail="O plano social ainda não existe — ele é montado depois da aprovação do vídeo.",
+        )
+
+    resultado = await enfileirar(
+        db, plano,
+        artigo_slug=v.get("artigo_slug") or "",
+        artigo_titulo=v.get("artigo_titulo") or "",
+        artigo_url=v.get("artigo_url") or "",
+        idioma=v.get("idioma") or "pt-BR",
+        serie=(v.get("pauta") or {}).get("serie") or "",
+        session_id=req.sessionId,
+    )
+    logger.info(
+        "[graph/social/enqueue] %s/%s peças enfileiradas (%d falha(s))",
+        resultado["enfileirados"], resultado["total"], len(resultado["falhas"]),
+    )
+    return resultado

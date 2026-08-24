@@ -174,8 +174,12 @@ async function enqueueText(
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { status: 'error', detail: data.error ?? `HTTP ${res.status}` };
 
-    const queued = data.results?.textPublished ?? 0;
-    const errors = (data.results?.errors ?? []) as string[];
+    // pipeline-submit responde com o objeto de resultados na RAIZ. Ler
+    // `data.results` devolvia undefined sempre: a contagem saía 0 e os erros
+    // ficavam invisíveis, então uma aprovação que falhou aparecia na tela
+    // como sucesso silencioso.
+    const queued = data.textPublished ?? 0;
+    const errors = (data.errors ?? []) as string[];
     return {
       status: errors.length && !queued ? 'error' : 'ok',
       detail: `${queued} item(s) distribuído(s) ao longo de ${PLAN_HORIZON_DAYS} dias${errors.length ? ` · ${errors.length} erro(s)` : ''}`,
@@ -219,8 +223,26 @@ async function triggerVideoPipeline(
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { status: 'error', detail: data.error ?? `HTTP ${res.status}` };
 
-    const triggered = data.results?.videoPipelineTriggered ?? 0;
-    return { status: 'ok', detail: `${triggered} pipeline(s) disparado(s)` };
+    // Mesma correção de leitura: os campos vêm na raiz da resposta.
+    const triggered = data.videoPipelineTriggered ?? 0;
+    const errors    = (data.errors ?? []) as string[];
+
+    // O gate do manifesto recusa a produção ANTES de gastar crédito, e essa
+    // recusa chega aqui como erro sem HTTP 4xx. Reportar 'ok' com "0
+    // pipeline(s)" esconderia exatamente o que o gate existe para mostrar.
+    if (!triggered) {
+      return {
+        status: 'error',
+        detail: errors.length
+          ? errors.join(' · ')
+          : 'Nenhuma pipeline de vídeo foi disparada.',
+      };
+    }
+    return {
+      status: errors.length ? 'error' : 'ok',
+      detail: `${triggered} pipeline(s) disparado(s)` +
+              (errors.length ? ` · ${errors.join(' · ')}` : ''),
+    };
   } catch (err) {
     return { status: 'error', detail: err instanceof Error ? err.message : String(err) };
   }

@@ -112,6 +112,14 @@ resource "google_pubsub_topic" "video_ready" {
   name = "content-pipeline.video-ready"
 }
 
+# Corte vertical: fora do encadeamento automatico de propósito. Só e publicado
+# quando o dono do canal libera o pacote, DEPOIS de assistir ao video do
+# YouTube — a peca vertical e derivada desse video (crop 9:16 do avatar ja
+# gerado + ilustracao vertical com o mesmo audio), nao produzida do zero.
+resource "google_pubsub_topic" "vertical_cut" {
+  name = "content-pipeline.vertical-cut"
+}
+
 resource "google_pubsub_topic" "dead_letter" {
   name = "content-pipeline.dead-letter"
 }
@@ -194,6 +202,26 @@ resource "google_pubsub_subscription" "video_editor_sub" {
 
   push_config {
     push_endpoint = "${google_cloud_run_v2_service.pipeline_trigger.uri}/trigger/video-editor"
+
+    oidc_token {
+      service_account_email = local.sa_email
+    }
+  }
+
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.dead_letter.id
+    max_delivery_attempts = 5
+  }
+}
+
+resource "google_pubsub_subscription" "vertical_cut_sub" {
+  name  = "vertical-cut-job-sub"
+  topic = google_pubsub_topic.vertical_cut.name
+
+  ack_deadline_seconds = 600
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.pipeline_trigger.uri}/trigger/vertical-cut"
 
     oidc_token {
       service_account_email = local.sa_email
@@ -557,6 +585,15 @@ resource "google_cloud_run_v2_job" "avatar_job" {
           name  = "HEYGEN_AVATAR_ID_VERTICAL"
           value = "d7fdce2942a244649820a0b5c989766f"
         }
+
+        # Motor de renderização do HeyGen v3. É o parâmetro que decide a
+        # qualidade da sincronia labial — e o custo: avatar_iii custa
+        # US$1/min, avatar_iv e avatar_v custam US$4/min. Trocar aqui não
+        # exige rebuild da imagem.
+        env {
+          name  = "HEYGEN_ENGINE"
+          value = var.heygen_engine
+        }
       }
     }
   }
@@ -599,6 +636,60 @@ resource "google_cloud_run_v2_job" "video_editor_job" {
         env {
           name  = "PLAYWRIGHT_CHROMIUM_ARGS"
           value = "--disable-dev-shm-usage --no-sandbox --disable-gpu"
+        }
+      }
+    }
+  }
+}
+
+# Corte vertical: mesmo perfil do editor (Playwright + FFmpeg), mas sem
+# nenhum secret de API — ele nao chama HeyGen nem ElevenLabs, so recorta e
+# remonta o que o video horizontal ja produziu.
+resource "google_cloud_run_v2_job" "vertical_cut_job" {
+  name     = "vertical-cut-job"
+  location = var.region
+
+  template {
+    template {
+      service_account = local.sa_email
+      max_retries     = 0
+      timeout         = "3600s"
+
+      containers {
+        image   = var.pipeline_image
+        command = ["python", "-m", "vertical_cut_job"]
+
+        resources {
+          limits = {
+            memory = "4Gi"
+            cpu    = "4"
+          }
+        }
+
+        dynamic "env" {
+          for_each = local.env_vars
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        env {
+          name  = "PYTHONPATH"
+          value = "/app"
+        }
+
+        env {
+          name  = "PLAYWRIGHT_CHROMIUM_ARGS"
+          value = "--disable-dev-shm-usage --no-sandbox --disable-gpu"
+        }
+
+        # Enquadramento do crop 9:16 sobre o frame 16:9. 0.5 = centrado, que e
+        # onde o HeyGen posiciona o apresentador. Ajustavel por preset de
+        # avatar sem alterar codigo.
+        env {
+          name  = "HEYGEN_AVATAR_CROP_X_RATIO"
+          value = "0.5"
         }
       }
     }

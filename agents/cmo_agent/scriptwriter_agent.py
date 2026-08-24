@@ -100,13 +100,67 @@ Para cada segmento com slide, gere 1 a 4 âncoras onde faz sentido:
 Ordem dos reveals: fd1 aparece com o slide, fd2 no segundo momento chave, fd3 no terceiro.
 Use os ids do design system: fd1, fd2, fd3, fd4 (fadein), b1, b2, b3, b4 (barras de gráfico).
 
-Segmentos sem slide (avatar falando em tela cheia): anchors = [].
+Segmentos de avatar (kind="avatar"): anchors = [].
+
+━━━ A REGRA DE OURO: 20% AVATAR / 80% ILUSTRAÇÃO ━━━
+
+Todo segmento é uma tela cheia — OU o apresentador falando, OU a ilustração
+com a voz dele por cima. Nunca os dois ao mesmo tempo, nunca avatar reduzido
+num canto. Você decide, segmento a segmento, qual dos dois está no ar.
+
+  kind = "avatar" → slide = null. O espectador vê o Victor. Conexão humana.
+  kind = "slide"  → slide = "<id>". O espectador vê a ilustração, ouve a voz.
+
+Orçamento de tela, obrigatório:
+
+  • Avatar = 15% a 25% da duração total. Alvo: 20%.
+    Num vídeo de 5 minutos isso é ~1 minuto de avatar. Num de 8, ~1min40.
+  • Ilustração = todo o resto.
+
+Distribuição do avatar — ele aparece DO INÍCIO AO FIM, não só no começo:
+
+  1. Gancho (obrigatório, primeiro segmento) — avatar.
+  2. Duas a três reentradas no meio, entre blocos de teoria/código/demo.
+     Servem de respiro: quebram a sequência de slides e reconectam.
+  3. Fechamento (obrigatório, último segmento) — avatar.
+
+Nunca dois segmentos de avatar seguidos. Nunca mais de 3 slides seguidos sem
+o apresentador voltar à tela.
+
+Cada segmento de avatar dura de 12 a 25 segundos (30 a 60 palavras). Isto não
+é estético: cada um deles é um candidato a virar o corte vertical do Reel, e
+abaixo de 12s não sustenta uma peça, acima de 25s não cabe num Short.
+
+Cada segmento de slide dura de 25 a 45 segundos (60 a 105 palavras). Um slide
+que fica mais de 45s no ar cansa — quebre em dois slides ou volte ao avatar.
 
 ━━━ DURAÇÃO ALVO ━━━
-Vídeo principal (YouTube): 5–12 minutos
-  → entre 6 e 12 segmentos, cada script com 60–150 palavras.
-Reels (segmentos verticais): 20–30 segundos cada
-  → script com 40–70 palavras por segmento.
+Vídeo principal (YouTube): 5–12 minutos.
+Com os limites acima isso dá de 10 a 18 segmentos, alternando avatar e slide.
+Calcule: 140 palavras por minuto de fala.
+
+━━━ O CORTE VERTICAL (vertical_cut) ━━━
+
+O Reel/Short NÃO é um roteiro novo. É um recorte deste mesmo vídeo: reaproveita
+a fala e o vídeo de avatar que já vão existir, sem gravar nada de novo.
+
+Monte um corte de 30 a 60 segundos escolhendo de 2 a 4 segmentos JÁ EXISTENTES
+do YouTube, na ordem em que fazem sentido como peça independente:
+
+  • Comece por um segmento de avatar forte (normalmente o gancho).
+  • Inclua um ou dois segmentos de slide que carreguem o insight central.
+  • Termine com avatar, ou com um slide de CTA.
+
+Para cada item do corte:
+  • "source" = o id do segmento do YouTube de onde ele vem. Obrigatório.
+  • Se o segmento de origem é kind="avatar", o corte também é "avatar" e
+    slide = null — o vídeo sai de um recorte central do avatar horizontal.
+  • Se é kind="slide", o corte precisa de uma ilustração NOVA, desenhada para
+    9:16: slide = "v-01", "v-02"… A fala é exatamente a mesma do segmento de
+    origem, então a ilustração vertical tem que dizer a mesma coisa que a
+    horizontal — em coluna, com menos texto e tipografia maior.
+
+Não invente script no vertical_cut. Não repita o texto. Só aponte o "source".
 
 ━━━ FORMATO DE SAÍDA OBRIGATÓRIO ━━━
 Responda SOMENTE com o bloco JSON abaixo, sem texto antes ou depois,
@@ -121,24 +175,21 @@ sem markdown wrapper (sem ```json), sem comentários:
   "youtube": {
     "deck": "yt",
     "resolution": {"width": 1920, "height": 1080},
-    "overlay": {
-      "mode": "slide-full",
-      "avatar_position": "bottom-right",
-      "avatar_scale": 0.28
-    },
     "segments": [
       {
         "id":      "yt-01",
+        "kind":    "avatar",
         "slide":   null,
         "beat":    "hook",
-        "script":  "Texto falado sem LaTeX, em português fonético.",
+        "script":  "Texto falado sem LaTeX, em português fonético. 30 a 60 palavras.",
         "anchors": []
       },
       {
         "id":      "yt-02",
+        "kind":    "slide",
         "slide":   "yt-02",
         "beat":    "intro",
-        "script":  "Texto falado do segundo segmento.",
+        "script":  "Texto falado do segundo segmento. 60 a 105 palavras.",
         "anchors": [
           {"on_phrase": "frase exata que dispara", "action": "show_slide"},
           {"on_phrase": "outra frase chave",        "action": "reveal", "element": "fd2"}
@@ -146,45 +197,17 @@ sem markdown wrapper (sem ```json), sem comentários:
       }
     ]
   },
-  "reels": [
-    {
-      "reel_id": "reel-01",
-      "title":   "Título do Reel 01",
-      "deck":    "r1",
-      "resolution": {"width": 1080, "height": 1920},
-      "overlay": {
-        "mode": "slide-full",
-        "avatar_position": "bottom-center",
-        "avatar_scale": 0.35
-      },
-      "segments": [
-        {
-          "id":      "r1-01",
-          "slide":   "r1-01",
-          "beat":    "gancho",
-          "script":  "Texto do gancho (30s máx).",
-          "anchors": [{"on_phrase": "frase do gancho", "action": "show_slide"}]
-        },
-        {
-          "id":      "r1-02",
-          "slide":   "r1-02",
-          "beat":    "insight",
-          "script":  "Ensina o conceito central.",
-          "anchors": [
-            {"on_phrase": "palavra-chave do insight", "action": "show_slide"},
-            {"on_phrase": "número ou resultado",       "action": "reveal", "element": "fd3"}
-          ]
-        },
-        {
-          "id":      "r1-03",
-          "slide":   "r1-03",
-          "beat":    "gap + cta",
-          "script":  "Há mais no vídeo completo. Link na bio.",
-          "anchors": [{"on_phrase": "vídeo completo", "action": "show_slide"}]
-        }
-      ]
-    }
-  ]
+  "vertical_cut": {
+    "deck":       "v",
+    "title":      "Título curto da peça vertical",
+    "resolution": {"width": 1080, "height": 1920},
+    "segments": [
+      {"id": "v-01", "source": "yt-01", "kind": "avatar", "slide": null},
+      {"id": "v-02", "source": "yt-04", "kind": "slide",  "slide": "v-02",
+       "anchors": [{"on_phrase": "frase do insight", "action": "show_slide"}]},
+      {"id": "v-03", "source": "yt-09", "kind": "avatar", "slide": null}
+    ]
+  }
 }
 
 REGRA ABSOLUTA: Não adicione campos extras. Não quebre o JSON. Não use trailing commas.
@@ -209,12 +232,114 @@ def _repair_json(text: str) -> str:
     return re.sub(r",\s*([}\]])", r"\1", text)
 
 
+# ── Normalização do manifesto ─────────────────────────────────────────────────
+
+WPM = 140.0  # palavras por minuto de fala — mesma constante do manifest_builder
+
+
+def _estimate_duration_s(script: str) -> float:
+    return round(max(3.0, len(script.split()) / WPM * 60.0), 1)
+
+
+def _normalize_manifest(manifest: dict) -> dict:
+    """
+    Fecha os buracos que o LLM deixa, sem alterar decisão editorial.
+
+    O modelo escolhe o que é avatar e o que é ilustração; aqui só derivamos o
+    que é mecânico — kind quando ausente, duração estimada, o bloco
+    vertical_cut quando ele esquece — e removemos o campo `overlay`, que
+    descrevia o avatar reduzido sobre o slide e não existe mais no produto.
+    """
+    manifest.setdefault("version", 2)
+    manifest.setdefault("audio_naming", "{video_id}__{segment_id}.wav")
+
+    youtube = manifest.setdefault("youtube", {})
+    youtube.pop("overlay", None)
+    youtube.setdefault("deck", "yt")
+    youtube.setdefault("resolution", {"width": 1920, "height": 1080})
+
+    segments = youtube.get("segments") or []
+    for seg in segments:
+        script = (seg.get("script") or "").strip()
+        seg["script"] = script
+        # kind é a fonte de verdade do compositor; slide=None sozinho já
+        # significava "avatar", mas um kind explícito impede que um slide
+        # perdido no JSON transforme o gancho em ilustração sem ninguém ver.
+        if seg.get("kind") not in ("avatar", "slide"):
+            seg["kind"] = "slide" if seg.get("slide") else "avatar"
+        if seg["kind"] == "avatar":
+            seg["slide"] = None
+            seg["anchors"] = []
+        seg.setdefault("anchors", [])
+        seg.setdefault("pause_after_s", 0.4)
+        if not seg.get("min_duration_s"):
+            seg["min_duration_s"] = _estimate_duration_s(script)
+
+    # vertical_cut: se o modelo não entregou, derivamos um corte honesto —
+    # primeiro avatar + primeiro slide + último avatar. Melhor um corte
+    # previsível do que nenhum, e o dono do canal revisa antes de publicar.
+    cut = manifest.get("vertical_cut") or {}
+    cut.setdefault("deck", "v")
+    cut.setdefault("resolution", {"width": 1080, "height": 1920})
+    cut.setdefault("title", manifest.get("title", ""))
+    if not cut.get("segments"):
+        avatars = [s for s in segments if s["kind"] == "avatar"]
+        slides  = [s for s in segments if s["kind"] == "slide"]
+        picks   = [s for s in (avatars[:1] + slides[:1] + avatars[-1:]) if s]
+        seen: set[str] = set()
+        cut["segments"] = []
+        v_slide = 0
+        for src in picks:
+            if src["id"] in seen:
+                continue
+            seen.add(src["id"])
+            item = {
+                "id":     f"v-{len(cut['segments']) + 1:02d}",
+                "source": src["id"],
+                "kind":   src["kind"],
+                "slide":  None,
+            }
+            if src["kind"] == "slide":
+                v_slide += 1
+                item["slide"] = f"v-{v_slide:02d}"
+            cut["segments"].append(item)
+        logger.warning(
+            "[scriptwriter] vertical_cut ausente — derivado com %d segmentos.",
+            len(cut["segments"]),
+        )
+
+    # Herda script/duração do segmento de origem: o corte vertical nunca tem
+    # fala própria, é o mesmo áudio TTS do horizontal.
+    by_id = {s["id"]: s for s in segments}
+    for item in cut["segments"]:
+        src = by_id.get(item.get("source"))
+        if not src:
+            continue
+        item["script"]         = src["script"]
+        item["min_duration_s"] = src["min_duration_s"]
+        item.setdefault("beat", src.get("beat", ""))
+        item.setdefault("anchors", [])
+        if item.get("kind") not in ("avatar", "slide"):
+            item["kind"] = src["kind"]
+        if item["kind"] == "avatar":
+            item["slide"] = None
+            item["anchors"] = []
+    cut["segments"] = [i for i in cut["segments"] if i.get("source") in by_id]
+    manifest["vertical_cut"] = cut
+
+    # `reels` sobrevive vazio só para não quebrar leitores antigos do
+    # manifesto; a peça vertical agora mora inteira em vertical_cut.
+    manifest["reels"] = []
+    return manifest
+
+
 # ── Agent runner ───────────────────────────────────────────────────────────────
 
 async def run_scriptwriter(
     pauta: dict,
     article_content: str,
     system_instruction: Optional[str] = None,
+    retry_note: str = "",
 ) -> dict:
     """
     Gera o manifesto de roteiro segmentado no formato v2.
@@ -223,6 +348,9 @@ async def run_scriptwriter(
         pauta: PautaConcebida dict — {titulo, subtitulo, tese, publico, duracao_alvo, serie}
         article_content: Artigo técnico em Markdown (conteúdo gerado pelo writing_agent)
         system_instruction: Override opcional da instrução de sistema
+        retry_note: Correção explícita de uma tentativa anterior que violou a
+            regra do produto (ex.: avatar_share acima do teto em
+            manifest_builder.validate_manifest). Vazio na primeira tentativa.
 
     Returns:
         dict com a estrutura completa do manifesto v2 (pronto para json.dumps)
@@ -251,9 +379,14 @@ async def run_scriptwriter(
         f"Série: {serie}\n\n"
         f"=== ARTIGO DE BASE ===\n"
         f"{article_content[:14000]}\n\n"
-        f"Produza o JSON completo do manifesto v2 com todos os segmentos do YouTube + 2 Reels,"
-        f" respeitando estritamente as regras TTS e de âncoras."
+        f"Produza o JSON completo do manifesto v2: os segmentos do YouTube alternando"
+        f" avatar e ilustração dentro do orçamento de 20% de avatar, mais o bloco"
+        f" vertical_cut apontando para segmentos que você já criou. Respeite"
+        f" estritamente as regras TTS, de âncoras e de distribuição do avatar."
     )
+
+    if retry_note:
+        prompt += f"\n\n=== CORREÇÃO OBRIGATÓRIA (tentativa anterior recusada) ===\n{retry_note}"
 
     try:
         from vertex_generate import generate_text as vertex_generate_text
@@ -271,11 +404,26 @@ async def run_scriptwriter(
             repaired = _repair_json(clean)
             manifest = json.loads(repaired)
 
+        manifest = _normalize_manifest(manifest)
+
+        segs   = manifest["youtube"]["segments"]
+        avatar = [s for s in segs if s["kind"] == "avatar"]
+        total  = sum(s["min_duration_s"] for s in segs) or 1.0
+        share  = sum(s["min_duration_s"] for s in avatar) / total
         logger.info(
-            f"[scriptwriter] Manifest OK — "
-            f"{len(manifest.get('youtube', {}).get('segments', []))} YT segments, "
-            f"{len(manifest.get('reels', []))} reels"
+            "[scriptwriter] Manifest OK — %d segmentos (%d avatar / %d slide), "
+            "%.0fs totais, %.0f%% de avatar, corte vertical com %d peças.",
+            len(segs), len(avatar), len(segs) - len(avatar), total, share * 100,
+            len(manifest["vertical_cut"]["segments"]),
         )
+        if not 0.10 <= share <= 0.35:
+            # Não aborta: o manifesto ainda é revisado por humano antes de virar
+            # vídeo, e o gate duro está no pipeline-submit. Aqui só registramos
+            # que o modelo saiu do orçamento pedido.
+            logger.warning(
+                "[scriptwriter] Share de avatar fora do alvo de 20%%: %.0f%%.",
+                share * 100,
+            )
         return manifest
 
     except Exception as exc:

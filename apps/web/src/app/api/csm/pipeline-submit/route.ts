@@ -25,6 +25,7 @@ import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { dbPaths } from '@/lib/dbPaths';
 import { cmoAgentHeaders } from '@/lib/cmoAgent';
 import { loadSession } from '@/lib/session';
+import { requireTenantId } from '@/lib/tenancy';
 
 const GCP_PROJECT_ID      = process.env.FIREBASE_PROJECT_ID || 'vazfy-417019';
 const PIPELINE_TOPIC      = 'content-pipeline.package-approved';
@@ -59,9 +60,33 @@ interface SubmitItem {
 interface SubmitRequest {
   articleSlug:   string;
   articleTitle:  string;
-  youtubeScript?: string;   // Roteiro da Aba 4 (Markdown com cenas)
+  youtubeScript?: string;   // Roteiro achatado — só usado para detectar intenção
   sessionId?:    string;
   items:         SubmitItem[];
+  /** Manifesto vindo do grafo do Studio, que o guarda no próprio checkpoint
+   *  em vez de no draft da sessão. Tem precedência sobre draft.manifestV2. */
+  manifestV2?:   ManifestV2;
+  slideHtmls?:   Record<string, string>;
+}
+
+/** Manifesto v2 aprovado — o contrato que vira vídeo, sem reinterpretação. */
+interface ManifestV2 {
+  youtube?: { segments?: { id: string; kind?: string; slide?: string | null }[] };
+  vertical_cut?: { segments?: { id: string; source: string }[] };
+  [key: string]: unknown;
+}
+
+/** Resposta do /build-manifest, incluindo o gate do produto. */
+interface ManifestBuildResult {
+  manifest_gcs_path:   string;
+  segment_count:       number;
+  avatar_segments:     number;
+  slide_segments:      number;
+  avatar_share?:       number;
+  total_duration_s?:   number;
+  vertical_cut_count?: number;
+  estimated_cost_usd?: number;
+  violations?:         string[];
 }
 
 // ── Helper: obtém token OIDC para chamadas internas ao Cloud Run ──────────────
@@ -218,13 +243,26 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const { articleSlug, articleTitle, youtubeScript, sessionId, items } = body;
-  const tenantId = request.headers.get('x-tenant-id') || null;
+
+  // Identidade de tenant VERIFICADA — não mais `request.headers.get('x-tenant-id')`
+  // direto. Esta é a rota que dispara gasto real (HeyGen/ElevenLabs via
+  // Pub/Sub), então é o ponto de maior risco de um tenant se declarar dono
+  // de outro. Ver apps/web/src/lib/tenancy.ts.
+  const tenantResolution = await requireTenantId(request);
+  if ('response' in tenantResolution) return tenantResolution.response;
+  const tenantId = tenantResolution.tenantId;
+
   if (!Array.isArray(items)) {
     return NextResponse.json({ error: 'items array required' }, { status: 400 });
   }
 
   const approved = items.filter((i) => i.status === 'aprovado');
-  if (!approved.length && !(youtubeScript && youtubeScript.trim().length > 100)) {
+  // A guarda precede o caminho do manifesto e recusava a chamada do Studio
+  // antes de olhar para ele: o grafo manda `items: []` e nenhum
+  // `youtubeScript` — o roteiro dele é o manifesto estruturado.
+  const temManifesto = Boolean(body.manifestV2?.youtube?.segments?.length);
+  if (!approved.length && !temManifesto &&
+      !(youtubeScript && youtubeScript.trim().length > 100)) {
     return NextResponse.json({ error: 'No approved items' }, { status: 400 });
   }
 
@@ -234,6 +272,13 @@ export async function POST(request: Request): Promise<Response> {
   const sessionDraft = sessionId
     ? ((await loadSession(sessionId, tenantId)) as { draft?: Record<string, unknown> } | null)?.draft
     : undefined;
+  // O manifesto v2 e os slides desenhados vivem no doc de artefatos da sessão
+  // (campos pesados); loadSession já os recompõe dentro do draft.
+  // O corpo tem precedência: o Studio manda o manifesto que ACABOU de ser
+  // aprovado no gate, e ele é a verdade — o draft da sessão pode estar
+  // desatualizado ou nem existir num fluxo que nasceu no grafo.
+  const manifestV2 = (body.manifestV2 ?? sessionDraft?.manifestV2 ?? null) as ManifestV2 | null;
+  const slideHtmls = (body.slideHtmls ?? sessionDraft?.slideHtmls ?? {}) as Record<string, string>;
   const articleLanguage = (sessionDraft?.language as string) || 'pt-BR';
   const articleUrl =
     (sessionDraft?.publishedArticleUrl as string) ||
@@ -258,45 +303,72 @@ export async function POST(request: Request): Promise<Response> {
     textPublished:           0,
     errors:                  [] as string[],
     publishedItems:          [] as { platform: string; post_id: string }[],
+    /** Projeto do vídeo longo. É dele que o pacote é derivado depois. */
+    mainProjectId:           '' as string,
+    /** Itens de vídeo curto adiados até o vídeo do YouTube existir. */
+    videoItemsDeferred:      0,
   };
 
   // ── 1. YouTube longo — gera manifesto e dispara pipeline ─────────────────────
-  if (youtubeScript && youtubeScript.trim().length > 100) {
+  //
+  // O manifesto v2 aprovado é enviado INTEIRO. A versão anterior mandava
+  // `youtubeScript` — a concatenação das falas em texto puro — e deixava o
+  // cmo_agent reconstruir a estrutura por parsing de Markdown. Como o texto
+  // não tinha marcadores de seção, os 8 segmentos com 7 ilustrações viravam
+  // 1 segmento sem ilustração nenhuma, e o vídeo saía 163s de avatar puro.
+  if (manifestV2 && Array.isArray(manifestV2.youtube?.segments) && manifestV2.youtube.segments.length > 1) {
     const projectId = `${articleSlug}-yt-${Date.now()}`;
     try {
-      console.log(`[pipeline-submit] Gerando manifesto para ${projectId}...`);
+      console.log(`[pipeline-submit] Enviando manifesto aprovado para ${projectId}...`);
 
-      // a. Chama cmo_agent para construir manifesto e salvar no GCS
       const manifestRes = await fetch(`${CMO_AGENT_URL}/build-manifest`, {
         method:  'POST',
-        headers: cmoAgentHeaders(),
+        // Propaga o tenantId JÁ VERIFICADO por requireTenantId() acima — sem
+        // isto o cmo_agent sempre via o tenant default, mesmo quando esta
+        // rota já sabia (com certeza) que a chamada era de outro tenant.
+        headers: cmoAgentHeaders(tenantId),
         body:    JSON.stringify({
-          script:     youtubeScript,
-          title:      articleTitle,
-          project_id: projectId,
-          language:   'pt-BR',
+          manifest:    manifestV2,
+          slide_htmls: slideHtmls,
+          title:       articleTitle,
+          project_id:  projectId,
+          language:    (sessionDraft?.language as string) || 'pt-BR',
         }),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(60_000),
       });
 
       if (!manifestRes.ok) {
         throw new Error(`build-manifest failed ${manifestRes.status}: ${await manifestRes.text()}`);
       }
 
-      const manifestData = await manifestRes.json();
-      const manifestPath = manifestData.manifest_gcs_path as string;
-      console.log(`[pipeline-submit] Manifesto criado: ${manifestPath} (${manifestData.avatar_segments} segments, ~$${manifestData.estimated_cost_usd})`);
+      const manifestData = await manifestRes.json() as ManifestBuildResult;
 
-      // b. Cria documento do projeto no Firestore
-      // O vídeo principal é o lançamento: vai para o canal, vira Short, Reel,
-      // e é anunciado no LinkedIn/Threads. É o único projeto que publica no
-      // canal como vídeo longo.
-      const mainChannels = ['youtube', 'youtube_short', 'instagram_reel', 'linkedin', 'threads'];
+      // Gate do produto. Falhar aqui custa zero; falhar depois custa uma
+      // geração inteira de HeyGen. Um manifesto que chegou colapsado ou sem
+      // ilustração não vira vídeo — a pipeline nem é disparada.
+      const violations = manifestData.violations ?? [];
+      if (violations.length) {
+        throw new Error(
+          `manifesto recusado antes de gastar crédito — ${violations.join('; ')}`,
+        );
+      }
+
+      const manifestPath = manifestData.manifest_gcs_path;
+      console.log(
+        `[pipeline-submit] Manifesto OK: ${manifestPath} — ${manifestData.segment_count} segmentos ` +
+        `(${manifestData.avatar_segments} avatar / ${manifestData.slide_segments} ilustração), ` +
+        `${Math.round((manifestData.avatar_share ?? 0) * 100)}% de avatar, ` +
+        `~${manifestData.total_duration_s}s, ~$${manifestData.estimated_cost_usd}`,
+      );
+
+      // O projeto principal publica UM canal: o vídeo longo do YouTube, como
+      // privado. Vertical, carrossel e copies não saem daqui — são derivados
+      // depois, a partir deste vídeo, quando o dono do canal liberar o pacote.
+      const mainChannels = ['youtube'];
 
       await createProjectDoc(projectId, articleTitle, manifestPath, articleSlug, sessionId, tenantId,
                              { ...projectMeta, channelsApproved: mainChannels });
 
-      // c. Publica PackageApprovedMsg no Pub/Sub
       const msg = {
         project_id:        projectId,
         manifest_gcs_path: manifestPath,
@@ -307,6 +379,7 @@ export async function POST(request: Request): Promise<Response> {
       const topic = pubsub.topic(PIPELINE_TOPIC);
       await topic.publishMessage({ data: Buffer.from(JSON.stringify(msg)) });
       results.videoPipelineTriggered++;
+      results.mainProjectId = projectId;
       console.log(`[pipeline-submit] Pipeline disparado: ${projectId}`);
 
     } catch (err) {
@@ -314,6 +387,14 @@ export async function POST(request: Request): Promise<Response> {
       results.errors.push(`YouTube pipeline: ${msg}`);
       console.error('[pipeline-submit] YouTube pipeline error:', err);
     }
+  } else if (youtubeScript && youtubeScript.trim().length > 100) {
+    // Sem manifesto estruturado não há vídeo. Antes esta situação disparava a
+    // pipeline mesmo assim, com o roteiro achatado — e o resultado era um
+    // vídeo caro e errado que só aparecia no fim.
+    results.errors.push(
+      'YouTube pipeline: sessão sem manifesto v2 estruturado (draft.manifestV2). ' +
+      'Gere o pacote novamente na aba Pacote antes de aprovar.',
+    );
   }
 
   // ── 2. Processa cada item aprovado ─────────────────────────────────────────
@@ -371,60 +452,24 @@ export async function POST(request: Request): Promise<Response> {
       continue;
     }
 
-    // ── Vídeo curto (Shorts/Reels): gera manifesto e dispara pipeline ─────────
-    if (isVideo && copy.trim().length > 50) {
-      const orientation = (format === 'shorts' || format === 'reel') ? 'vertical' : 'horizontal';
-      const projectId   = `${articleSlug}-${format}-${item.id.slice(0, 6)}-${Date.now()}`;
-
-      try {
-        // Gera manifesto para o roteiro do vídeo curto
-        const manifestRes = await fetch(`${CMO_AGENT_URL}/build-manifest`, {
-          method:  'POST',
-          headers: cmoAgentHeaders(),
-          body:    JSON.stringify({
-            script:     copy,
-            title:      item.title,
-            project_id: projectId,
-            language:   'pt-BR',
-          }),
-          signal: AbortSignal.timeout(30_000),
-        });
-
-        if (!manifestRes.ok) {
-          throw new Error(`build-manifest failed ${manifestRes.status}`);
-        }
-
-        const { manifest_gcs_path: manifestPath } = await manifestRes.json();
-        // Um Reel é uma peça vertical curta: vai para o Instagram, NÃO vira
-        // vídeo do canal. Um Short vertical vai para o YouTube Shorts. Antes,
-        // ambos caíam em 'instagram_reel' e — pior — o publisher ignorava esta
-        // lista e publicava em TODAS as plataformas, então cada Reel virava
-        // também um vídeo longo no canal. Foi assim que 3 Reels de ~22s viraram
-        // 4 vídeos indevidos no YouTube do Victor.
-        const itemChannels =
-          format === 'shorts' ? ['youtube_short']
-          : format === 'reel' ? ['instagram_reel']
-          : ['youtube'];
-
-        await createProjectDoc(projectId, item.title, manifestPath, articleSlug, sessionId, tenantId,
-                               { ...projectMeta, channelsApproved: itemChannels });
-
-        const msg = {
-          project_id:        projectId,
-          manifest_gcs_path: manifestPath,
-          channels_approved: itemChannels,
-          approved_at:       new Date().toISOString(),
-          cost_limit:        DEFAULT_COST_LIMIT,
-        };
-        const topic = pubsub.topic(PIPELINE_TOPIC);
-        await topic.publishMessage({ data: Buffer.from(JSON.stringify(msg)) });
-        results.videoPipelineTriggered++;
-        console.log(`[pipeline-submit] Short/Reel pipeline: ${projectId}`);
-
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        results.errors.push(`${item.id} pipeline: ${msg}`);
-      }
+    // ── Vídeo curto (Shorts/Reels): NÃO é uma produção nova ───────────────────
+    //
+    // Reel e Short são o mesmo arquivo: um recorte do vídeo do YouTube. O
+    // avatar sai de um crop 9:16 do clipe horizontal já gerado, a fala é o
+    // mesmo áudio TTS, e só a ilustração é redesenhada em 9:16.
+    //
+    // Antes, cada peça curta era um `content_project` independente com TTS,
+    // avatar e edição próprios: três Reels = três produções completas, com o
+    // dobro de chamadas ao HeyGen pela mesma fala. Pior, o roteiro do curto
+    // não tinha relação nenhuma com o vídeo longo.
+    //
+    // Agora o corte só existe depois que o vídeo do YouTube existe e foi
+    // aprovado — é o /api/csm/derive-vertical que o produz.
+    if (isVideo) {
+      results.videoItemsDeferred++;
+      console.log(
+        `[pipeline-submit] ${item.id} (${format}) adiado — será derivado do vídeo do YouTube.`,
+      );
       continue;
     }
 

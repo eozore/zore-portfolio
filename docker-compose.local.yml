@@ -1,0 +1,114 @@
+# docker-compose.local.yml — Ambiente completo para validar antes do deploy.
+#
+# O que é REAL e o que é simulado, e por quê:
+#
+#   Firestore     emulado — não polui o banco de produção com dados de teste
+#   Vertex AI     REAL    — não existe emulador, e é o que dá valor ao teste
+#                           (o conteúdo gerado é o que você quer avaliar).
+#                           Custa centavos por ciclo.
+#   HeyGen        stub    — devolve um clipe pronto. Não gasta crédito.
+#   ElevenLabs    stub    — devolve um MP3 pronto com alinhamento sintético.
+#
+# O que este ambiente NÃO pega: IAM, Secret Manager, cold start e rede entre
+# serviços do Cloud Run. Essas só aparecem no ambiente real.
+#
+#   docker compose -f docker-compose.local.yml up --build
+#   → http://localhost:3000/admin/studio   (senha: local)
+
+services:
+  firestore:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: >
+      gcloud emulators firestore start
+      --host-port=0.0.0.0:8080 --project=vazfy-417019
+    ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  # Pub/Sub emulado. O disparo da produção publica em
+  # content-pipeline.package-approved; sem emulador a rota falhava com
+  # "Could not load the default credentials" e o botão de aprovar o vídeo
+  # parecia quebrado sem motivo aparente.
+  #
+  # ATENÇÃO: nenhum consumidor roda aqui. A mensagem é publicada e fica na
+  # fila — os Cloud Run Jobs (tts, avatar, editor) não existem localmente. O
+  # que este emulador valida é o CAMINHO até o disparo, não a produção.
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    command: >
+      sh -c "gcloud beta emulators pubsub start --host-port=0.0.0.0:8085
+      --project=vazfy-417019"
+    ports: ["8085:8085"]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8085/v1/projects/vazfy-417019/topics"]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+
+  # Stubs de mídia paga. Servem arquivos que já existem no repositório —
+  # resultado real de uma geração anterior do HeyGen e do ElevenLabs.
+  media-stub:
+    build:
+      context: .
+      dockerfile: infra/local/Dockerfile.stub
+    ports: ["8095:8095"]
+
+  cmo-agent:
+    build:
+      context: ./agents/cmo_agent
+      dockerfile: Dockerfile
+    depends_on:
+      firestore: { condition: service_healthy }
+    ports: ["8090:8090"]
+    environment:
+      FIREBASE_PROJECT_ID: vazfy-417019
+      GOOGLE_CLOUD_PROJECT: vazfy-417019
+      FIRESTORE_EMULATOR_HOST: firestore:8080
+      # Vertex é real: precisa das credenciais do gcloud da máquina.
+      GOOGLE_APPLICATION_CREDENTIALS: /gcloud/application_default_credentials.json
+      CMO_INTERNAL_SECRET: local
+      TENANT_KEY_PEPPER: local
+      OTEL_DISABLED: "true"
+      ENVIRONMENT: development
+      HEYGEN_BASE_URL: http://media-stub:8095/heygen
+      ELEVENLABS_BASE_URL: http://media-stub:8095/elevenlabs
+    volumes:
+      - ${HOME}/.config/gcloud:/gcloud:ro
+      # Fonte montado por cima do que a imagem trouxe: ajustar um nó do grafo
+      # passa a exigir `restart`, não `build`. Num ambiente cujo propósito é
+      # "ver, achar o erro e corrigir", 40s de rebuild por tentativa mata o
+      # ciclo. As dependências continuam vindo da imagem (site-packages).
+      - ./agents/cmo_agent:/app
+      - ./infra/local/seed.py:/app/seed.py:ro
+
+  web:
+    image: node:20-slim
+    working_dir: /app
+    depends_on:
+      cmo-agent: { condition: service_started }
+      pubsub:    { condition: service_healthy }
+    ports: ["3000:3000"]
+    environment:
+      CMO_AGENT_URL: http://cmo-agent:8090
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      CMO_INTERNAL_SECRET: local
+      TENANT_KEY_PEPPER: local
+      FIREBASE_PROJECT_ID: vazfy-417019
+      FIRESTORE_EMULATOR_HOST: firestore:8080
+      # sha256("local") — senha do ambiente local, nunca a de produção.
+      CSM_PASSWORD_HASH: 25bf8e1a2393f1108d37029b3df5593236c755742ec93465bbafa9b290bddcf6
+      CSM_AUTH_SECRET: local-dev-secret
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    # --legacy-peer-deps: o lockfile tem um conflito de peer entre vite@8 e
+    # @types/node que o npm novo recusa. Na máquina do dev o node_modules já
+    # existe de uma instalação anterior e o conflito nunca aparece; num
+    # container limpo o `npm ci` para. Aqui é ambiente de validação, não o
+    # build de produção — resolver o lockfile é outra tarefa.
+    command: sh -c "npm install --legacy-peer-deps --no-audit --no-fund && npm run dev -- --hostname 0.0.0.0"

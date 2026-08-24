@@ -22,19 +22,28 @@ from publisher_job.job import PublisherJob
 ALL_PLATFORMS = ["youtube", "youtube_short", "instagram_reel", "linkedin", "threads"]
 
 
-def filtrar(approved: list[str] | None) -> list[str]:
+def filtrar(
+    approved: list[str] | None,
+    media: dict[str, str] | None = None,
+) -> list[str]:
     """
     Reproduz o filtro aplicado em publish_video_ready.
 
     Espelha a lógica em vez de chamar o método inteiro porque publish_video_ready
     faz download de vídeo, gera thumbnail e chama 5 APIs externas — isolar o
     filtro é o que dá um teste rápido e determinístico.
+
+    `media` diz qual arquivo existe nesta execução: o vídeo longo traz só o
+    horizontal, o corte vertical traz só o vertical.
     """
-    attempts = [(p, None) for p in ALL_PLATFORMS]
+    fontes = media or {p: "-" for p in ALL_PLATFORMS}
+    attempts = [(p, fontes.get(p, "")) for p in ALL_PLATFORMS]
+    attempts = [(p, s) for p, s in attempts if s]
+
     aprovados = set(approved or [])
-    if aprovados:
-        attempts = [(p, a) for p, a in attempts if p in aprovados]
-    return [p for p, _ in attempts]
+    if not aprovados:
+        return []
+    return [p for p, _ in attempts if p in aprovados]
 
 
 # ── O caso que quebrou em produção ────────────────────────────────────────────
@@ -55,13 +64,39 @@ def test_video_principal_publica_no_lancamento_completo():
     assert filtrar(aprovados) == ALL_PLATFORMS
 
 
+# ── Fluxo em duas etapas: vídeo longo primeiro, corte vertical depois ─────────
+
+def test_video_longo_publica_so_no_youtube():
+    # O projeto principal nasce com channels_approved=['youtube'] e o editor
+    # entrega só o horizontal. Nada de vertical sai junto: o Reel é derivado
+    # deste vídeo depois que o dono do canal o aprova.
+    media = {"youtube": "gs://.../final_horizontal.mp4", "linkedin": "-", "threads": "-"}
+    assert filtrar(["youtube"], media) == ["youtube"]
+
+
+def test_corte_vertical_publica_reel_e_short_do_mesmo_arquivo():
+    media = {"youtube_short": "gs://.../final_vertical.mp4",
+             "instagram_reel": "gs://.../final_vertical.mp4"}
+    assert filtrar(["instagram_reel", "youtube_short"], media) == \
+           ["youtube_short", "instagram_reel"]
+
+
+def test_canal_sem_midia_nesta_execucao_e_pulado():
+    # channels_approved inclui o Short, mas esta execução veio do editor e só
+    # tem o horizontal. Tentar subir uma string vazia falhava com erro mudo.
+    media = {"youtube": "gs://.../final_horizontal.mp4", "youtube_short": ""}
+    assert filtrar(["youtube", "youtube_short"], media) == ["youtube"]
+
+
 # ── Compatibilidade e bordas ──────────────────────────────────────────────────
 
 @pytest.mark.parametrize("vazio", [None, []])
-def test_sem_channels_approved_mantem_comportamento_antigo(vazio):
-    # Projetos criados antes deste campo existir não podem quebrar num retry:
-    # sem a lista, publica em tudo, como antes.
-    assert filtrar(vazio) == ALL_PLATFORMS
+def test_sem_channels_approved_nao_publica_nada(vazio):
+    # O fallback "sem lista = publica em tudo" foi removido. Ele existia para
+    # não quebrar retries de projetos antigos, mas foi exatamente por ele que
+    # 2 Reels viraram 4 vídeos indevidos no canal: os docs tinham sido criados
+    # antes do campo existir, caíam aqui, e cada peça curta subia em todo lugar.
+    assert filtrar(vazio) == []
 
 
 def test_canal_desconhecido_e_ignorado_sem_quebrar():

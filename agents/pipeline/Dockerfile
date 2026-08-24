@@ -7,6 +7,7 @@
 #   tts-job:              python -m tts_job
 #   avatar-job:           python -m avatar_job
 #   video-editor-job:     python -m video_editor_job
+#   vertical-cut-job:     python -m vertical_cut_job
 #   heygen-callback:      uvicorn heygen_callback.app:app --port 8091
 #   publisher-immediate:  uvicorn publisher_immediate.app:app --port 8092
 #   publisher-scheduled:  python -m publisher_job
@@ -22,6 +23,12 @@ RUN apt-get update \
         libmagic1 \
         curl \
         ca-certificates \
+        # Fonte das legendas queimadas (shared/captions.py -> libass).
+        # A imagem slim nao traz fonte nenhuma: sem isto o libass cai num
+        # fallback silencioso, e a legenda sai com outro desenho e outra
+        # metrica -- quebra de linha e margens deixam de bater com o que o
+        # ASS pediu, sem nenhum erro no log.
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Playwright: instala CLI primeiro, depois deps do SO, depois browsers

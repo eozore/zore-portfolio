@@ -70,15 +70,15 @@ def _article_url_from(data: dict[str, Any]) -> str:
 
 # Visibilidade do upload no YouTube: 'public' | 'unlisted' | 'private'.
 #
-# Default 'unlisted' por decisão do dono do canal: ele assiste todo vídeo antes
-# de torná-lo público. A assimetria de risco também favorece isso — um vídeo
-# 'unlisted' por engano custa um clique no YouTube Studio; um vídeo público por
-# engano já foi visto, indexado e possivelmente notificado aos inscritos.
+# Default 'private': o vídeo sobe fechado, o dono do canal assiste no Studio e
+# só ele decide quando abrir. É o passo 6 do fluxo — tornar público é uma ação
+# manual, e é ela que libera a geração do pacote de conteúdos derivados.
 #
-# Importante: 'unlisted' NÃO bloqueia a campanha social. Os posts agendados
-# saem normalmente e o link funciona para quem clicar — 'unlisted' só remove o
-# vídeo da busca e das recomendações do YouTube.
-YOUTUBE_UPLOAD_PRIVACY = os.environ.get("YOUTUBE_UPLOAD_PRIVACY", "unlisted").strip().lower()
+# A assimetria de risco manda aqui: um vídeo privado por engano custa um
+# clique; um vídeo público por engano já foi visto, indexado e notificado aos
+# inscritos. 'private' em vez de 'unlisted' porque um link não listado ainda
+# circula se vazar, e a peça só existe para revisão até ser aprovada.
+YOUTUBE_UPLOAD_PRIVACY = os.environ.get("YOUTUBE_UPLOAD_PRIVACY", "private").strip().lower()
 if YOUTUBE_UPLOAD_PRIVACY not in ("public", "unlisted", "private"):
     logger.warning(
         "YOUTUBE_UPLOAD_PRIVACY=%r inválido, usando 'public'.", YOUTUBE_UPLOAD_PRIVACY
@@ -96,6 +96,28 @@ ERROR_CODE_MAP   = {
     "timeout":     "NETWORK_ERROR",
     "duplicate":   "DUPLICATE_CONTENT",
 }
+
+
+def _summarize(text: str, limit: int) -> str:
+    """
+    Encurta em fronteira de frase, não no meio de uma palavra.
+
+    O corte anterior era `description[:300] + "..."` — cego. Os posts saíam
+    truncados no meio da frase, às vezes no meio de um termo técnico, e o
+    "..." final virava parte do texto publicado.
+    """
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+
+    window = text[: limit + 1]
+    for mark in (". ", "! ", "? ", ".\n", "\n\n"):
+        cut = window.rfind(mark)
+        if cut > limit * 0.5:
+            return text[: cut + 1].strip()
+
+    space = window.rfind(" ")
+    return (text[:space] if space > 0 else text[:limit]).rstrip(",;:-") + "…"
 
 
 def _classify_error(msg: str) -> str:
@@ -473,15 +495,25 @@ class PublisherJob:
         subtitle    = meta.get("subtitle", description[:80] if description else "Canal Victor Zoré")
         category    = meta.get("category", "ia")
 
+        # URL do vídeo longo, quando ele já subiu numa execução anterior. É o
+        # link certo para acompanhar a peça vertical — o artigo é outro
+        # destino. Os posts saíam apontando para o blog mesmo quando o assunto
+        # era o vídeo.
+        youtube_id  = (meta.get("publish_results") or {}).get("youtube") or already_ok.get("youtube")
+        youtube_url = f"https://youtu.be/{youtube_id}" if youtube_id else YOUTUBE_CHANNEL_URL
+
         copy_long = (
             f"{description}\n\n"
             f"📖 Artigo completo: {article_url}\n\n"
             f"💡 Assine o canal para mais conteúdo técnico sobre IA e ML."
         )
-        copy_short = f"{title}\n\n#Shorts #IA #MachineLearning"
+        # Sem "#" colado no título: `f"#{title} (Short)"` transformava o título
+        # inteiro numa hashtag quebrada ('#matemática por trás do teste a/b').
+        short_title = f"{title} #Shorts"
+        copy_short  = f"{title}\n\n#Shorts #IA #MachineLearning"
         copy_social = (
-            f"{description[:300]}...\n\n"
-            f"▶️ Vídeo completo no canal (link na bio)\n"
+            f"{_summarize(description, 400)}\n\n"
+            f"▶️ Vídeo completo: {youtube_url}\n"
             f"📖 Artigo: {article_url}"
         )
 
@@ -489,61 +521,51 @@ class PublisherJob:
         thumbnail_youtube_url: str | None = None
         thumbnail_reel_url:    str | None = None
 
+        # Só gera a thumbnail do formato cuja mídia existe nesta execução: a do
+        # vídeo longo quando o horizontal chega, a do Reel quando o corte
+        # vertical chega. Gerar a partir de uma string vazia só produzia uma
+        # exceção silenciosa e um upload sem thumbnail.
         try:
             from publisher_job.thumbnail_generator import generate_thumbnail
             import tempfile, os
 
-            # Baixa vídeo horizontal para extrair frame (ou usa path local se GCS)
-            video_for_thumb = msg.horizontal_final
-
-            # YouTube thumbnail (1280x720)
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
-                thumb_yt_path = tf.name
-            generate_thumbnail(
-                video_path      = video_for_thumb,
-                title           = title,
-                subtitle        = subtitle,
-                format          = "youtube",
-                category        = category,
-                output_path     = thumb_yt_path,
-            )
-
-            # Reel thumbnail (1080x1920) — usa vídeo vertical
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
-                thumb_reel_path = tf.name
-            generate_thumbnail(
-                video_path      = msg.vertical_final,
-                title           = title,
-                subtitle        = subtitle,
-                format          = "reel",
-                category        = category,
-                output_path     = thumb_reel_path,
-            )
-
-            # Faz upload das thumbnails para GCS
             from google.cloud import storage as gcs_storage
-            gcs = gcs_storage.Client(project=self._project_id)
+            gcs         = gcs_storage.Client(project=self._project_id)
             bucket_name = f"{self._project_id}-pipeline-media"
-            bucket = gcs.bucket(bucket_name)
+            bucket      = gcs.bucket(bucket_name)
+            tmp_files: list[str] = []
 
-            yt_blob   = bucket.blob(f"{project_id}/thumbnail_youtube.png")
-            reel_blob = bucket.blob(f"{project_id}/thumbnail_reel.png")
-            yt_blob.upload_from_filename(thumb_yt_path,   content_type="image/png")
-            reel_blob.upload_from_filename(thumb_reel_path, content_type="image/png")
+            for fmt, source, key in (
+                ("youtube", msg.horizontal_final, "thumbnail_youtube"),
+                ("reel",    msg.vertical_final,   "thumbnail_reel"),
+            ):
+                if not source:
+                    continue
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+                    path = tf.name
+                tmp_files.append(path)
+                generate_thumbnail(
+                    video_path  = source,
+                    title       = title,
+                    subtitle    = subtitle,
+                    format      = fmt,
+                    category    = category,
+                    output_path = path,
+                )
+                # Caminho alinhado ao resto do projeto: tudo vive sob
+                # projects/{project_id}/. Sem o prefixo, as thumbnails caíam
+                # soltas na raiz do bucket e escapavam do lifecycle_job.
+                blob_path = f"projects/{project_id}/{key}.png"
+                bucket.blob(blob_path).upload_from_filename(path, content_type="image/png")
+                signed = _gcs_to_signed_url(f"gs://{bucket_name}/{blob_path}", 120)
+                if fmt == "youtube":
+                    thumbnail_youtube_url = signed
+                else:
+                    thumbnail_reel_url = signed
+                results[key] = f"gs://{bucket_name}/{blob_path}"
+                logger.info("Thumbnail %s gerada para %s", fmt, project_id)
 
-            # Gera Signed URLs para usar no YouTube e Instagram
-            thumbnail_youtube_url = _gcs_to_signed_url(
-                f"gs://{bucket_name}/{project_id}/thumbnail_youtube.png", 120
-            )
-            thumbnail_reel_url = _gcs_to_signed_url(
-                f"gs://{bucket_name}/{project_id}/thumbnail_reel.png", 120
-            )
-            results["thumbnail_youtube"] = f"gs://{bucket_name}/{project_id}/thumbnail_youtube.png"
-            results["thumbnail_reel"]    = f"gs://{bucket_name}/{project_id}/thumbnail_reel.png"
-            logger.info(f"Thumbnails geradas para {project_id}")
-
-            # Limpa arquivos temporários
-            for p in [thumb_yt_path, thumb_reel_path]:
+            for p in tmp_files:
                 try: os.unlink(p)
                 except Exception: pass
 
@@ -553,23 +575,34 @@ class PublisherJob:
         # Cada plataforma abaixo checa `already_ok` antes de publicar — se uma
         # tentativa anterior deste projeto já teve sucesso nela, reaproveita o
         # post_id em vez de publicar de novo (evita vídeo/post duplicado num retry).
-        platform_attempts: list[tuple[str, Any]] = [
-            ("youtube", lambda: self._get_youtube().upload_video(
+        # Cada entrada declara de qual arquivo depende. Uma execução vinda do
+        # video-editor traz só o horizontal; a do corte vertical, só o
+        # vertical. Sem esta checagem, o canal sem mídia tentava subir uma
+        # string vazia e falhava com um erro que não dizia nada.
+        platform_attempts: list[tuple[str, str, Any]] = [
+            ("youtube", msg.horizontal_final, lambda: self._get_youtube().upload_video(
                 video_source=msg.horizontal_final, title=title, description=copy_long,
                 tags=tags, category_id="27", privacy=YOUTUBE_UPLOAD_PRIVACY, is_short=False,
                 thumbnail_url=thumbnail_youtube_url,
             )),
-            ("youtube_short", lambda: self._get_youtube().upload_video(
-                video_source=msg.vertical_final, title=f"#{title} (Short)", description=copy_short,
+            ("youtube_short", msg.vertical_final, lambda: self._get_youtube().upload_video(
+                video_source=msg.vertical_final, title=short_title, description=copy_short,
                 tags=tags + ["Shorts"], category_id="27", privacy=YOUTUBE_UPLOAD_PRIVACY, is_short=True,
                 thumbnail_url=thumbnail_reel_url,
             )),
-            ("instagram_reel", lambda: self._get_meta().publish_instagram({
+            ("instagram_reel", msg.vertical_final, lambda: self._get_meta().publish_instagram({
                 "format": "reel", "asset_urls": [_prepare_media_url(msg.vertical_final)], "copy": copy_social,
             })),
-            ("linkedin", lambda: self._get_linkedin().publish({"copy": copy_social, "format": "text"})),
-            ("threads", lambda: self._get_meta().publish_threads({"copy": copy_social})),
+            ("linkedin", "-", lambda: self._get_linkedin().publish({"copy": copy_social, "format": "text"})),
+            ("threads", "-", lambda: self._get_meta().publish_threads({"copy": copy_social})),
         ]
+        no_media = [p for p, source, _ in platform_attempts if not source]
+        if no_media:
+            logger.info(
+                "[publisher] %s: sem mídia para %s nesta execução — pulando.",
+                project_id, ", ".join(no_media),
+            )
+        platform_attempts = [(p, s, a) for p, s, a in platform_attempts if s]
 
         # Só publica nos canais aprovados para ESTE projeto. Sem este filtro,
         # todo projeto publicava nos 5 canais — então cada Reel de ~22s também
@@ -585,22 +618,33 @@ class PublisherJob:
         # comportamento de publicar em tudo para não quebrar retry de projeto
         # já em andamento.
         approved = set(meta.get("channels_approved") or [])
+        # O corte vertical declara seus próprios canais no momento em que é
+        # solicitado; eles se somam aos do projeto (que, para o vídeo longo,
+        # é só 'youtube').
+        approved |= set(
+            (meta.get("stages", {}).get("vertical_cut", {}) or {}).get("channels") or []
+        )
         if approved:
-            skipped = [p for p, _ in platform_attempts if p not in approved]
+            skipped = [p for p, _, _ in platform_attempts if p not in approved]
             if skipped:
                 logger.info(
                     "[publisher] %s: canais fora de channels_approved, pulando: %s",
                     project_id, ", ".join(skipped),
                 )
-            platform_attempts = [(p, a) for p, a in platform_attempts if p in approved]
+            platform_attempts = [(p, s, a) for p, s, a in platform_attempts if p in approved]
         else:
-            logger.warning(
-                "[publisher] %s sem channels_approved — publicando em todos os canais "
-                "(projeto criado antes deste campo existir).", project_id,
+            # Lista vazia NÃO é mais "publica em tudo". Esse fallback foi o que
+            # transformou 2 Reels em 4 vídeos indevidos no canal: os projetos
+            # tinham sido criados antes do campo existir, caíam aqui, e cada
+            # peça curta virava também um vídeo longo no YouTube.
+            logger.error(
+                "[publisher] %s sem channels_approved — nada será publicado. "
+                "Defina os canais no projeto antes de republicar.", project_id,
             )
+            platform_attempts = []
 
         platforms_status: dict[str, str] = dict(already_ok)  # preserva sucessos anteriores
-        for platform, attempt in platform_attempts:
+        for platform, _source, attempt in platform_attempts:
             if already_ok.get(platform):
                 results[platform] = already_ok[platform]
                 logger.info(f"[publisher] {platform} já publicado em tentativa anterior (post_id={already_ok[platform]}) — pulando.")
@@ -618,8 +662,12 @@ class PublisherJob:
         results["youtube_community"] = "pending_manual — publicar manualmente no YouTube Studio"
 
         # Sucesso = todas as plataformas com API real tiveram post_id não-vazio
-        tracked_platforms = [p for p, _ in platform_attempts]
-        all_ok = all(platforms_status.get(p) for p in tracked_platforms)
+        tracked_platforms = [p for p, _, _ in platform_attempts]
+        # `all([])` é True: sem nenhuma tentativa, o projeto era marcado como
+        # "published" tendo publicado nada.
+        all_ok = bool(tracked_platforms) and all(
+            platforms_status.get(p) for p in tracked_platforms
+        )
         failed_platforms = [p for p in tracked_platforms if not platforms_status.get(p)]
 
         now_ts = int(time.time())
@@ -671,6 +719,11 @@ class PublisherJob:
                 data[key] = [self._resolve_placeholders(p, data) for p in posts]
         if isinstance(data.get("title"), str):
             data["title"] = self._resolve_placeholders(data["title"], data)
+        # comentario_fixado (LinkedIn): o link mora aqui, não no corpo do
+        # post — link no corpo mede pior no alcance do algoritmo do LinkedIn.
+        for key in ("comentario_fixado", "firstComment"):
+            if isinstance(data.get(key), str):
+                data[key] = self._resolve_placeholders(data[key], data)
 
         # Normaliza asset_urls
         if not data.get("asset_urls") and data.get("videoUrl"):
@@ -689,7 +742,17 @@ class PublisherJob:
         match platform:
 
             case "linkedin":
-                return self._get_linkedin().publish(data)
+                post_id = self._get_linkedin().publish(data)
+                # Comentário fixado com o link — pós-publicação, best-effort:
+                # o post já existe e vale por si, então uma falha aqui não
+                # pode derrubar o resultado da publicação principal.
+                comentario = data.get("comentario_fixado") or data.get("firstComment")
+                if comentario and post_id:
+                    try:
+                        self._get_linkedin().post_first_comment(post_id, comentario)
+                    except Exception as exc:
+                        logger.warning(f"LinkedIn first comment falhou (não-fatal): {exc}")
+                return post_id
 
             case "youtube" | "youtube_shorts":
                 yt     = self._get_youtube()

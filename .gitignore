@@ -116,3 +116,9 @@ projects/test_verification_session_v3/
 projects/thumbnails_test/
 projects/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*/
 agents/pipeline/samples/
+
+# Dump do Firestore (dados, não código) — exportado para inspeção local.
+tool_csm/
+
+# Log de execução local do studio.
+agents/cmo_agent/studio_execution.log

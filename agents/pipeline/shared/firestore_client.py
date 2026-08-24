@@ -115,6 +115,43 @@ class FirestoreClient:
             }
         return snap.to_dict()  # type: ignore[return-value]
 
+    # ── Quota mensal por tenant ──────────────────────────────────────────────
+    # Doc separado do pipeline_config/{tenant_id} principal (que é reescrito
+    # inteiro por configs manuais) — um contador de gasto merece sua própria
+    # subcoleção, incrementada atomicamente por múltiplos jobs concorrentes do
+    # mesmo tenant sem risco de leitura-e-escrita pisar uma na outra.
+
+    def _monthly_usage_ref(self, tenant_id: str, yyyymm: str):
+        return (
+            self._db.collection(COLLECTION_PIPELINE_CONFIG)
+            .document(tenant_id)
+            .collection("usage_monthly")
+            .document(yyyymm)
+        )
+
+    async def get_tenant_monthly_spend(self, tenant_id: str, yyyymm: str) -> float:
+        """Gasto em BRL do tenant no mês (formato yyyymm = 'YYYY-MM')."""
+        snap = await self._monthly_usage_ref(tenant_id, yyyymm).get()
+        if not snap.exists:
+            return 0.0
+        return float((snap.to_dict() or {}).get("spent_brl", 0.0))
+
+    async def add_tenant_spend(self, tenant_id: str, yyyymm: str, amount_brl: float) -> None:
+        """
+        Incrementa o gasto do mês atomicamente via firestore.Increment — não
+        um read-modify-write manual, que perderia incrementos quando dois jobs
+        do mesmo tenant (ex.: dois segmentos de TTS em paralelo) escrevem ao
+        mesmo tempo.
+        """
+        if amount_brl <= 0:
+            return
+        await self._monthly_usage_ref(tenant_id, yyyymm).set(
+            {"spent_brl": firestore.Increment(amount_brl)}, merge=True
+        )
+        logger.debug(
+            "[Firestore] tenant=%s mês=%s +%.4f BRL", tenant_id, yyyymm, amount_brl
+        )
+
     async def resolve_lipsync_to_project(
         self, lipsync_id: str
     ) -> tuple[str, str] | None:

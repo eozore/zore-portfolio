@@ -8,10 +8,14 @@ Recebe dois tipos de webhook HeyGen:
   POST /heygen-video-callback — callback do Video Generation API v2/v3 (novo fluxo sem delay)
 
 Lógica crítica (ambos os endpoints):
-  - Só publica avatar_completed no Pub/Sub quando AMBOS horizontal E vertical completam.
-  - Falha de qualquer um → stages.avatar.status = "error" imediatamente.
+  - Existe UM target: horizontal. O vertical é um recorte 9:16 feito depois,
+    com FFmpeg, sem nova geração de avatar.
+  - Publica avatar_completed quando todos os segmentos horizontais resolvem
+    (completed OU failed) e pelo menos um tem vídeo.
+  - Falha de segmento não interrompe os outros e NÃO pula a reavaliação do
+    portão — pular era o que travava o projeto em pending_callback.
   - Sempre retorna HTTP 200 para evitar retry automático do HeyGen.
-  - O callback_id no Video Generation é "{project_id}__{orientation}" — usado para resolver sem Firestore query.
+  - O callback_id é "{project_id}__{orientation}__{seg_id}".
 """
 
 import asyncio
@@ -21,7 +25,7 @@ import time
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from google.cloud import storage
 from pydantic import BaseModel
 
@@ -59,6 +63,58 @@ class HeyGenVideoCallbackPayload(BaseModel):
     status:     Optional[str] = None   # "completed" | "failed"
 
 
+# Nomes alternativos por campo, em ordem de preferência.
+#
+# A especificação OpenAPI do v3 documenta `callback_url` e `callback_id`, mas
+# NÃO a forma do payload entregue. Amarrar o handler a um nome exato é apostar:
+# se o v3 chamar a URL de `url` em vez de `video_url`, o modelo Pydantic
+# descarta o campo, o segmento é marcado sem vídeo e a produção morre depois de
+# o crédito já ter sido gasto — sem erro nenhum no log.
+_ALIASES: dict[str, tuple[str, ...]] = {
+    "video_url":   ("video_url", "url", "video", "output_url", "download_url"),
+    "video_id":    ("video_id", "id"),
+    "callback_id": ("callback_id", "custom_id"),
+    "error":       ("error", "error_message", "message"),
+    "status":      ("status", "state"),
+    "event_type":  ("event_type", "event", "type"),
+}
+
+# O v3 pode aninhar o conteúdo do evento. Procuramos nestes envelopes também.
+_ENVELOPES = ("event_data", "data", "payload")
+
+
+def _achatar(corpo: dict) -> dict:
+    """Junta o nível raiz com o envelope de evento, se houver."""
+    plano = dict(corpo)
+    for envelope in _ENVELOPES:
+        aninhado = corpo.get(envelope)
+        if isinstance(aninhado, dict):
+            # O aninhado tem precedência: é o conteúdo específico do evento.
+            plano.update(aninhado)
+    return plano
+
+
+def extrair_campos(corpo: dict) -> HeyGenVideoCallbackPayload:
+    """
+    Normaliza o corpo do webhook, aceitando v2 e v3.
+
+    Puro de propósito: é a peça que precisa de teste, porque a única forma de
+    descobrir que ela errou em produção é um projeto travado em
+    `pending_callback` com o crédito já consumido.
+    """
+    plano = _achatar(corpo)
+    valores: dict[str, Optional[str]] = {}
+    for campo, nomes in _ALIASES.items():
+        for nome in nomes:
+            v = plano.get(nome)
+            if isinstance(v, str) and v.strip():
+                valores[campo] = v
+                break
+        else:
+            valores[campo] = None
+    return HeyGenVideoCallbackPayload(**valores)
+
+
 class HeyGenLipsyncCallbackPayload(BaseModel):
     """Payload do webhook do Lipsync API (legado)."""
     lipsync_id: Optional[str] = None
@@ -93,7 +149,7 @@ async def health_check() -> dict:
 
 @app.post("/heygen-video-callback", response_model=CallbackResponse)
 async def heygen_video_callback(
-    payload: HeyGenVideoCallbackPayload,
+    request: Request,
     token: Optional[str] = None,
     x_heygen_token: Optional[str] = Header(default=None, alias="X-HeyGen-Token"),
 ) -> CallbackResponse:
@@ -114,6 +170,20 @@ async def heygen_video_callback(
     """
     if _callback_token and token != _callback_token and x_heygen_token != _callback_token:
         raise HTTPException(status_code=401, detail="Token inválido")
+
+    try:
+        corpo = await request.json()
+    except Exception:
+        corpo = {}
+    if not isinstance(corpo, dict):
+        corpo = {}
+
+    # Corpo cru no log: a forma do webhook do v3 não está documentada, e é o
+    # primeiro callback real que vai revelá-la. Truncado para não despejar um
+    # payload grande a cada segmento.
+    logger.info("[HeyGenCallback] Corpo do webhook: %s", str(corpo)[:600])
+
+    payload = extrair_campos(corpo)
 
     status = payload.status or (
         "completed" if payload.event_type == "avatar_video.success"
@@ -207,21 +277,27 @@ async def _process_segment_result(
 
     # Falha do segmento
     if status == "failed":
-        if seg_id:
-            # Atualiza apenas o segmento falho — os outros continuam
-            await _update_segment_status(project_id, orientation, seg_id, "failed", None)
-        else:
+        logger.error(
+            "[HeyGenCallback] Segmento FALHOU: project=%s orientation=%s seg=%s erro=%s",
+            project_id, orientation, seg_id, error,
+        )
+        if not seg_id:
             # Fallback legado: marca o stage inteiro como erro
             await _firestore.update_stage(project_id, "avatar", {
                 "status": "error",
                 "error_message": f"HeyGen falhou para {orientation}: {error}",
                 "error_type": "transient",
             })
-        logger.error(
-            "[HeyGenCallback] Segmento FALHOU: project=%s orientation=%s seg=%s",
-            project_id, orientation, seg_id,
-        )
-        return CallbackResponse(ok=False, message=f"Segmento {seg_id} falhou")
+            return CallbackResponse(ok=False, message="Falha sem seg_id")
+
+        await _update_segment_status(project_id, orientation, seg_id, "failed", None)
+        await _firestore.update_stage(project_id, "avatar", {
+            "last_error": f"{seg_id}: {error}"[:400],
+        })
+        # Reavalia o portão TAMBÉM na falha. A versão anterior retornava aqui,
+        # então um segmento que falhasse por último deixava o projeto parado em
+        # pending_callback para sempre — mesmo com todos os outros prontos.
+        return await _check_and_publish_if_complete(project_id)
 
     # Sucesso do segmento
     if status == "completed" and video_url:
@@ -272,68 +348,75 @@ async def _update_segment_status(
 
 async def _check_and_publish_if_complete(project_id: str) -> CallbackResponse:
     """
-    Verifica se todos os segmentos de ambos targets completaram.
-    Se sim, monta as listas e publica AvatarCompletedMsg.
+    Libera a edição quando todos os segmentos de avatar resolveram.
+
+    Só existe UM target: horizontal. A peça vertical é um recorte 9:16 deste
+    mesmo clipe, produzido depois pelo vertical_cut_job. O portão anterior
+    exigia horizontal E vertical prontos e, como o HeyGen recusa a segunda
+    geração quando o crédito acaba — sem sequer registrar o callback_id, então
+    sem webhook nenhum —, o horizontal já pronto ficava preso atrás de um
+    vertical que nunca ia chegar.
+
+    Falha parcial não bloqueia: segmentos que voltaram são publicados e o
+    video_editor recusa explicitamente a montagem se faltar algum, com o id do
+    segmento no erro. Falhar com "faltou yt-05" é melhor que travar em silêncio.
     """
     project        = await _firestore.get_project(project_id)
-    segment_videos = project["stages"]["avatar"].get("segment_videos", {})
+    avatar_stage   = project["stages"]["avatar"]
+    segment_videos = avatar_stage.get("segment_videos", {})
+    h_segs         = segment_videos.get("horizontal", [])
 
-    # Verifica se temos segmentos para ambos os targets
-    h_segs = segment_videos.get("horizontal", [])
-    v_segs = segment_videos.get("vertical",   [])
+    if not h_segs:
+        logger.warning("[HeyGenCallback] %s sem segmentos horizontais.", project_id)
+        return CallbackResponse(ok=True, message="Sem segmentos para resolver")
 
-    # Considera um target "done" se todos seus segmentos estão completed ou failed
-    def _all_resolved(segs: list) -> bool:
-        return bool(segs) and all(
-            s.get("status") in ("completed", "failed") for s in segs
-        )
-
-    def _all_completed(segs: list) -> bool:
-        return bool(segs) and all(s.get("status") == "completed" for s in segs)
-
-    h_done = _all_resolved(h_segs) if h_segs else True  # sem segs = target vazio = ok
-    v_done = _all_resolved(v_segs) if v_segs else True
-
-    if not (h_done and v_done):
-        completed_h = sum(1 for s in h_segs if s.get("status") == "completed")
-        completed_v = sum(1 for s in v_segs if s.get("status") == "completed")
+    pending = [s for s in h_segs if s.get("status") not in ("completed", "failed")]
+    if pending:
+        done = len(h_segs) - len(pending)
         logger.info(
-            "[HeyGenCallback] Aguardando segmentos. h=%d/%d v=%d/%d project=%s",
-            completed_h, len(h_segs), completed_v, len(v_segs), project_id,
+            "[HeyGenCallback] Aguardando segmentos: %d/%d resolvidos, project=%s",
+            done, len(h_segs), project_id,
         )
         return CallbackResponse(ok=True, message="Aguardando segmentos restantes")
 
-    # Monta listas de paths (apenas segmentos completados, na ordem original)
-    h_paths    = [s["video_url"] for s in h_segs if s.get("status") == "completed" and s.get("video_url")]
-    v_paths    = [s["video_url"] for s in v_segs if s.get("status") == "completed" and s.get("video_url")]
-    seg_ids    = [s["seg_id"]   for s in h_segs if s.get("status") == "completed"]
-    v_seg_ids  = [s["seg_id"]   for s in v_segs if s.get("status") == "completed"]
+    ok_segs = [s for s in h_segs if s.get("status") == "completed" and s.get("video_url")]
+    failed  = [s.get("seg_id") for s in h_segs if s.get("status") == "failed"]
 
-    if not h_paths and not v_paths:
-        logger.error("[HeyGenCallback] Todos os segmentos falharam para %s.", project_id)
+    if not ok_segs:
+        detail = avatar_stage.get("last_error") or "todos os segmentos falharam"
+        logger.error("[HeyGenCallback] Nenhum avatar gerado para %s: %s", project_id, detail)
         await _firestore.update_stage(project_id, "avatar", {
             "status": "error",
-            "error_message": "Todos os segmentos HeyGen falharam.",
+            "error_message": f"HeyGen não gerou nenhum segmento — {detail}",
+            "error_type": "permanent",
         })
         return CallbackResponse(ok=False, message="Todos os segmentos falharam")
 
+    if failed:
+        logger.error(
+            "[HeyGenCallback] %s: %d segmentos falharam (%s). Seguindo com %d — "
+            "o editor vai recusar a montagem e nomear o que faltou.",
+            project_id, len(failed), ", ".join(map(str, failed)), len(ok_segs),
+        )
+
     logger.info(
-        "[HeyGenCallback] TODOS completados para %s. h=%d v=%d segs=%d. Publicando avatar_completed.",
-        project_id, len(h_paths), len(v_paths), len(seg_ids),
+        "[HeyGenCallback] %s: %d clipes de avatar prontos. Publicando avatar_completed.",
+        project_id, len(ok_segs),
     )
 
     _pubsub.publish(AVATAR_COMPLETED_TOPIC, AvatarCompletedMsg(
         project_id=project_id,
-        horizontal_video_paths=h_paths,
-        vertical_video_paths=v_paths,
-        segment_ids=seg_ids,
-        vertical_segment_ids=v_seg_ids,
+        horizontal_video_paths=[s["video_url"] for s in ok_segs],
+        vertical_video_paths=[],
+        segment_ids=[s["seg_id"] for s in ok_segs],
+        vertical_segment_ids=[],
         duration_seconds=0.0,
         total_cost_usd=0.0,
     ))
     await _firestore.update_stage(project_id, "avatar", {
-        "status": "completed",
+        "status": "completed" if not failed else "completed_partial",
         "completed_at": int(time.time()),
+        "failed_segments": failed,
     })
     return CallbackResponse(ok=True, message="avatar_completed publicado")
 

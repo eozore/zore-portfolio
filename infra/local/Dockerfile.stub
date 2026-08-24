@@ -1,0 +1,12 @@
+# Stub de HeyGen/ElevenLabs para o ambiente local.
+# Contexto de build = raiz do repositório (o COPY precisa alcançar
+# agents/pipeline/samples/, que está fora de infra/local).
+FROM python:3.11-slim-bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir fastapi uvicorn
+WORKDIR /app
+COPY agents/pipeline/samples /app/samples
+COPY infra/local/stub_server.py /app/stub_server.py
+EXPOSE 8095
+CMD ["uvicorn", "stub_server:app", "--host", "0.0.0.0", "--port", "8095"]

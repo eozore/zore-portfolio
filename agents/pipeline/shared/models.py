@@ -112,10 +112,21 @@ class AvatarLipsyncJobs:
 
 @dataclass
 class Segment:
+    """
+    Um segmento é UMA tela cheia: ou o avatar falando, ou a ilustração com a
+    voz por cima. Nunca os dois ao mesmo tempo — não existe avatar reduzido
+    sobreposto ao slide neste produto.
+    """
     id:             str
-    script:         str           # "" = slide puro (sem TTS/HeyGen)
-    beat:           str
-    slide:          Optional[str | int] = None  # None = avatar puro; v2 usa ids string ("yt-02")
+    script:         str = ""      # "" = slide sem fala
+    # Rótulo editorial (hook, teoria, resumo…). Puramente informativo, e o
+    # manifesto é gerado por LLM: exigi-lo derrubava `Segment.from_raw` com
+    # TypeError quando o modelo esquecia o campo num item do corte vertical.
+    beat:           str = ""
+    # "avatar" | "slide". Fonte de verdade da composição. Manifestos anteriores
+    # ao campo derivam de `slide`: sem slide = avatar.
+    kind:           Optional[str] = None
+    slide:          Optional[str | int] = None  # id do slide no deck ("yt-02")
     min_duration_s: float         = 4.5
     pause_after_s:  float         = 0.4
     # Âncoras de animação do manifesto v2 (on_phrase → action). O TTS/HeyGen
@@ -123,6 +134,8 @@ class Segment:
     # explodia com "unexpected keyword argument 'anchors'" e derrubava o
     # pipeline inteiro na primeira etapa.
     anchors:        list = field(default_factory=list)
+    # Só nos itens do corte vertical: id do segmento horizontal de origem.
+    source:         Optional[str] = None
 
     @classmethod
     def from_raw(cls, raw: dict) -> "Segment":
@@ -132,7 +145,10 @@ class Segment:
         outros amanhã) — um campo extra nunca deve derrubar o pipeline.
         """
         known = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in raw.items() if k in known})
+        seg = cls(**{k: v for k, v in raw.items() if k in known})
+        if seg.kind not in ("avatar", "slide"):
+            seg.kind = "slide" if seg.slide is not None else "avatar"
+        return seg
 
     @property
     def needs_tts(self) -> bool:
@@ -143,23 +159,19 @@ class Segment:
     def needs_heygen(self) -> bool:
         """
         True quando o segmento precisa de vídeo HeyGen (avatar falando).
-        Apenas segmentos com script E sem slide vão para o HeyGen.
-        Segmentos com slide usam o HTML renderizado + áudio TTS direto.
+        Só segmentos de avatar consomem crédito; ilustração é HTML + TTS.
         """
-        return bool(self.script) and self.slide is None
+        return bool(self.script) and self.kind == "avatar"
 
     @property
     def is_slide_with_audio(self) -> bool:
-        """
-        True quando o segmento é slide + áudio (renderizar HTML + colar TTS).
-        Não passa pelo HeyGen — o vídeo é o slide animado com áudio.
-        """
-        return bool(self.script) and self.slide is not None
+        """Ilustração com voz: renderiza o HTML e cola o áudio TTS."""
+        return bool(self.script) and self.kind == "slide"
 
     @property
     def is_slide_only(self) -> bool:
-        """True quando o segmento é só slide (Playwright, sem áudio)."""
-        return not self.script and self.slide is not None
+        """Ilustração sem fala (cartela). Raro, mas suportado."""
+        return not self.script and self.kind == "slide"
 
     @property
     def is_avatar_segment(self) -> bool:
@@ -178,6 +190,10 @@ class Manifest:
     language: str
     youtube:  dict[str, Any]   # deck + resolution + segments
     reels:    list[dict[str, Any]]
+    # Corte vertical: uma lista de itens que APONTAM para segmentos do YouTube
+    # (campo `source`). Não tem fala própria — reaproveita o áudio TTS e o
+    # clipe de avatar que o vídeo horizontal já produziu.
+    vertical_cut: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def _parse_from_html(cls, html_content: str) -> "Manifest":
@@ -205,6 +221,7 @@ class Manifest:
             language=data["language"],
             youtube=data["youtube"],
             reels=data.get("reels", []),
+            vertical_cut=data.get("vertical_cut", {}) or {},
         )
 
     def get_avatar_segments(
@@ -268,12 +285,34 @@ class Manifest:
     ) -> list[dict[str, Any]]:
         if target == "horizontal":
             return self.youtube.get("segments", [])
-        # vertical: primeiro reel com reel_id == "reel-01"
+        segments = self.vertical_cut.get("segments") or []
+        if segments:
+            return segments
+        # Manifestos antigos traziam reels com roteiro próprio em vez de um
+        # corte do vídeo principal.
         for reel in self.reels:
             if reel.get("reel_id") == "reel-01":
                 return reel.get("segments", [])
-        logger.warning("Reel 'reel-01' não encontrado; retornando lista vazia.")
+        logger.warning("Manifesto sem vertical_cut nem reel-01; lista vazia.")
         return []
+
+    def vertical_resolution(self) -> dict[str, int]:
+        res = self.vertical_cut.get("resolution")
+        if isinstance(res, dict) and res.get("width") and res.get("height"):
+            return {"width": int(res["width"]), "height": int(res["height"])}
+        return {"width": 1080, "height": 1920}
+
+    def horizontal_resolution(self) -> dict[str, int]:
+        res = self.youtube.get("resolution")
+        if isinstance(res, dict) and res.get("width") and res.get("height"):
+            return {"width": int(res["width"]), "height": int(res["height"])}
+        return {"width": 1920, "height": 1080}
+
+    def segment_by_id(self, seg_id: str) -> Optional[dict[str, Any]]:
+        for seg in self.youtube.get("segments", []):
+            if seg.get("id") == seg_id:
+                return seg
+        return None
 
 
 # ── Pipeline Config ───────────────────────────────────────────────────────────
@@ -339,6 +378,9 @@ class TtsCompletedMsg:
     # Novos campos para distinguir tipos de segmento
     heygen_segment_ids:     dict[str, list[str]] = field(default_factory=dict)  # segmentos que vão para HeyGen
     slide_audio_segment_ids: dict[str, list[str]] = field(default_factory=dict)  # segmentos de slide + áudio
+    # Soma das durações dos segmentos de avatar. O gate de custo do HeyGen
+    # opera sobre isto em vez de um chute de 5s por segmento.
+    heygen_duration_s:      float = 0.0
 
 
 @dataclass
@@ -346,11 +388,14 @@ class AvatarCompletedMsg:
     """
     Publicado por heygen-callback → consumido por video-editor-job.
 
-    BUG2 fix: cada segmento gera um vídeo HeyGen individual.
-    horizontal_video_paths e vertical_video_paths são listas ordenadas
-    de GCS paths, na mesma ordem dos segmentos com script != '' no manifesto.
-    segment_ids lista os IDs dos segmentos horizontais (ex: yt-01, yt-03...).
-    vertical_segment_ids lista os IDs dos segmentos verticais (ex: r1-01, r1-02...).
+    Cada segmento de avatar gera um vídeo HeyGen individual.
+    horizontal_video_paths é a lista ordenada de GCS paths, e segment_ids os
+    ids correspondentes (yt-01, yt-04, …).
+
+    Os campos `vertical_*` chegam SEMPRE vazios e existem só para não quebrar
+    mensagens em trânsito de execuções antigas. O HeyGen não gera mais nada em
+    vertical: a peça 9:16 é um crop do clipe horizontal, feito pelo
+    vertical_cut_job depois que o vídeo do YouTube é aprovado.
     """
     project_id:              str
     horizontal_video_paths:  list[str]   # ["gs://.../horizontal_yt-01.mp4", ...]

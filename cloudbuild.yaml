@@ -56,7 +56,10 @@ steps:
       # ficam congelados para sempre. Mesmo tratamento já aplicado ao
       # cromex-pricing-service no commit 9bf780e.
       - '--no-cpu-throttling'
-      - '--set-secrets=FIREBASE_PROJECT_ID=firebase-project-id:latest,TAVILY_API_KEY=TAVILY_API_KEY:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest'
+      # TENANT_KEY_PEPPER: verifica a chave de tenants não-default (ver
+      # agents/cmo_agent/tenancy.py). O tenant default nunca toca este
+      # secret — só é lido quando um X-Tenant-ID != "default" chega.
+      - '--set-secrets=FIREBASE_PROJECT_ID=firebase-project-id:latest,TAVILY_API_KEY=TAVILY_API_KEY:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest,TENANT_KEY_PEPPER=tenant-key-pepper:latest'
       - '--set-env-vars=GCS_BUCKET=vazfy-417019-pipeline-media,ENVIRONMENT=production'
 
   # ── STEP 3b: Build da imagem Docker do Cromex Pricing Service (Python) ──
@@ -147,7 +150,7 @@ steps:
           --min-instances=0 \
           --max-instances=3 \
           --timeout=600 \
-          --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest,CSM_PASSWORD_HASH=csm-password-hash:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest \
+          --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest,CSM_PASSWORD_HASH=csm-password-hash:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest,TENANT_KEY_PEPPER=tenant-key-pepper:latest \
           --set-env-vars=CMO_AGENT_URL=$$CMO_URL,NEXT_PUBLIC_PRICING_API_URL=$$CROMEX_URL,PRICING_API_URL=$$CROMEX_URL,GCP_STORAGE_BUCKET=vazfy-417019-assets,CROMEX_BUCKET_NAME=vazfy-417019-assets
 
 substitutions:

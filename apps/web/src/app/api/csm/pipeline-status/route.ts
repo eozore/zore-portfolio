@@ -77,6 +77,8 @@ export async function GET(request: Request): Promise<Response> {
       avatar:       'avatar',
       editor:       'video_editor',
       publisher:    'publisher',
+      // Corte vertical: etapa sob demanda, depois da aprovação do vídeo longo.
+      vertical_cut: 'vertical_cut',
     };
 
     for (const [firestoreKey, frontendKey] of Object.entries(stageMap)) {
@@ -99,10 +101,27 @@ export async function GET(request: Request): Promise<Response> {
       };
     }
 
+    // O pacote de conteúdos derivados (vertical, carrosséis, copies) só pode
+    // ser gerado depois que o vídeo do YouTube existe e foi publicado — ele é
+    // derivado desse vídeo. O frontend precisa desses dois fatos para decidir
+    // se habilita o botão, então eles vêm aqui em vez de num fetch extra.
+    const projectData    = latestProject?.data() ?? {};
+    const editorStage    = (stages as Record<string, Record<string, unknown>>).editor ?? {};
+    const publishResults = (projectData.publish_results ?? {}) as Record<string, string>;
+    const youtubeVideoId = publishResults.youtube ?? null;
+
     return NextResponse.json({
       stages:         normalizedStages,
       scheduledItems,
       projectId:      projectId ?? null,
+      video: {
+        horizontalReady: editorStage.status === 'completed' && Boolean(editorStage.horizontal_url),
+        durationSeconds: editorStage.duration_s ? Number(editorStage.duration_s) : null,
+        avatarShare:     editorStage.avatar_share ? Number(editorStage.avatar_share) : null,
+        youtubeVideoId,
+        youtubeUrl:      youtubeVideoId ? `https://youtu.be/${youtubeVideoId}` : null,
+        verticalUrl:     (editorStage.vertical_url as string) || null,
+      },
     });
 
   } catch (err) {

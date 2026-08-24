@@ -175,3 +175,20 @@ async def trigger_video_editor(request: Request) -> dict:
     log.info("[trigger/video-editor] Acionando video-editor-job size=%d", len(pubsub_message))
     result = _execute_job("video-editor-job", pubsub_message)
     return {"status": "triggered", "execution": result.get("name")}
+
+
+@app.post("/trigger/vertical-cut")
+async def trigger_vertical_cut(request: Request) -> dict:
+    """
+    Pub/Sub push para content-pipeline.vertical-cut -> aciona vertical-cut-job.
+
+    Diferente dos outros triggers, este NÃO faz parte do encadeamento
+    automático. Ele só é publicado quando o dono do canal libera o pacote,
+    depois de assistir ao vídeo do YouTube — o corte vertical é derivado desse
+    vídeo, então não faz sentido produzi-lo antes de o vídeo ser aprovado.
+    """
+    body = await request.body()
+    pubsub_message = _parse_pubsub_envelope(body)
+    log.info("[trigger/vertical-cut] Acionando vertical-cut-job size=%d", len(pubsub_message))
+    result = _execute_job("vertical-cut-job", pubsub_message)
+    return {"status": "triggered", "execution": result.get("name")}

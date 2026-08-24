@@ -70,6 +70,7 @@ async def generate_text(
     system_instruction: str = "",
     temperature: float = 0.7,  # ignorado em modelos 3.x mas mantido por compatibilidade
     top_p: float = 0.9,
+    response_schema: Optional[dict] = None,
 ) -> str:
     """
     Gera texto via Vertex AI diretamente (não-streaming), com retry automático
@@ -85,13 +86,25 @@ async def generate_text(
 
     def _call() -> str:
         token = _get_access_token()
+        generation_config: dict = {
+            "temperature": temperature,
+            "topP": top_p,
+            "maxOutputTokens": 65536,
+        }
+        # Saida estruturada NATIVA do Vertex. Com responseSchema o modelo e
+        # obrigado pelo decoder a emitir JSON valido contra o schema — nao ha
+        # markdown, nao ha prosa antes do bloco, nao ha virgula sobrando.
+        #
+        # Sem isto, cada agente reparava a resposta com regex
+        # (`re.sub(r",\s*([}\]])", ...)`) e torcia. Foi assim que um manifesto
+        # invalido passou e virou um video de 163s de avatar puro.
+        if response_schema is not None:
+            generation_config["responseMimeType"] = "application/json"
+            generation_config["responseSchema"] = response_schema
+
         payload: dict = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": temperature,
-                "topP": top_p,
-                "maxOutputTokens": 65536,
-            },
+            "generationConfig": generation_config,
         }
         if system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}

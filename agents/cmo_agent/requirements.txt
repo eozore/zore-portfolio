@@ -16,3 +16,16 @@ numpy>=1.26.0
 # binários do browser, que só o Dockerfile consegue baixar. Mantido fora
 # daqui pela mesma razão que em agents/pipeline/requirements.txt.
 
+
+# ── Orquestração do time de agentes ───────────────────────────────────
+# LangGraph roda o StateGraph com os dois gates de aprovação. O checkpointer
+# é próprio (graph/checkpointer.py, Firestore) — os savers que vêm na caixa
+# são memória/SQLite/Postgres, e nenhum sobrevive à reciclagem do Cloud Run
+# nem à pausa de dias do gate.
+langgraph>=1.0,<2.0
+
+# ── Observabilidade ───────────────────────────────────────────────────
+# Cada nó do grafo vira um span no Cloud Trace. Degrada para no-op quando o
+# exporter não está disponível — ver observability.py.
+opentelemetry-sdk>=1.27.0
+opentelemetry-exporter-gcp-trace>=1.7.0

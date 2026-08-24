@@ -97,6 +97,7 @@ class ManifestSegment:
     def to_dict(self) -> dict[str, Any]:
         return {
             "id":             self.id,
+            "kind":           "slide" if self.slide else "avatar",
             "slide":          self.slide,
             "beat":           self.beat,
             "script":         self.script,
@@ -487,11 +488,6 @@ def build_manifest(
         "youtube": {
             "deck":       "yt",
             "resolution": {"width": 1920, "height": 1080},
-            "overlay":    {
-                "mode":             "slide-full",
-                "avatar_position":  "bottom-right",
-                "avatar_scale":     0.28,
-            },
             "segments": [s.to_dict() for s in h_segments],
         },
         "reels": [
@@ -500,11 +496,6 @@ def build_manifest(
                 "title":      f"Reel 01 — {title[:50]}",
                 "deck":       "r1",
                 "resolution": {"width": 1080, "height": 1920},
-                "overlay":    {
-                    "mode":            "slide-full",
-                    "avatar_position": "bottom-center",
-                    "avatar_scale":    0.35,
-                },
                 "segments": [s.to_dict() for s in v_segments],
             }
         ] if include_vertical else [],
@@ -640,6 +631,10 @@ def wrap_scriptwriter_manifest(
         sid = seg.get("slide")
         if sid and sid not in slide_ids:
             slide_ids.append(sid)
+    for item in manifest_dict.get("vertical_cut", {}).get("segments", []):
+        sid = item.get("slide")
+        if sid and sid not in slide_ids:
+            slide_ids.append(sid)
     for reel in manifest_dict.get("reels", []):
         for seg in reel.get("segments", []):
             sid = seg.get("slide")
@@ -745,17 +740,29 @@ def wrap_scriptwriter_manifest(
 <html lang="{manifest_dict['language']}">
 <head>
 <meta charset="UTF-8">
+<!-- Sem esta meta, um viewport estreito (o vertical 1080x1920) faz o Chrome
+     assumir a largura padrão de 980px e o deck é diagramado numa caixa que
+     não é a do vídeo. -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} — Manifesto v2 éozoré</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-html,body{{width:1920px;height:1080px;overflow:hidden;background:#0d0f14;color:#eae4dc;font-family:'Space Grotesk',sans-serif}}
+/* Viewport-relativo, não 1920px fixo: o MESMO documento é gravado em 1920x1080
+   para o YouTube e em 1080x1920 para a peça vertical. Com largura fixa, os
+   slides verticais saíam desenhados em caixa horizontal dentro de um viewport
+   9:16 — conteúdo cortado à direita e faixa preta embaixo. */
+html,body{{width:100vw;height:100vh;overflow:hidden;background:#0d0f14;color:#eae4dc;font-family:'Space Grotesk',sans-serif}}
 .slide{{display:none!important;position:absolute;inset:0;flex-direction:column;justify-content:center;align-items:center;padding:60px;background:#0d0f14}}
 .slide.active{{display:flex!important}}
 .slide-id{{font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.28em;color:#e8873a;text-transform:uppercase}}
 .slide-id::before{{content:'// '}}
 #hud{{position:fixed;bottom:14px;right:16px;display:flex;gap:10px;z-index:100;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:#5a5248}}
 #progress-bar{{position:fixed;bottom:0;left:0;height:3px;background:#e8873a;transition:width .4s ease;z-index:100}}
+/* Gravação: o compositor liga esta classe no <html> antes de gravar. Contador
+   e barra de progresso são navegação de preview — apareciam queimados em todos
+   os slides do vídeo publicado. */
+html.recording #hud,html.recording #progress-bar{{display:none!important}}
 </style>
 </head>
 <body>
@@ -767,11 +774,137 @@ html,body{{width:1920px;height:1080px;overflow:hidden;background:#0d0f14;color:#
 <div id="progress-bar" style="width:{100 // n_slides}%"></div>
 {slides_html}
 <script>
-var slides=document.querySelectorAll('.slide');var current=0;
-function goTo(i){{if(i<0||i>=slides.length)return;slides[current].classList.remove('active');current=i;slides[current].classList.add('active');var c=document.getElementById('slide-counter');if(c)c.textContent=(current+1)+' / '+slides.length;var p=document.getElementById('progress-bar');if(p)p.style.width=(((current+1)/slides.length)*100)+'%';}}
-function goToSeg(segId){{var idx=[...slides].findIndex(function(s){{return(s.id||'')===segId||(s.dataset&&s.dataset.seg===segId);}});if(idx>=0)goTo(idx);}}
-window.deckAPI={{goTo:goTo,goToSeg:goToSeg,count:slides.length}};
+var slides=document.querySelectorAll('.slide');var current=0;var hudVisible=true;
+// Valida ANTES de mexer em `current`. Na versão anterior um goTo com id de
+// string (em vez de índice) escrevia o id em `current`, o slides[current]
+// seguinte virava undefined e o deck ficava permanentemente quebrado — a
+// gravação inteira saía preta a partir dali.
+function goTo(i){{
+  i=Number(i);
+  if(!Number.isInteger(i)||i<0||i>=slides.length)return false;
+  for(var k=0;k<slides.length;k++)slides[k].classList.remove('active');
+  current=i;slides[current].classList.add('active');
+  var c=document.getElementById('slide-counter');if(c)c.textContent=(current+1)+' / '+slides.length;
+  var p=document.getElementById('progress-bar');if(p)p.style.width=(((current+1)/slides.length)*100)+'%';
+  return true;
+}}
+function indexOfSeg(segId){{
+  for(var k=0;k<slides.length;k++){{
+    var s=slides[k];
+    if((s.id||'')===segId||(s.dataset&&s.dataset.seg===segId))return k;
+  }}
+  return -1;
+}}
+function goToSeg(segId){{var idx=indexOfSeg(segId);return idx>=0?goTo(idx):false;}}
+// Alias histórico: o compositor chamava goToSlide(id) e quebrava porque a
+// função não existia neste deck.
+function goToSlide(segId){{return goToSeg(segId);}}
+// Reinicia as animações CSS do slide no ar: tirar e repor .active força o
+// reflow e faz os @keyframes rodarem do zero.
+function replaySlide(){{
+  var el=slides[current];if(!el)return false;
+  el.classList.remove('active');void el.offsetWidth;el.classList.add('active');
+  return true;
+}}
+function toggleHud(){{
+  hudVisible=!hudVisible;
+  document.documentElement.classList.toggle('recording',!hudVisible);
+  return hudVisible;
+}}
+function hideHud(){{hudVisible=false;document.documentElement.classList.add('recording');}}
+window.deckAPI={{goTo:goTo,goToSeg:goToSeg,replay:replaySlide,hideHud:hideHud,indexOfSeg:indexOfSeg,count:slides.length}};
 if(slides.length>0)goTo(0);
 </script>
 </body>
 </html>"""
+
+
+# ── Validação do manifesto (gate do produto) ──────────────────────────────────
+
+# Fora desta faixa o vídeo deixa de ser "avatar + ilustração": abaixo vira
+# apresentação sem apresentador, acima vira talking head caro.
+AVATAR_SHARE_MIN = 0.10
+AVATAR_SHARE_MAX = 0.40
+
+
+def manifest_stats(manifest_dict: dict) -> dict:
+    """
+    Contagens do manifesto usadas pelo gate de aprovação e pelos logs.
+
+    Trabalha sobre o dict do manifesto (não sobre o HTML), então serve tanto
+    para o caminho do scriptwriter quanto para o Markdown legado.
+    """
+    segments = manifest_dict.get("youtube", {}).get("segments", []) or []
+
+    def _kind(seg: dict) -> str:
+        k = seg.get("kind")
+        if k in ("avatar", "slide"):
+            return k
+        return "slide" if seg.get("slide") else "avatar"
+
+    def _dur(seg: dict) -> float:
+        d = seg.get("min_duration_s")
+        if isinstance(d, (int, float)) and d > 0:
+            return float(d)
+        return _estimate_duration(seg.get("script") or "")
+
+    avatar = [s for s in segments if _kind(s) == "avatar"]
+    slides = [s for s in segments if _kind(s) == "slide"]
+    total  = sum(_dur(s) for s in segments)
+    av_dur = sum(_dur(s) for s in avatar)
+
+    cut = manifest_dict.get("vertical_cut", {}).get("segments", []) or []
+
+    return {
+        "segment_count":      len(segments),
+        "avatar_segments":    len(avatar),
+        "slide_segments":     len(slides),
+        "total_duration_s":   round(total, 1),
+        "avatar_duration_s":  round(av_dur, 1),
+        "avatar_share":       round(av_dur / total, 3) if total else 0.0,
+        "vertical_cut_count": len(cut),
+        "vertical_slides":    len([i for i in cut if i.get("slide")]),
+    }
+
+
+def validate_manifest(manifest_dict: dict) -> tuple[list[str], dict]:
+    """
+    Recusa manifestos que violam a regra do produto ANTES de gastar crédito.
+
+    Falhar aqui custa zero. Falhar depois custa uma geração de HeyGen inteira —
+    foi assim que um roteiro achatado em 1 segmento virou 163s de avatar puro.
+
+    Returns:
+        (violações, estatísticas). Lista vazia = manifesto aprovado.
+    """
+    stats = manifest_stats(manifest_dict)
+    problems: list[str] = []
+
+    if stats["segment_count"] <= 1:
+        problems.append(
+            f"manifesto colapsado em {stats['segment_count']} segmento — "
+            "o roteiro segmentado não chegou até aqui"
+        )
+    if stats["slide_segments"] == 0:
+        problems.append("nenhum segmento com ilustração — o vídeo sairia 100% avatar")
+    if stats["avatar_segments"] == 0:
+        problems.append("nenhum segmento de avatar — o vídeo sairia sem apresentador")
+    if stats["avatar_share"] > AVATAR_SHARE_MAX:
+        problems.append(
+            f"avatar ocupa {stats['avatar_share'] * 100:.0f}% do vídeo "
+            f"(teto {AVATAR_SHARE_MAX * 100:.0f}%)"
+        )
+    if stats["avatar_share"] and stats["avatar_share"] < AVATAR_SHARE_MIN:
+        problems.append(
+            f"avatar ocupa só {stats['avatar_share'] * 100:.0f}% do vídeo "
+            f"(piso {AVATAR_SHARE_MIN * 100:.0f}%)"
+        )
+
+    missing_script = [
+        s.get("id") for s in manifest_dict.get("youtube", {}).get("segments", [])
+        if not (s.get("script") or "").strip()
+    ]
+    if missing_script:
+        problems.append(f"segmentos sem fala: {', '.join(map(str, missing_script))}")
+
+    return problems, stats

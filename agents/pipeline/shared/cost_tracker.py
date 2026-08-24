@@ -4,22 +4,91 @@ agents/pipeline/shared/cost_tracker.py
 Rastreamento e gate de custo da content pipeline éozoré.
 
 Taxas de API (referência):
-  ElevenLabs Flash v2.5: $0.00005/char
-  HeyGen Lipsync speed:  $0.0335/s
+  ElevenLabs:            $0.00005/char
+  HeyGen:                depende do MOTOR — ver USD_POR_MINUTO_POR_MOTOR
 
 A taxa USD→BRL é lida do Firestore pipeline_config/{tenant_id}.
 Nunca hardcoded exceto como fallback de default (5.50).
 """
 
 import logging
+import os
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def _current_month() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+class TenantBudgetExceededError(Exception):
+    """
+    O tenant ultrapassaria o teto mensal configurado em
+    pipeline_config/{tenant_id}.monthly_budget_brl.
+
+    Diferente de CostGateBlockedError (que existe hoje por projeto), este gate
+    é por TENANT e olha o mês inteiro — impede que N produções pequenas,
+    nenhuma delas violando o teto por projeto sozinha, somem mais do que o
+    tenant autorizou gastar no período.
+    """
+
 # Taxas de API (USD)
 ELEVENLABS_FLASH_V2_5_RATE_USD_PER_CHAR: float = 0.00005   # $0.00005/char
-HEYGEN_SPEED_RATE_USD_PER_SECOND: float = 0.0335            # $0.0335/s
+
+# Custo por caractere, por modelo da ElevenLabs. Flash bota metade de um
+# crédito por caractere; multilingual_v2 bota um inteiro — o dobro. Como o
+# TTS trocou de Flash para multilingual_v2 (Flash só ganha em latência, que
+# num pipeline batch não vale nada), estimar tudo com a tarifa do Flash
+# passaria a subestimar o custo pela metade.
+USD_POR_CHAR_POR_MODELO: dict[str, float] = {
+    "eleven_flash_v2_5":     ELEVENLABS_FLASH_V2_5_RATE_USD_PER_CHAR,
+    "eleven_turbo_v2_5":     ELEVENLABS_FLASH_V2_5_RATE_USD_PER_CHAR,
+    "eleven_multilingual_v2": ELEVENLABS_FLASH_V2_5_RATE_USD_PER_CHAR * 2,
+}
+
+# Modelo desconhecido cai no mais caro, pelo mesmo motivo do motor do HeyGen:
+# subestimar custo desarma o gate em vez de acioná-lo.
+USD_POR_CHAR_PADRAO: float = max(USD_POR_CHAR_POR_MODELO.values())
+
+# Preço por MINUTO de vídeo gerado, por motor de renderização do HeyGen.
+#
+# A constante anterior era única — $0.0335/s, ou $2,01/min — e não batia com
+# nenhum preço do avatar: $2/min é a tarifa de *video translation* e do Video
+# Agent, produtos que esta pipeline não usa. O gate estimava o dobro do custo
+# real do avatar padrão.
+#
+# `avatar_v` não tem preço publicado. Fica igual ao IV, que é o maior valor
+# conhecido para geração de avatar, e o job MEDE o custo real pela variação do
+# saldo a cada produção (ver AvatarJob._saldo_usd) — a medição corrige a
+# estimativa sem depender de a HeyGen publicar a tabela.
+USD_POR_MINUTO_POR_MOTOR: dict[str, float] = {
+    "avatar_iii": 1.0,   # avatar padrão, 720p/1080p
+    "avatar_iv":  4.0,   # 1080p ($5/min em 4k, que não usamos)
+    "avatar_v":   4.0,   # não publicado — presumido igual ao IV
+}
+
+# Motor desconhecido cai no mais caro: subestimar custo desarma o gate.
+USD_POR_MINUTO_PADRAO: float = max(USD_POR_MINUTO_POR_MOTOR.values())
+
+
+def usd_por_segundo(engine: str) -> float:
+    """Preço por segundo de vídeo para o motor, sobrescrevível por env."""
+    override = os.environ.get("HEYGEN_USD_PER_MINUTE", "").strip()
+    if override:
+        try:
+            return float(override) / 60.0
+        except ValueError:
+            logger.warning("[cost] HEYGEN_USD_PER_MINUTE inválido: %r", override)
+    return USD_POR_MINUTO_POR_MOTOR.get(engine, USD_POR_MINUTO_PADRAO) / 60.0
+
+
+# Mantido para quem ainda importa o nome antigo. Aponta para o motor em uso.
+HEYGEN_SPEED_RATE_USD_PER_SECOND: float = usd_por_segundo(
+    os.environ.get("HEYGEN_ENGINE", "avatar_v")
+)
 
 
 class CostTrackerService:
@@ -45,40 +114,50 @@ class CostTrackerService:
     async def estimate_tts_cost(
         self,
         chars: int,
-        model: str = "eleven_flash_v2_5",
+        model: str | None = None,
     ) -> float:
         """
         Estima custo TTS em BRL.
 
         Args:
             chars: Número de caracteres a processar
-            model: Identificador do modelo ElevenLabs (apenas eleven_flash_v2_5 suportado)
+            model: Modelo ElevenLabs; None usa o configurado no ambiente
 
         Returns:
             Custo estimado em BRL (float)
 
-        Raises:
-            ValueError: se model desconhecido
+        Antes isto levantava ValueError para qualquer modelo diferente de
+        `eleven_flash_v2_5`. Recusar o cálculo derruba a produção inteira por
+        causa de uma ESTIMATIVA — o gate existe para barrar gasto, não para
+        virar ponto de falha quando alguém troca de modelo.
         """
-        if model != "eleven_flash_v2_5":
-            raise ValueError(
-                f"Modelo desconhecido: {model}. Apenas eleven_flash_v2_5 suportado."
+        nome = model or os.environ.get("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2")
+        por_char = USD_POR_CHAR_POR_MODELO.get(nome)
+        if por_char is None:
+            logger.warning(
+                "[cost] Modelo ElevenLabs desconhecido (%s) — usando a tarifa mais "
+                "alta para não subestimar.", nome,
             )
-        cost_usd = chars * ELEVENLABS_FLASH_V2_5_RATE_USD_PER_CHAR
+            por_char = USD_POR_CHAR_PADRAO
+        cost_usd = chars * por_char
         rate = await self._get_exchange_rate()
         return round(cost_usd * rate, 4)
 
-    async def estimate_heygen_cost(self, duration_s: float) -> float:
+    async def estimate_heygen_cost(
+        self, duration_s: float, engine: str | None = None,
+    ) -> float:
         """
-        Estima custo HeyGen Lipsync modo speed em BRL.
+        Estima o custo da geração de avatar em BRL.
 
         Args:
             duration_s: Duração total do áudio em segundos
+            engine:     Motor do HeyGen; None usa o configurado no ambiente
 
         Returns:
             Custo estimado em BRL (float)
         """
-        cost_usd = duration_s * HEYGEN_SPEED_RATE_USD_PER_SECOND
+        motor = engine or os.environ.get("HEYGEN_ENGINE", "avatar_v")
+        cost_usd = duration_s * usd_por_segundo(motor)
         rate = await self._get_exchange_rate()
         return round(cost_usd * rate, 4)
 
@@ -170,3 +249,65 @@ class CostTrackerService:
             cost_brl,
             breakdown["total_real"],
         )
+
+        # Único choke point de gasto REAL (não estimado) na pipeline hoje —
+        # todo `update_actual_cost` também soma no mês corrente do tenant.
+        # HeyGen não passa por aqui (avatar_job nunca registra custo real,
+        # só a estimativa pré-voo — ver record_tenant_spend_estimate), então o
+        # mês do tenant hoje é preciso para TTS e otimista para avatar.
+        await self.record_tenant_spend(cost_brl)
+
+    # ── Quota mensal por tenant ──────────────────────────────────────────────
+    #
+    # Independente do gate por projeto acima (check_cost_gate): aquele olha
+    # SÓ este projeto; este olha o mês inteiro do tenant. Um tenant pode nunca
+    # estourar o teto de um projeto e ainda assim exceder o orçamento mensal
+    # produzindo muitos projetos pequenos.
+
+    async def check_tenant_budget(self) -> bool:
+        """
+        True se o tenant pode prosseguir. False se o mês já estourou o teto.
+
+        Sem `monthly_budget_brl` configurado em pipeline_config/{tenant_id} →
+        sempre True — nenhum tenant é bloqueado por um limite que ninguém
+        definiu. É o comportamento de hoje, preservado.
+        """
+        config = await self.firestore.get_pipeline_config(self.tenant_id)
+        budget = config.get("monthly_budget_brl")
+        if budget is None:
+            return True
+
+        month = _current_month()
+        spent = await self.firestore.get_tenant_monthly_spend(self.tenant_id, month)
+        if spent >= float(budget):
+            logger.warning(
+                "[TenantBudget] BLOQUEADO tenant=%s mês=%s: gasto=%.2f >= teto=%.2f BRL",
+                self.tenant_id, month, spent, budget,
+            )
+            return False
+        return True
+
+    async def record_tenant_spend(self, amount_brl: float) -> None:
+        """
+        Soma ao gasto do tenant no mês corrente.
+
+        Ignora valores <= 0 aqui mesmo, antes de chamar o Firestore — evita um
+        round-trip de rede para um incremento que não muda nada, e mantém a
+        garantia mesmo se `firestore` for um wrapper mais simples que não
+        repita a checagem.
+        """
+        if amount_brl <= 0:
+            return
+        await self.firestore.add_tenant_spend(self.tenant_id, _current_month(), amount_brl)
+
+    async def record_tenant_spend_estimate_usd(self, cost_usd: float) -> None:
+        """
+        Registra uma ESTIMATIVA de gasto (usada pelo HeyGen, cujo custo real
+        nunca é reportado de volta pela API — só o pré-voo é calculável).
+        Mesma conversão USD→BRL do resto do serviço.
+
+        É melhor um teto mensal otimista do que nenhum: sem isto, o gasto
+        dominante da pipeline (HeyGen) nunca entraria na conta do tenant.
+        """
+        rate = await self._get_exchange_rate()
+        await self.record_tenant_spend(round(cost_usd * rate, 4))

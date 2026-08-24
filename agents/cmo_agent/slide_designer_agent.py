@@ -327,6 +327,16 @@ async def design_all_slides(
         if seg.get("slide") and seg.get("script", "").strip():
             tasks.append((seg, "horizontal", seg["slide"]))
 
+    # Peça vertical: só os itens do corte que são ilustração. Os itens de
+    # avatar do corte reaproveitam o vídeo horizontal recortado, não precisam
+    # de slide. A fala é a mesma do segmento de origem — o designer recebe o
+    # segmento já com script herdado por _normalize_manifest().
+    for item in manifest_dict.get("vertical_cut", {}).get("segments", []):
+        if item.get("slide") and (item.get("script") or "").strip():
+            tasks.append((item, "vertical", item["slide"]))
+
+    # Compatibilidade com manifestos antigos, que traziam reels independentes
+    # com roteiro próprio em vez de um corte do vídeo principal.
     for reel in manifest_dict.get("reels", []):
         for seg in reel.get("segments", []):
             if seg.get("slide") and seg.get("script", "").strip():

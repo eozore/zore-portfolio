@@ -62,6 +62,24 @@ gcloud run jobs create video-editor-job \
   --set-env-vars="GCP_PROJECT_ID=${PROJECT},GCS_BUCKET=${GCS_BUCKET},TENANT_ID=default,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu" \
   2>/dev/null || echo "  (video-editor-job já existe — use gcloud run jobs update para atualizar)"
 
+# ── vertical-cut-job ──────────────────────────────────────────────────────────
+# Deriva o Reel/Short do vídeo do YouTube: crop 9:16 dos clipes de avatar já
+# gerados + ilustração vertical com o mesmo áudio TTS. Não chama HeyGen nem
+# ElevenLabs, então é barato e pode ser reexecutado à vontade.
+echo "Criando vertical-cut-job..."
+gcloud run jobs create vertical-cut-job \
+  --image="${IMAGE}" \
+  --region="${REGION}" \
+  --command=python \
+  --args="-m,vertical_cut_job" \
+  --memory=4Gi \
+  --cpu=4 \
+  --task-timeout=3600s \
+  --max-retries=0 \
+  --service-account="${SA_EMAIL}" \
+  --set-env-vars="GCP_PROJECT_ID=${PROJECT},GCS_BUCKET=${GCS_BUCKET},TENANT_ID=default,HEYGEN_AVATAR_CROP_X_RATIO=0.5,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu" \
+  2>/dev/null || echo "  (vertical-cut-job já existe — use gcloud run jobs update para atualizar)"
+
 # ── publisher-scheduled ───────────────────────────────────────────────────────
 echo "Criando publisher-scheduled..."
 gcloud run jobs create publisher-scheduled \
@@ -80,6 +98,38 @@ gcloud run jobs create publisher-scheduled \
 
 echo ""
 echo "✅ Cloud Run Jobs criados com sucesso!"
+echo ""
+
+# ── Pub/Sub do corte vertical ─────────────────────────────────────────────────
+# O Terraform em infra/pipeline/main.tf descreve estes recursos, mas NÃO roda no
+# CI — o cloudbuild só constrói a imagem e atualiza os jobs. Sem criar o tópico
+# aqui, o botão "Gerar pacote de conteúdos" falha com NOT_FOUND ao publicar.
+TRIGGER_URL=$(gcloud run services describe pipeline-trigger \
+  --region="${REGION}" --project="${PROJECT}" --format='value(status.url)' 2>/dev/null || echo "")
+
+echo "Criando tópico content-pipeline.vertical-cut..."
+gcloud pubsub topics create content-pipeline.vertical-cut \
+  --project="${PROJECT}" \
+  2>/dev/null || echo "  (tópico já existe)"
+
+if [ -n "$TRIGGER_URL" ]; then
+  echo "Criando subscription vertical-cut-job-sub → ${TRIGGER_URL}/trigger/vertical-cut..."
+  gcloud pubsub subscriptions create vertical-cut-job-sub \
+    --project="${PROJECT}" \
+    --topic=content-pipeline.vertical-cut \
+    --push-endpoint="${TRIGGER_URL}/trigger/vertical-cut" \
+    --push-auth-service-account="${SA_EMAIL}" \
+    --ack-deadline=600 \
+    --dead-letter-topic=content-pipeline.dead-letter \
+    --max-delivery-attempts=5 \
+    2>/dev/null || echo "  (subscription já existe)"
+else
+  echo "  ⚠️  pipeline-trigger ainda não deployado — crie a subscription depois:"
+  echo "     gcloud pubsub subscriptions create vertical-cut-job-sub \\"
+  echo "       --topic=content-pipeline.vertical-cut \\"
+  echo "       --push-endpoint=<URL_DO_PIPELINE_TRIGGER>/trigger/vertical-cut \\"
+  echo "       --push-auth-service-account=${SA_EMAIL} --ack-deadline=600"
+fi
 echo ""
 
 # ── publisher-scheduler (Cloud Scheduler a cada hora) ────────────────────────
@@ -119,7 +169,7 @@ echo "  ✅ Cloud Scheduler 'trigger-publisher-scheduled' configurado (0 * * * *
 echo ""
 echo "Verificando jobs:"
 gcloud run jobs list --region="${REGION}" --project="${PROJECT}" \
-  --filter="metadata.name:(tts-job OR avatar-job OR video-editor-job OR publisher-scheduled)"
+  --filter="metadata.name:(tts-job OR avatar-job OR video-editor-job OR vertical-cut-job OR publisher-scheduled)"
 echo ""
 echo "ATENÇÃO: Após primeiro deploy do heygen-callback Service,"
 echo "         atualizar HEYGEN_CALLBACK_URL no avatar-job:"

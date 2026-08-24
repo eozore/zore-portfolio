@@ -4,6 +4,25 @@ import { getFirestoreDb } from './firebase';
 import { dbPaths } from './dbPaths';
 
 /**
+ * Título → slug de URL: sem acento, sem pontuação, hifenizado, teto de 100
+ * caracteres (o limite que `validateArticlePayload` impõe).
+ *
+ * Vivia copiada em seis componentes do CSM. Fica aqui porque é regra do
+ * domínio do artigo, e é daqui que o Studio a consome.
+ */
+export function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 100);
+}
+
+/**
  * Fetches all published articles for a given locale, ordered by publishedAt DESC.
  * Returns empty array if Firestore is unavailable.
  */
@@ -62,10 +81,17 @@ export async function getArticleBySlug(
 /**
  * Creates a new article in Firestore.
  * Returns the created article ID or null on failure.
+ *
+ * `status` defaults to 'published' — o comportamento de sempre, usado pelas
+ * rotas de publicação manual. O Studio grava como 'draft': o documento já
+ * existe (e portanto a URL do artigo é real, o que as peças sociais precisam
+ * para resolver [LINK_ARTIGO]), mas `getAllArticles` filtra por
+ * status='published' e o post só aparece no blog quando for promovido.
  */
 export async function createArticle(
   payload: CreateArticlePayload,
-  tenantId: string | null = null
+  tenantId: string | null = null,
+  status: 'published' | 'draft' = 'published'
 ): Promise<string | null> {
   const db = getFirestoreDb();
   if (!db) return null;
@@ -73,7 +99,7 @@ export async function createArticle(
   try {
     const docRef = await db.collection(dbPaths.articles(tenantId)).add({
       ...payload,
-      status: 'published',
+      status,
       createdAt: new Date().toISOString(),
     });
 

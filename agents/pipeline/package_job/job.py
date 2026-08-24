@@ -37,7 +37,7 @@ logger = logging.getLogger("package_job")
 # Campos que o frontend guarda num doc irmão por causa do teto de 1MB por
 # documento do Firestore. Mantidos em sincronia com apps/web/src/lib/session.ts
 # (HEAVY_DRAFT_FIELDS) — se divergirem, o draft volta a crescer sem limite.
-HEAVY_DRAFT_FIELDS = ("manifestHtml", "thumbnails")
+HEAVY_DRAFT_FIELDS = ("manifestHtml", "slideHtmls", "thumbnails")
 
 DOC_SIZE_BUDGET_BYTES = 900_000
 
@@ -298,6 +298,7 @@ class PackageJob:
                 self._patch_draft(session_id, tenant_id, {
                     "manifestV2":    manifest,
                     "manifestHtml":  data.get("manifestHtml") or "",
+                    "slideHtmls":    data.get("slideHtmls") or {},
                     "youtubeScript": script,
                     "packageStatus": "script_ready" if ok else "error",
                     "workflowStage": "script_ready" if ok else "error",

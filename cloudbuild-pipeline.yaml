@@ -127,13 +127,13 @@ steps:
       - --timeout=600
       - --service-account=$_SA_EMAIL
       - --no-allow-unauthenticated
-      # YOUTUBE_UPLOAD_PRIVACY: unlisted (default) | public | private.
-      # Default 'unlisted' por decisão do dono do canal — ele assiste todo
-      # vídeo antes de tornar público. Não afeta a campanha social: os posts
-      # saem no cronograma e o link funciona normalmente. Para publicar direto
-      # como público, trocar aqui (versionado) em vez de por comando manual,
-      # que este --set-env-vars sobrescreveria no deploy seguinte.
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,YOUTUBE_UPLOAD_PRIVACY=unlisted,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
+      # YOUTUBE_UPLOAD_PRIVACY: private (default) | unlisted | public.
+      # 'private' porque o vídeo sobe fechado para revisão: o dono do canal
+      # assiste no Studio e torna público manualmente — e é esse ato que
+      # libera a geração do pacote de conteúdos derivados. Trocar aqui
+      # (versionado), não por comando manual: este --set-env-vars
+      # sobrescreveria a alteração no deploy seguinte.
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,YOUTUBE_UPLOAD_PRIVACY=private,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
       - --set-secrets=YOUTUBE_OAUTH_CLIENT_ID=youtube-oauth-client-id:latest,YOUTUBE_OAUTH_CLIENT_SECRET=youtube-oauth-client-secret:latest,YOUTUBE_OAUTH_REFRESH_TOKEN=youtube-oauth-refresh-token:latest
     waitFor: [push]
 
@@ -199,7 +199,7 @@ steps:
       - --task-timeout=9000s
       - --max-retries=0
       - --service-account=$_SA_EMAIL
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,HEYGEN_CALLBACK_URL=$_HEYGEN_CB_URL,HEYGEN_AVATAR_ID_HORIZONTAL=32e2ad6b3e5a45bf8c61cbf7220912f4,HEYGEN_AVATAR_ID_VERTICAL=d7fdce2942a244649820a0b5c989766f
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,HEYGEN_CALLBACK_URL=$_HEYGEN_CB_URL,HEYGEN_AVATAR_ID_HORIZONTAL=32e2ad6b3e5a45bf8c61cbf7220912f4,HEYGEN_AVATAR_ID_VERTICAL=d7fdce2942a244649820a0b5c989766f,HEYGEN_ENGINE=avatar_v
     waitFor: [push]
 
   # ── Step 8: Update video-editor-job (4 GB — Playwright + FFmpeg) ──
@@ -221,6 +221,36 @@ steps:
       - --max-retries=0
       - --service-account=$_SA_EMAIL
       - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET=$_GCS_BUCKET,TENANT_ID=default,PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu
+    waitFor: [push]
+
+  # ── Step 8b: Update vertical-cut-job ──────────────────────────
+  # Deriva o Reel/Short do vídeo do YouTube (crop 9:16 + ilustração vertical).
+  # Não chama HeyGen nem ElevenLabs. Criado no primeiro deploy pelo `|| create`,
+  # sem depender do setup_jobs.sh ter rodado antes.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-vertical-cut-job
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        # Uma função em vez de uma variável com as flags: PLAYWRIGHT_CHROMIUM_ARGS
+        # tem espaços, e uma variável expandida sem aspas seria quebrada pelo
+        # shell em vários argumentos antes de chegar ao gcloud.
+        # O "^##^" troca o separador de env vars de vírgula para ##.
+        deploy() {
+          gcloud run jobs "$$1" vertical-cut-job \
+            --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA \
+            --region=$_REGION \
+            --command=python \
+            --args=-m,vertical_cut_job \
+            --memory=4Gi \
+            --cpu=4 \
+            --task-timeout=3600s \
+            --max-retries=0 \
+            --service-account=$_SA_EMAIL \
+            --set-env-vars="^##^GCP_PROJECT_ID=$PROJECT_ID##GCS_BUCKET=$_GCS_BUCKET##TENANT_ID=default##HEYGEN_AVATAR_CROP_X_RATIO=0.5##PLAYWRIGHT_CHROMIUM_ARGS=--disable-dev-shm-usage --no-sandbox --disable-gpu"
+        }
+        deploy update || deploy create
     waitFor: [push]
 
   # ── Step 9: Update publisher-scheduled ───────────────────────

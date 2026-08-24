@@ -27,7 +27,8 @@ interface PipelineStage {
 
 /** Mapeia o id do stage na UI para a chave de tolerância em lib/pipelineHealth. */
 const HEALTH_KIND: Record<string, string> = {
-  tts: 'tts', avatar: 'avatar', video_editor: 'editor', publisher: 'publisher',
+  tts: 'tts', avatar: 'avatar', video_editor: 'editor',
+  vertical_cut: 'editor', publisher: 'publisher',
 };
 
 interface ScheduledItem {
@@ -38,12 +39,23 @@ interface ScheduledItem {
   status: string;
 }
 
-const STAGE_ORDER = ['tts', 'avatar', 'video_editor', 'publisher', 'scheduled'];
+/** O que o backend informa sobre o vídeo produzido. */
+interface VideoStatus {
+  horizontalReady: boolean;
+  durationSeconds: number | null;
+  avatarShare:     number | null;
+  youtubeVideoId:  string | null;
+  youtubeUrl:      string | null;
+  verticalUrl:     string | null;
+}
+
+const STAGE_ORDER = ['tts', 'avatar', 'video_editor', 'publisher', 'vertical_cut', 'scheduled'];
 const STAGE_LABELS: Record<string, { label: string; description: string }> = {
-  tts:          { label: 'Síntese de Voz',    description: 'ElevenLabs TTS gerando áudio para todos os segmentos' },
-  avatar:        { label: 'Avatar HeyGen',     description: 'HeyGen gerando vídeos de avatar (segmentos sem slide)' },
-  video_editor:  { label: 'Edição de Vídeo',  description: 'Playwright + FFmpeg compondo vídeo final' },
-  publisher:     { label: 'Publicação',        description: 'Enviando para YouTube, LinkedIn, Instagram' },
+  tts:          { label: 'Síntese de Voz',    description: 'ElevenLabs gerando a locução de todos os segmentos' },
+  avatar:        { label: 'Avatar HeyGen',     description: 'HeyGen gerando só os segmentos de avatar (~20% do vídeo)' },
+  video_editor:  { label: 'Edição de Vídeo',  description: 'Alternando avatar e ilustração em tela cheia' },
+  publisher:     { label: 'Publicação',        description: 'Sobe o vídeo longo no YouTube como privado' },
+  vertical_cut:  { label: 'Corte Vertical',    description: 'Reel e Short recortados do vídeo longo — sob demanda' },
   scheduled:     { label: 'Agendado',          description: 'Conteúdo na fila — scheduler publica automaticamente' },
 };
 
@@ -105,6 +117,9 @@ export default function TrackingTab({ draft, sessionId, onBack }: TrackingTabPro
   const [projectId, setProjectId] = useState<string | null>(null);
   const [retryingStage, setRetryingStage] = useState<string | null>(null);
   const [retryMsg, setRetryMsg] = useState<{ stage: string; text: string; ok: boolean } | null>(null);
+  const [video, setVideo] = useState<VideoStatus | null>(null);
+  const [derivingVertical, setDerivingVertical] = useState(false);
+  const [deriveMsg, setDeriveMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   // Poll /api/csm/pipeline-status a cada 15s
   useEffect(() => {
@@ -131,15 +146,21 @@ export default function TrackingTab({ draft, sessionId, onBack }: TrackingTabPro
         }
 
         if (data.projectId) setProjectId(data.projectId);
+        if (data.video) setVideo(data.video as VideoStatus);
 
         if (data.scheduledItems) {
           setScheduledItems(data.scheduledItems);
         }
 
-        // Pipeline completo quando publisher ou scheduled está done
+        // O polling só para quando não há mais nada em movimento. Antes ele
+        // parava assim que o publisher terminava — e o corte vertical, que
+        // acontece depois, nunca aparecia atualizado na tela.
         const publisherDone = data.stages?.publisher?.status === 'completed' ||
                               data.stages?.scheduled?.status === 'completed';
-        if (publisherDone) setIsComplete(true);
+        const verticalState = data.stages?.vertical_cut?.status;
+        const verticalIdle  = !verticalState ||
+                              ['completed', 'error'].includes(String(verticalState));
+        if (publisherDone && verticalIdle) setIsComplete(true);
 
       } catch { /* silent */ }
     };
@@ -181,6 +202,42 @@ export default function TrackingTab({ draft, sessionId, onBack }: TrackingTabPro
     }
   };
 
+  // O pacote de conteúdos é derivado do vídeo do YouTube, então só faz sentido
+  // depois que ele existe e está no canal. Publicar antes era o que produzia
+  // Reels sem relação nenhuma com o vídeo — e, no ciclo de 16/08, vídeos
+  // curtos indo ao ar enquanto o longo nem tinha sido montado.
+  const videoReady    = Boolean(video?.horizontalReady && video?.youtubeVideoId);
+  const verticalStage = stages.find((s) => s.id === 'vertical_cut');
+  const verticalBusy  = derivingVertical || verticalStage?.status === 'running';
+  const verticalDone  = Boolean(video?.verticalUrl);
+
+  const handleDeriveVertical = async () => {
+    if (!projectId || verticalBusy) return;
+    setDerivingVertical(true);
+    setDeriveMsg(null);
+    try {
+      const res = await fetch('/api/csm/derive-vertical', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 202) throw new Error(data.error || `HTTP ${res.status}`);
+      setDeriveMsg({
+        text: 'Corte vertical enfileirado — Reel e Short saem do mesmo arquivo.',
+        ok: true,
+      });
+      setIsComplete(false); // volta a pollar para acompanhar o corte
+    } catch (err) {
+      setDeriveMsg({
+        text: err instanceof Error ? err.message : 'Falha ao enfileirar o corte vertical',
+        ok: false,
+      });
+    } finally {
+      setDerivingVertical(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: '760px', margin: '0 auto', padding: '32px 16px', color: '#1e1e1e' }}>
       <button onClick={onBack} style={{ background: 'transparent', border: '1px solid rgba(30,30,30,0.12)', color: '#6b6b6b', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', marginBottom: '24px', fontSize: '0.85rem' }}>
@@ -205,6 +262,67 @@ export default function TrackingTab({ draft, sessionId, onBack }: TrackingTabPro
           </div>
         )}
       </div>
+
+      {/* Vídeo do YouTube + liberação do pacote de conteúdos derivados */}
+      {video?.horizontalReady && (
+        <div style={{
+          border: '1px solid rgba(30,30,30,0.12)', borderRadius: '12px',
+          padding: '20px', marginBottom: '28px', background: 'rgba(124,58,237,0.04)',
+        }}>
+          <div style={{ fontSize: '0.72rem', letterSpacing: '0.1em', color: '#8a8a8a', textTransform: 'uppercase', marginBottom: '8px' }}>
+            vídeo do youtube
+          </div>
+          <div style={{ fontSize: '0.9rem', color: '#1e1e1e', marginBottom: '4px' }}>
+            {video.durationSeconds ? `${Math.round(video.durationSeconds / 60)} min` : 'pronto'}
+            {video.avatarShare !== null && ` · ${Math.round(video.avatarShare * 100)}% de avatar, o resto em ilustração`}
+          </div>
+
+          {video.youtubeUrl ? (
+            <>
+              <a href={video.youtubeUrl} target="_blank" rel="noopener noreferrer"
+                style={{ color: '#7c3aed', fontSize: '0.85rem', textDecoration: 'underline' }}>
+                {video.youtubeUrl}
+              </a>
+              <p style={{ fontSize: '0.8rem', color: '#4a4a4a', margin: '12px 0 0' }}>
+                O vídeo subiu como <strong>privado</strong>. Assista, torne público no
+                YouTube Studio e então gere o pacote — Reel e Short são recortes deste
+                mesmo vídeo, sem nova geração de avatar.
+              </p>
+            </>
+          ) : (
+            <p style={{ fontSize: '0.8rem', color: '#4a4a4a', margin: '8px 0 0' }}>
+              Aguardando o upload para o YouTube terminar.
+            </p>
+          )}
+
+          {verticalDone ? (
+            <div style={{ fontSize: '0.85rem', color: '#15803d', marginTop: '14px' }}>
+              ✓ Peça vertical pronta (Reel + Short saem do mesmo arquivo).
+            </div>
+          ) : (
+            <button
+              onClick={handleDeriveVertical}
+              disabled={!videoReady || verticalBusy}
+              title={videoReady ? undefined : 'Disponível depois que o vídeo estiver no YouTube'}
+              style={{
+                marginTop: '14px', padding: '10px 18px', borderRadius: '8px',
+                border: 'none', fontSize: '0.85rem', fontWeight: 600,
+                background: videoReady && !verticalBusy ? '#7c3aed' : 'rgba(30,30,30,0.12)',
+                color: videoReady && !verticalBusy ? '#fff' : '#6b6b6b',
+                cursor: videoReady && !verticalBusy ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {verticalBusy ? 'Cortando…' : 'Gerar pacote de conteúdos'}
+            </button>
+          )}
+
+          {deriveMsg && (
+            <div style={{ marginTop: '10px', fontSize: '0.8rem', color: deriveMsg.ok ? '#15803d' : '#b91c1c' }}>
+              {deriveMsg.text}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pipeline stages */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>

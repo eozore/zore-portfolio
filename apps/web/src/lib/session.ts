@@ -147,7 +147,7 @@ export async function saveArticleBrief(
  * documentos HTML completos. Mantidos no draft, empurravam a sessão para o
  * limite de 1MB por documento do Firestore — e a escrita falhava em silêncio.
  */
-const HEAVY_DRAFT_FIELDS = ['manifestHtml', 'thumbnails'] as const;
+const HEAVY_DRAFT_FIELDS = ['manifestHtml', 'slideHtmls', 'thumbnails'] as const;
 
 /** Margem de segurança abaixo do teto real de 1.048.576 bytes do Firestore. */
 const DOC_SIZE_BUDGET_BYTES = 900_000;
