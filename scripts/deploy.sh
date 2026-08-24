@@ -59,10 +59,15 @@ pre_voo() {
 
 deploy_pipeline() {
   azul "▸ Cloud Run Jobs (tts, avatar, video-editor, vertical-cut, publisher, callbacks)"
+  # COMMIT_SHA precisa vir à mão: no envio manual o Cloud Build não o preenche
+  # (só o trigger preenche), e as duas configs usam a variável como TAG da
+  # imagem. Sem isto o build morre em "invalid image name
+  # gcr.io/…/pipeline:" — nome sem tag.
   gcloud builds submit \
     --config=cloudbuild-pipeline.yaml \
     --project="$PROJECT" \
-    --region="$REGION"
+    --region="$REGION" \
+    --substitutions="COMMIT_SHA=$(git rev-parse --short HEAD)"
   verde "  ✓ pipeline no ar"
 }
 
