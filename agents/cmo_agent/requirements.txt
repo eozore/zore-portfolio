@@ -1,7 +1,15 @@
 fastapi>=0.110.0
 uvicorn>=0.30.0
 pydantic>=2.0
-google-antigravity>=0.1.5
+# Pinado, e não >=: o pacote distribui binário compilado com protobuf
+# GERADO, então a versão do gencode precisa casar com o runtime de protobuf
+# resolvido pelo pip. Um bump transitivo derruba o import — que acontece no
+# topo do agent.py, ou seja, o serviço não sobe. Já reproduzido localmente:
+# "gencode 7.35.0 runtime 6.33.6".
+#
+# Só o research_agent ainda depende dele no caminho do grafo; ver STATUS.md.
+google-antigravity==0.1.5
+protobuf>=5.27,<8
 firebase-admin>=6.5.0
 pillow>=10.0.0
 google-cloud-storage>=2.14.0

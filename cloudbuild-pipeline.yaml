@@ -1,7 +1,11 @@
 # cloudbuild-pipeline.yaml
 # ============================================================
 # Pipeline CI/CD da content pipeline éozoré.
-# Trigger: push para branch main com mudanças em agents/pipeline/**
+# Trigger: `eozore-pipeline` (us-central1) — push na main com mudanças em
+#          agents/pipeline/** ou neste arquivo.
+#          Por muito tempo este comentário descreveu um trigger que NUNCA
+#          foi criado, e toda correção da pipeline dependia de alguém
+#          lembrar do comando manual. Criado em 23/08/2026.
 #
 # Variáveis de substituição (podem ser sobrescritas no trigger):
 #   $_REGION      : us-central1

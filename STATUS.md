@@ -110,23 +110,27 @@ chamada de API.
 
 ## Deploy
 
-Não existe GitHub Actions. O deploy é Cloud Build, e há **trigger ativo**:
-push na `main` dispara build automático.
+Não existe GitHub Actions. É Cloud Build, com **dois triggers** na `main`:
 
-| Config | O que deploya |
-|---|---|
-| `cloudbuild.yaml` | `cmo-agent` + `frontend` |
-| `cloudbuild-pipeline.yaml` | Cloud Run Jobs: tts, avatar, video-editor, vertical-cut, publisher, callbacks |
-| `cloudbuild-web.yaml` | só o frontend |
+| Trigger | Config | Cobre |
+|---|---|---|
+| `eozore` | `cloudbuild.yaml` | cmo-agent + frontend + cromex |
+| `eozore-pipeline` | `cloudbuild-pipeline.yaml` | Cloud Run Jobs, filtrado em `agents/pipeline/**` |
 
-Disparo manual:
+`cloudbuild-web.yaml` existe e deploya só o frontend, mas nenhum trigger o usa.
+
+Até 23/08 havia **um** trigger. O cabeçalho do `cloudbuild-pipeline.yaml`
+afirmava ter o seu, mas ele nunca tinha sido criado — então toda correção da
+pipeline só chegava em produção se alguém lembrasse do comando manual. É a
+explicação mais provável para produção ter divergido da main.
 
 ```bash
-gcloud builds submit --config=cloudbuild-pipeline.yaml --project=vazfy-417019
+./scripts/deploy.sh            # pipeline e depois web, com testes antes
+./scripts/deploy.sh --check    # o que está no ar agora
 ```
 
-**Mudança em `agents/pipeline/` não sai pelo `cloudbuild.yaml`** — precisa do
-`cloudbuild-pipeline.yaml`.
+**A ordem importa**: a pipeline primeiro. Se o frontend novo subir antes dos
+jobs, aprovar um vídeo dispara a produção pelo caminho antigo.
 
 ---
 
