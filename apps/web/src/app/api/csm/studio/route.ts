@@ -18,6 +18,7 @@ import { requireTenantId } from '@/lib/tenancy';
 import { createArticle, slugExists, slugify } from '@/lib/articles';
 import type { ArticleCategory, CreateArticlePayload } from '@/types/article';
 import type { Locale } from '@/types/i18n';
+import { executarSubmit } from '@/lib/pipelineSubmit';
 
 const CMO_AGENT_URL = process.env.CMO_AGENT_URL || 'http://localhost:8090';
 const BLOG_BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'https://eozore.com').replace(/\/$/, '');
@@ -144,62 +145,57 @@ async function publicarArtigo(
 /**
  * Dispara a produção do vídeo a partir do estado do grafo.
  *
- * Falha aqui NÃO derruba a aprovação: o grafo já avançou para o plano social,
- * e o conteúdo aprovado continua válido. O erro volta no campo `producao`
- * para a tela mostrar — perder a aprovação por causa de uma falha de
- * infraestrutura seria pior que produzir o vídeo mais tarde.
+ * Chama `executarSubmit` EM PROCESSO. Antes isto era um self-fetch para
+ * `/api/csm/pipeline-submit` usando `new URL(request.url).origin` como base:
+ * dentro do Cloud Run essa origem é o localhost do container, a chamada não
+ * passa pelo balanceador e não aparece em log nenhum. Em 24/08 o gate do vídeo
+ * foi aprovado, nenhum `content_project` nasceu, `video_project_id` ficou nulo
+ * — e a tela mostrou, como se fosse desta semana, o progresso de um projeto de
+ * 16/08 que casava pelo mesmo `session_id`.
+ *
+ * Lança em caso de falha. Quem chama decide — e agora o gate NÃO avança sem
+ * produção, porque aprovar o vídeo é exatamente o ato de produzi-lo.
  */
 async function dispararProducao(
-  request: Request,
   sessionId: string,
   tenantId: string | null,
-): Promise<{ ok: boolean; projectId?: string; erro?: string }> {
-  try {
-    const estado = await lerEstado(sessionId, tenantId);
+): Promise<{ projectId: string }> {
+  const estado = await lerEstado(sessionId, tenantId);
 
-    const manifesto = estado?.video?.manifesto;
-    if (!manifesto?.youtube?.segments?.length) {
-      return { ok: false, erro: 'o grafo não tem manifesto para produzir' };
-    }
-
-    // Os HTMLs vêm de um endpoint separado: são ~85KB e o /graph/state os
-    // omite. Sem eles o deck sai com placeholders — telas pretas escritas
-    // "// yt-02" no lugar das ilustrações.
-    let slides: Record<string, string> = {};
-    try {
-      const r = await fetch(
-        `${CMO_AGENT_URL}/graph/slides?sessionId=${encodeURIComponent(sessionId)}`,
-        { headers: cmoAgentHeaders(tenantId), signal: AbortSignal.timeout(60_000) },
-      );
-      if (r.ok) slides = (await r.json()).slides ?? {};
-    } catch {
-      // Sem slides o gate do /build-manifest recusa e nomeia os que faltam.
-    }
-
-    const base = new URL(request.url).origin;
-    const submitRes = await fetch(`${base}/api/csm/pipeline-submit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        cookie: request.headers.get('cookie') ?? '',
-        ...(tenantId ? { 'x-tenant-id': tenantId } : {}),
-      },
-      body: JSON.stringify({
-        articleSlug:  estado?.artigo?.slug || sessionId,
-        articleTitle: estado?.video?.titulo || estado?.artigo?.titulo || 'Vídeo éozoré',
-        sessionId,
-        items: [],
-        manifestV2: manifesto,
-        slideHtmls: slides,
-      }),
-      signal: AbortSignal.timeout(120_000),
-    });
-    const submit = await submitRes.json().catch(() => ({}));
-    if (submit.mainProjectId) return { ok: true, projectId: submit.mainProjectId };
-    return { ok: false, erro: (submit.errors ?? []).join(' · ') || 'pipeline não disparou' };
-  } catch (err) {
-    return { ok: false, erro: err instanceof Error ? err.message : String(err) };
+  const manifesto = estado?.video?.manifesto;
+  if (!manifesto?.youtube?.segments?.length) {
+    throw new Error('o grafo não tem manifesto para produzir');
   }
+
+  // Os HTMLs vêm de um endpoint separado: são ~85KB e o /graph/state os omite.
+  // Sem eles o deck sai com placeholders — telas pretas escritas "// yt-02" no
+  // lugar das ilustrações. Por isso a ausência é ERRO, não um seguir adiante.
+  const r = await fetch(
+    `${CMO_AGENT_URL}/graph/slides?sessionId=${encodeURIComponent(sessionId)}`,
+    { headers: cmoAgentHeaders(tenantId), signal: AbortSignal.timeout(60_000) },
+  );
+  if (!r.ok) throw new Error(`não consegui buscar os slides: HTTP ${r.status}`);
+  const slides: Record<string, string> = (await r.json()).slides ?? {};
+  if (!Object.keys(slides).length) {
+    throw new Error('nenhum slide desenhado — o vídeo sairia com telas pretas');
+  }
+
+  const resultado = await executarSubmit(
+    {
+      articleSlug:  estado?.artigo?.slug || sessionId,
+      articleTitle: estado?.video?.titulo || estado?.artigo?.titulo || 'Vídeo éozoré',
+      sessionId,
+      items: [],
+      manifestV2: manifesto,
+      slideHtmls: slides,
+    },
+    tenantId,
+  );
+
+  if (!resultado.mainProjectId) {
+    throw new Error(resultado.errors.join(' · ') || 'a pipeline não foi disparada');
+  }
+  return { projectId: resultado.mainProjectId };
 }
 
 
@@ -264,29 +260,55 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
+    // Aprovar o VÍDEO é o ato de produzi-lo. Roda ANTES da retomada, pelo
+    // mesmo motivo do artigo: assim o `videoProjectId` entra no estado junto
+    // com a aprovação, e a tela passa a acompanhar ESTE projeto em vez de
+    // procurar por `session_id` — que em 24/08 casou com um projeto de outra
+    // semana e exibiu o vídeo errado como se fosse o novo.
+    //
+    // Falhar aqui ABORTA a aprovação, de propósito. A versão anterior seguia
+    // adiante devolvendo `{ok:false, erro}`, a interface descartava o campo, e
+    // o resultado era um pacote "concluído" sem vídeo nenhum.
+    let videoProjectId: string | undefined;
+    if (rest.gate === 'video' && rest.decisao === 'aprovado') {
+      try {
+        videoProjectId = (await dispararProducao(
+          String(rest.sessionId), tenant.tenantId,
+        )).projectId;
+      } catch (err) {
+        const motivo = err instanceof Error ? err.message : String(err);
+        return NextResponse.json(
+          {
+            detail: `Não consegui iniciar a produção do vídeo: ${motivo}`,
+            producao: { ok: false, erro: motivo },
+          },
+          { status: 502 },
+        );
+      }
+    }
+
     const res  = await proxy(
       '/graph/approve',
-      { method: 'POST', body: JSON.stringify({ ...rest, ...(artigoUrl ? { artigoUrl } : {}) }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ...rest,
+          ...(artigoUrl ? { artigoUrl } : {}),
+          ...(videoProjectId ? { videoProjectId } : {}),
+        }),
+      },
       tenant.tenantId,
     );
     const data = await res.clone().json().catch(() => ({}));
-    if (publicacao) {
-      return NextResponse.json({ ...data, publicacao }, { status: res.status });
-    }
-
-    // Aprovar o vídeo é o que DISPARA a produção. Até aqui o gate só
-    // destravava o nó seguinte do grafo — o roteiro era aprovado e nenhum
-    // vídeo era feito.
-    //
-    // Reusa o pipeline-submit em vez de republicar a lógica: ele já sobe o
-    // manifesto ao GCS, roda o gate do produto, cria o content_project e
-    // publica no Pub/Sub. E como ele grava `session_id` no projeto, o
-    // /api/csm/pipeline-status encontra o progresso pela mesma sessão.
-    if (res.ok && rest.gate === 'video' && rest.decisao === 'aprovado') {
-      const disparo = await dispararProducao(
-        request, String(rest.sessionId), tenant.tenantId,
+    if (publicacao || videoProjectId) {
+      return NextResponse.json(
+        {
+          ...data,
+          ...(publicacao ? { publicacao } : {}),
+          ...(videoProjectId ? { producao: { ok: true, projectId: videoProjectId } } : {}),
+        },
+        { status: res.status },
       );
-      return NextResponse.json({ ...data, producao: disparo }, { status: res.status });
     }
     return res;
   }

@@ -313,6 +313,59 @@ export function PassoVideo({
   );
 }
 
+// ── Artigo no blog ───────────────────────────────────────────────────────────
+
+/**
+ * Promoção do artigo de rascunho para publicado.
+ *
+ * O gate do artigo grava como RASCUNHO: a URL existe (as peças sociais
+ * dependem dela para resolver [LINK_ARTIGO]), mas o post não aparece no blog.
+ * Faltava a outra metade — não havia tela nenhuma para publicar de fato, e o
+ * artigo ficava preso enquanto a semana de posts apontava para uma página que
+ * o visitante não via.
+ */
+export function CartaoArtigo({
+  estado, status, onPublicar, ocupado,
+}: {
+  estado: EstadoStudio;
+  status: string | null;
+  onPublicar: () => void;
+  ocupado: boolean;
+}) {
+  const url = estado.artigo?.url;
+  if (!url) return null;
+  const publicado = status === 'published';
+
+  return (
+    <Card>
+      <Eyebrow>artigo</Eyebrow>
+      <SectionTitle hint={publicado
+        ? 'No ar. É para cá que as peças da semana apontam.'
+        : 'Gravado como rascunho: a URL já existe, mas o visitante ainda não vê.'}>
+        {estado.artigo?.titulo || 'Artigo'}
+      </SectionTitle>
+
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        className="inline-block text-[13px] text-[#e67e22] underline underline-offset-2">
+        {url}
+      </a>
+
+      <div className="mt-4 flex items-center gap-3 border-t border-black/[0.06] pt-4">
+        {publicado ? (
+          <Badge tone="done">publicado</Badge>
+        ) : (
+          <>
+            <Button onClick={onPublicar} disabled={ocupado}>
+              {ocupado ? 'Publicando…' : 'Publicar no blog'}
+            </Button>
+            <Badge tone="wait">rascunho</Badge>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 // ── 4. Social ────────────────────────────────────────────────────────────────
 
 export function PassoSocial({

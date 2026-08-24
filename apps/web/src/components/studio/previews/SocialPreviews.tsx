@@ -271,12 +271,11 @@ export function StoryPreview({ story }: { story: Record<string, any> }) {
         <button onClick={() => setI((i + 1) % frames.length)}
           className="absolute inset-y-0 right-0 z-10 w-1/3" aria-label="próximo frame" />
 
+        {/* Só `texto` e `enquete` viram imagem — é o que social_publish.py
+            renderiza. `ilustracao` é DIREÇÃO DE ARTE: descreve a imagem que
+            deveria estar no fundo, e hoje nada a gera. Fica fora da moldura
+            do telefone para não passar por conteúdo. */}
         <div className="flex h-full flex-col justify-center gap-2 p-4">
-          {frame?.ilustracao && (
-            <p className="font-mono text-[8.5px] uppercase leading-tight tracking-wide text-[#e8873a]/80">
-              ilustração: {frame.ilustracao}
-            </p>
-          )}
           <p className="text-[13px] font-semibold leading-snug text-[#eae4dc]">{frame?.texto}</p>
         </div>
 
@@ -300,6 +299,19 @@ export function StoryPreview({ story }: { story: Record<string, any> }) {
       </div>
 
       <div className="px-4 pb-4">
+        {/* Direção de arte do frame visível. NÃO vai ao ar: a imagem publicada
+            é gerada por template a partir de `texto`, e não existe geração de
+            imagem em nenhum ponto da pipeline. Enquanto isso não existir, o
+            story sai tipográfico — dizer isso aqui é mais honesto do que
+            desenhar um preview que promete o que não sai. */}
+        {frame?.ilustracao && (
+          <div className="mb-3 rounded-lg border border-dashed border-[#e8873a]/40 bg-[#e8873a]/[0.05] px-3 py-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#e8873a]">
+              direção de arte · não é publicada
+            </p>
+            <p className="mt-1 text-[11.5px] leading-snug text-[#6b6b6b]">{frame.ilustracao}</p>
+          </div>
+        )}
         {story.lacuna && <Lacuna texto={story.lacuna} />}
         {story.cta && <Cta cta={story.cta} />}
       </div>

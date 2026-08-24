@@ -70,6 +70,8 @@ export function useStudio(sessionId: string) {
   const [ocupado, setOcupado] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [producao, setProducao] = useState<Producao | null>(null);
+  /** 'draft' | 'published' | null — status do artigo no blog. */
+  const [statusArtigo, setStatusArtigo] = useState<string | null>(null);
   const [agendamento, setAgendamento] = useState<Agendamento | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -88,7 +90,15 @@ export function useStudio(sessionId: string) {
       // Pub/Sub). O grafo segue para o plano social enquanto TTS, avatar e
       // edição acontecem — então o progresso vem de outra rota.
       try {
-        const pr = await fetch(`/api/csm/pipeline-status?sessionId=${encodeURIComponent(sessionId)}`);
+        // Pelo id do projeto quando o grafo já o tem. A busca por sessão é o
+        // fallback, e ela é traiçoeira: um session_id reaproveitado casa com
+        // projetos de semanas anteriores e a tela mostra o vídeo errado como
+        // se fosse o desta rodada — foi o que aconteceu em 24/08.
+        const projetoDoGrafo = (data as EstadoStudio)?.video?.projectId;
+        const alvo = projetoDoGrafo
+          ? `projectId=${encodeURIComponent(projetoDoGrafo)}`
+          : `sessionId=${encodeURIComponent(sessionId)}`;
+        const pr = await fetch(`/api/csm/pipeline-status?${alvo}`);
         if (pr.ok) {
           const pd = await pr.json();
           const ROTULOS: Record<string, string> = {
@@ -114,6 +124,18 @@ export function useStudio(sessionId: string) {
           });
         }
       } catch { /* produção é informação extra; o fluxo não depende dela */ }
+
+      // Status do artigo no blog. O grafo guarda a URL, não se o post está
+      // visível — e sem isso a tela não sabe se ainda falta publicar.
+      const slugArtigo = (data as EstadoStudio)?.artigo?.slug;
+      if (slugArtigo) {
+        try {
+          const ar = await fetch(
+            `/api/csm/article-publish?slug=${encodeURIComponent(slugArtigo)}`,
+          );
+          if (ar.ok) setStatusArtigo((await ar.json()).status ?? null);
+        } catch { /* idem */ }
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));
     } finally {
@@ -205,6 +227,33 @@ export function useStudio(sessionId: string) {
    * O gate real fica no servidor (o vídeo tem que existir e ter clipes por
    * segmento); aqui o botão só evita o clique óbvio sem projeto.
    */
+  /**
+   * Promove o artigo de rascunho para publicado.
+   *
+   * O gate do artigo grava como rascunho de propósito — a URL passa a existir
+   * para as peças sociais, mas o post não aparece no blog. Esta é a outra
+   * metade dessa decisão, que faltava: sem ela o artigo ficava preso e a
+   * semana de posts apontava para uma página invisível ao visitante.
+   */
+  const publicarArtigo = useCallback(async () => {
+    const slug = estado?.artigo?.slug;
+    if (!slug) return;
+    setOcupado(true); setErro('');
+    try {
+      const res = await fetch('/api/csm/article-publish', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setStatusArtigo('published');
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(false);
+    }
+  }, [estado]);
+
   const derivarVertical = useCallback(async () => {
     const projectId = producao?.projectId;
     if (!projectId) return;
@@ -226,8 +275,8 @@ export function useStudio(sessionId: string) {
     }
   }, [producao, buscar]);
 
-  return { estado, producao, agendamento, erro, ocupado, carregando,
-           iniciar, decidir, agendar, derivarVertical,
+  return { estado, producao, agendamento, statusArtigo, erro, ocupado, carregando,
+           iniciar, decidir, agendar, derivarVertical, publicarArtigo,
            recarregar: () => buscar(true) };
 }
 

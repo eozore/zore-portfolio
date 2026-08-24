@@ -17,10 +17,13 @@ export async function GET(request: Request): Promise<Response> {
   if (!isCsmAuthenticated(request)) return csmUnauthorized();
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get('sessionId');
+  // `projectId` é o caminho preferido: vem do estado do grafo e identifica
+  // exatamente o projeto desta rodada.
+  const projectIdParam = searchParams.get('projectId');
   const tenantId = request.headers.get('x-tenant-id') || null;
 
-  if (!sessionId) {
-    return NextResponse.json({ error: 'sessionId required' }, { status: 400 });
+  if (!sessionId && !projectIdParam) {
+    return NextResponse.json({ error: 'sessionId ou projectId required' }, { status: 400 });
   }
 
   const db = getFirestoreDb();
@@ -32,28 +35,47 @@ export async function GET(request: Request): Promise<Response> {
     let stages: Record<string, unknown> = {};
     let projectId: string | null = null;
 
-    // A pipeline grava content_projects/{projectId}; a implementação anterior
-    // consultava collections legadas (sessions/projects), portanto nunca
-    // mostrava o progresso real no dashboard.
-    const projectSnap = await db.collection(dbPaths.contentProjects(tenantId))
-      .where('session_id', '==', sessionId)
-      .limit(20)
-      .get()
-      .catch(() => null);
-    const latestProject = projectSnap?.docs
-      .sort((a, b) => String(b.data().created_at ?? '').localeCompare(String(a.data().created_at ?? '')))[0];
+    // Busca pelo id exato quando ele existe. A busca por `session_id` é o
+    // fallback para fluxos antigos e é PERIGOSA: em 24/08 um session_id
+    // reaproveitado do CSM antigo casou com quatro projetos de 16/08, e a tela
+    // exibiu um vídeo daquela semana — com todas as etapas "pronto" — como se
+    // fosse a produção recém-aprovada.
+    let latestProject: FirebaseFirestore.DocumentSnapshot | undefined;
+
+    if (projectIdParam) {
+      const doc = await db.collection(dbPaths.contentProjects(tenantId))
+        .doc(projectIdParam).get().catch(() => null);
+      if (doc?.exists) latestProject = doc;
+    } else if (sessionId) {
+      const projectSnap = await db.collection(dbPaths.contentProjects(tenantId))
+        .where('session_id', '==', sessionId)
+        .limit(20)
+        .get()
+        .catch(() => null);
+      // `created_at` é string ISO nesta rota, mas os projetos criados pelo
+      // package_job usam Timestamp — `String(timestamp)` vira "[object
+      // Object]" e a ordenação deixava de ordenar. Normaliza antes.
+      const quando = (d: FirebaseFirestore.DocumentSnapshot): string => {
+        const v = d.data()?.created_at;
+        if (typeof v === 'string') return v;
+        if (v?.toDate) return v.toDate().toISOString();
+        return '';
+      };
+      latestProject = projectSnap?.docs.sort((a, b) => quando(b).localeCompare(quando(a)))[0];
+    }
+
     if (latestProject) {
       projectId = latestProject.id;
-      stages = latestProject.data().stages ?? {};
+      stages = latestProject.data()?.stages ?? {};
     }
 
     // Busca itens agendados na social queue para esta sessão
-    const queueSnap = await db.collection(dbPaths.socialQueue(tenantId))
+    const queueSnap = sessionId ? await db.collection(dbPaths.socialQueue(tenantId))
       .where('session_id', '==', sessionId)
       .orderBy('scheduled_at', 'asc')
       .limit(20)
       .get()
-      .catch(() => null);
+      .catch(() => null) : null;
 
     const scheduledItems = queueSnap
       ? queueSnap.docs.map((doc) => {

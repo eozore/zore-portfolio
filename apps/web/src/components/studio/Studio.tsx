@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import AuthGate from '../csm/AuthGate';
 import { Badge, Button, Card, Notice, cx } from './ui/primitives';
 import {
-  PainelProducao, PassoArtigo, PassoSocial, PassoTema, PassoTrabalhando, PassoVideo,
+  CartaoArtigo, PainelProducao, PassoArtigo, PassoSocial, PassoTema, PassoTrabalhando, PassoVideo,
 } from './steps/Steps';
 import {
   type Passo, type StatusPasso, passosDaJornada, resumoDaFase, useStudio,
@@ -80,14 +80,18 @@ export default function Studio() {
   const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
-    let id = localStorage.getItem('csm_session_id');
-    if (!id) { id = crypto.randomUUID(); localStorage.setItem('csm_session_id', id); }
+    // Chave PRÓPRIA do Studio. Antes era `csm_session_id`, a mesma do CSM
+    // antigo — e um id herdado dele casou, por `session_id`, com quatro
+    // content_projects de 16/08: a tela deu o pacote por pronto e ofereceu o
+    // vídeo daquela semana para cortar.
+    let id = localStorage.getItem('studio_session_id');
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem('studio_session_id', id); }
     setSessionId(id);
   }, []);
 
   const {
-    estado, producao, agendamento, erro, ocupado, carregando,
-    iniciar, decidir, agendar, derivarVertical, recarregar,
+    estado, producao, agendamento, statusArtigo, erro, ocupado, carregando,
+    iniciar, decidir, agendar, derivarVertical, publicarArtigo, recarregar,
   } = useStudio(sessionId);
   const passos = passosDaJornada(estado);
   const resumo = resumoDaFase(estado);
@@ -95,7 +99,7 @@ export default function Studio() {
 
   function novoCiclo() {
     const id = crypto.randomUUID();
-    localStorage.setItem('csm_session_id', id);
+    localStorage.setItem('studio_session_id', id);
     setSessionId(id);
   }
 
@@ -126,6 +130,12 @@ export default function Studio() {
       case 'concluido':
         return (
           <div className="space-y-4">
+            <CartaoArtigo
+              estado={estado}
+              status={statusArtigo}
+              onPublicar={publicarArtigo}
+              ocupado={ocupado}
+            />
             {producao && producao.etapas.length > 0 && (
               <PainelProducao
                 producao={producao}
@@ -186,7 +196,12 @@ export default function Studio() {
 
           {erro && (
             <div className="mb-5">
-              <Notice title="Não consegui falar com o time de agentes">
+              {/* Título neutro: este Notice mostra QUALQUER falha de ação —
+                  publicar artigo, disparar produção, agendar, cortar o
+                  vertical. Dizer "não consegui falar com o time de agentes"
+                  para um 409 do corte vertical mandava investigar a rede
+                  quando o problema era outro. */}
+              <Notice title="Alguma coisa não deu certo">
                 <p>{erro}</p>
                 <div className="mt-3"><Button variant="secondary" onClick={recarregar}>Tentar de novo</Button></div>
               </Notice>

@@ -2220,6 +2220,11 @@ class GraphApproveRequest(BaseModel):
     # peças com [LINK_ARTIGO] apontando para ela — se chegasse depois, a
     # primeira geração sairia sem link.
     artigoUrl:  Optional[str] = None
+    # Id do content_project criado no gate do vídeo. Entra no estado para que
+    # a tela acompanhe ESTE projeto. Sem ele, o /api/csm/pipeline-status caía
+    # numa busca por `session_id` — e um session_id reaproveitado do CSM antigo
+    # casou com um projeto de outra semana, exibindo o vídeo errado como novo.
+    videoProjectId: Optional[str] = None
 
 
 def _graph_tenant(request) -> Optional[str]:
@@ -2384,6 +2389,8 @@ async def graph_approve(req: GraphApproveRequest, request: Request):
     }
     if req.artigoUrl:
         patch["artigo_url"] = req.artigoUrl
+    if req.videoProjectId:
+        patch["video_project_id"] = req.videoProjectId
     await app_graph.aupdate_state(cfg, patch)
 
     try:
