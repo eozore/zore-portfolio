@@ -51,11 +51,21 @@ export async function getAllArticles(locale: Locale, tenantId: string | null = n
 /**
  * Fetches a single article by slug and locale.
  * Returns null if not found or Firestore is unavailable.
+ *
+ * `incluirRascunho` existe só para quem já está autenticado no Studio. O site
+ * público NUNCA passa true.
+ *
+ * Por que importa: o gate do Studio grava o artigo como `draft` e essa era a
+ * única barreira. Mas o filtro de status vivia apenas em `getAllArticles` — o
+ * índice escondia o post e a URL direta o servia inteiro, com 200 e 64KB de
+ * conteúdo. Ou seja, "rascunho" não escondia de ninguém que tivesse o
+ * endereço, e o endereço vai em toda peça social agendada.
  */
 export async function getArticleBySlug(
   slug: string,
   locale: Locale,
-  tenantId: string | null = null
+  tenantId: string | null = null,
+  incluirRascunho = false
 ): Promise<Article | null> {
   const db = getFirestoreDb();
   if (!db) return null;
@@ -71,7 +81,9 @@ export async function getArticleBySlug(
     if (snapshot.empty) return null;
 
     const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as Article;
+    const article = { id: doc.id, ...doc.data() } as Article;
+    if (!incluirRascunho && article.status !== 'published') return null;
+    return article;
   } catch (error) {
     console.error('[articles] Failed to fetch article by slug:', error);
     return null;

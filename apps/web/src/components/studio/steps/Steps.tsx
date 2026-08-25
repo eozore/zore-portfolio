@@ -341,14 +341,22 @@ export function CartaoArtigo({
       <Eyebrow>artigo</Eyebrow>
       <SectionTitle hint={publicado
         ? 'No ar. É para cá que as peças da semana apontam.'
-        : 'Gravado como rascunho: a URL já existe, mas o visitante ainda não vê.'}>
+        : 'Rascunho: o endereço está reservado e responde 404 até você publicar. '
+          + 'As peças sociais já apontam para ele, então publique antes do primeiro post sair.'}>
         {estado.artigo?.titulo || 'Artigo'}
       </SectionTitle>
 
-      <a href={url} target="_blank" rel="noopener noreferrer"
-        className="inline-block text-[13px] text-[#e67e22] underline underline-offset-2">
-        {url}
-      </a>
+      {/* Enquanto é rascunho a URL responde 404 para o visitante — o link
+          seria uma promessa falsa. Mostra o endereço como texto e diz quando
+          ele passa a valer. */}
+      {publicado ? (
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="inline-block text-[13px] text-[#e67e22] underline underline-offset-2">
+          {url}
+        </a>
+      ) : (
+        <p className="break-all font-mono text-[12px] text-[#8a8a8a]">{url}</p>
+      )}
 
       <div className="mt-4 flex items-center gap-3 border-t border-black/[0.06] pt-4">
         {publicado ? (
