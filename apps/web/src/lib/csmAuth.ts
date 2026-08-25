@@ -3,8 +3,24 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export const CSM_AUTH_COOKIE = 'csm_auth';
 const TOKEN_TTL_SECONDS = 8 * 60 * 60;
 
+/**
+ * Chave que assina o cookie de sessão.
+ *
+ * NÃO cai mais para `CSM_PASSWORD_HASH`. O fallback antigo transformava a
+ * senha na chave de assinatura: como o token é `HMAC(chave, timestamp)`, quem
+ * conhecesse a senha podia calcular o hash, forjar um cookie válido OFFLINE e
+ * entrar sem tentar login nenhum — sem passar pela verificação, sem rastro.
+ *
+ * Em 25/08 isso deixou de ser teórico: o repositório estava público no GitHub
+ * com a senha em texto puro num arquivo versionado, e produção rodava sem
+ * `CSM_AUTH_SECRET` — só com o hash. A chave de sessão era, na prática,
+ * pública.
+ *
+ * Falha FECHADA: sem a variável, `isCsmAuthenticated` recusa tudo. Um admin
+ * inacessível é muito melhor que um admin com chave conhecida.
+ */
 function authSecret(): string {
-  return process.env.CSM_AUTH_SECRET || process.env.CSM_PASSWORD_HASH || '';
+  return process.env.CSM_AUTH_SECRET || '';
 }
 
 export function createCsmToken(now = Math.floor(Date.now() / 1000)): string {

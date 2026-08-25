@@ -150,7 +150,7 @@ steps:
           --min-instances=0 \
           --max-instances=3 \
           --timeout=600 \
-          --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest,CSM_PASSWORD_HASH=csm-password-hash:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest,TENANT_KEY_PEPPER=tenant-key-pepper:latest \
+          --set-secrets=ARTICLE_API_KEY=article-api-key:latest,FIREBASE_PROJECT_ID=firebase-project-id:latest,CSM_PASSWORD_HASH=csm-password-hash:latest,CSM_AUTH_SECRET=csm-auth-secret:latest,CMO_INTERNAL_SECRET=cmo-internal-secret:latest,TENANT_KEY_PEPPER=tenant-key-pepper:latest \
           --set-env-vars=CMO_AGENT_URL=$$CMO_URL,NEXT_PUBLIC_PRICING_API_URL=$$CROMEX_URL,PRICING_API_URL=$$CROMEX_URL,GCP_STORAGE_BUCKET=vazfy-417019-assets,CROMEX_BUCKET_NAME=vazfy-417019-assets
 
 substitutions:
