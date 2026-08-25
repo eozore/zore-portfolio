@@ -40,11 +40,11 @@ export function PassoTema({
         onChange={(e) => setTema(e.target.value)}
         rows={3}
         placeholder="Ex: por que testes A/B continuam necessários mesmo com IA generativa"
-        className="w-full resize-none rounded-xl border border-black/10 p-3.5 text-[14px] leading-relaxed text-[#1e1e1e] placeholder:text-[#a8a8a8] focus:border-[#e67e22]/50 focus:outline-none"
+        className="w-full resize-none rounded-xl border border-black/10 p-3.5 text-[14px] leading-relaxed text-text-main placeholder:text-text-faint focus:border-primary/50 focus:outline-none"
       />
 
       <details className="mt-3 group">
-        <summary className="cursor-pointer list-none text-[13px] font-medium text-[#6b6b6b] hover:text-[#1e1e1e]">
+        <summary className="cursor-pointer list-none text-[13px] font-medium text-text-muted hover:text-text-main">
           + Contexto adicional (opcional)
         </summary>
         <textarea
@@ -52,7 +52,7 @@ export function PassoTema({
           onChange={(e) => setContexto(e.target.value)}
           rows={3}
           placeholder="Dados que você quer citar, um ângulo específico, algo a evitar…"
-          className="mt-2 w-full resize-none rounded-xl border border-black/10 p-3.5 text-[13px] leading-relaxed focus:border-[#e67e22]/50 focus:outline-none"
+          className="mt-2 w-full resize-none rounded-xl border border-black/10 p-3.5 text-[13px] leading-relaxed focus:border-primary/50 focus:outline-none"
         />
       </details>
 
@@ -61,7 +61,7 @@ export function PassoTema({
           {ocupado ? 'Começando…' : 'Começar'}
         </Button>
         {!podeIniciar && tema.length > 0 && (
-          <span className="text-[12px] text-[#8a8a8a]">Descreva um pouco mais o tema.</span>
+          <span className="text-[12px] text-text-soft">Descreva um pouco mais o tema.</span>
         )}
       </div>
     </Card>
@@ -88,9 +88,9 @@ function Gate({
 
       {/* Barra de decisão fixa no rodapé: a ação não pode depender de rolar
           até o fim de um artigo de 7.000 caracteres. */}
-      <div className="sticky bottom-0 -mx-1 rounded-2xl border border-[#e67e22]/30 bg-white/95 p-5 shadow-lg backdrop-blur">
-        <p className="text-[14px] font-bold text-[#1e1e1e]">{titulo}</p>
-        <p className="mt-1 text-[13px] text-[#6b6b6b]">{aviso}</p>
+      <div className="sticky bottom-0 -mx-1 rounded-2xl border border-primary/30 bg-white/95 p-5 shadow-lg backdrop-blur">
+        <p className="text-[14px] font-bold text-text-main">{titulo}</p>
+        <p className="mt-1 text-[13px] text-text-muted">{aviso}</p>
 
         {modo && (
           <textarea
@@ -101,7 +101,7 @@ function Gate({
             placeholder={modo === 'ajustar'
               ? 'O que precisa mudar? O agente refaz com essa crítica — e ela também entra na memória dele.'
               : 'Por que está descartando? Fica registrado para as próximas gerações.'}
-            className="mt-3 w-full resize-none rounded-lg border border-black/10 p-3 text-[13px] focus:border-[#e67e22]/50 focus:outline-none"
+            className="mt-3 w-full resize-none rounded-lg border border-black/10 p-3 text-[13px] focus:border-primary/50 focus:outline-none"
           />
         )}
 
@@ -161,11 +161,11 @@ export function PassoArtigo({
     >
       <Card>
         <Eyebrow>passo 2 de 4 · artigo</Eyebrow>
-        <h2 className="text-xl font-bold leading-tight tracking-tight text-[#1e1e1e]">
+        <h2 className="text-xl font-bold leading-tight tracking-tight text-text-main">
           {estado.artigo?.titulo}
         </h2>
         {!!estado.artigo?.resumo && (
-          <p className="mt-2 text-[13.5px] leading-relaxed text-[#4a4a4a]">
+          <p className="mt-2 text-[13.5px] leading-relaxed text-text-body">
             {estado.artigo.resumo}
           </p>
         )}
@@ -180,10 +180,10 @@ export function PassoArtigo({
             ['Endereço', estado.artigo?.slug ? `/${estado.artigo.slug}` : '—'],
           ].map(([rotulo, valor]) => (
             <div key={rotulo}>
-              <dt className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#a8a8a8]">
+              <dt className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-faint">
                 {rotulo}
               </dt>
-              <dd className="mt-0.5 text-[13px] font-medium text-[#1e1e1e]">{valor}</dd>
+              <dd className="mt-0.5 text-[13px] font-medium text-text-main">{valor}</dd>
             </div>
           ))}
         </dl>
@@ -232,7 +232,7 @@ export function PassoVideo({
     >
       <Card>
         <Eyebrow>passo 3 de 4 · vídeo</Eyebrow>
-        <h2 className="text-lg font-bold tracking-tight text-[#1e1e1e]">{estado.video?.titulo}</h2>
+        <h2 className="text-lg font-bold tracking-tight text-text-main">{estado.video?.titulo}</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ['Duração', `${Math.round(durTotal / 60)} min`],
@@ -241,8 +241,8 @@ export function PassoVideo({
             ['Ilustrações', String(estado.video?.slides ?? 0)],
           ].map(([r, v]) => (
             <div key={r} className="rounded-xl bg-black/[0.03] px-3 py-2.5">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-[#8a8a8a]">{r}</p>
-              <p className="mt-0.5 text-[15px] font-bold text-[#1e1e1e]">{v}</p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-text-soft">{r}</p>
+              <p className="mt-0.5 text-[15px] font-bold text-text-main">{v}</p>
             </div>
           ))}
         </div>
@@ -266,17 +266,17 @@ export function PassoVideo({
             return (
               <div key={s.id || i} className={cx(
                 'rounded-xl border p-3.5',
-                ehAvatar ? 'border-[#e67e22]/25 bg-[#e67e22]/[0.04]' : 'border-black/[0.08] bg-white',
+                ehAvatar ? 'border-primary/25 bg-primary/[0.04]' : 'border-black/[0.08] bg-white',
               )}>
                 <div className="flex items-center gap-2">
                   <Badge tone={ehAvatar ? 'active' : 'neutral'}>
                     {ehAvatar ? 'Apresentador' : 'Ilustração'}
                   </Badge>
-                  <span className="font-mono text-[10px] text-[#a8a8a8]">
+                  <span className="font-mono text-[10px] text-text-faint">
                     {s.beat} · {Math.round(s.min_duration_s || 0)}s
                   </span>
                 </div>
-                <p className="mt-2 text-[13px] leading-relaxed text-[#2b2b2b]">{s.script}</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-ink">{s.script}</p>
               </div>
             );
           })}
@@ -295,12 +295,12 @@ export function PassoVideo({
               return (
                 <div key={s.id || i} className={cx(
                   'flex items-center gap-2 rounded-lg border px-3 py-2',
-                  ehAvatar ? 'border-[#e67e22]/25 bg-[#e67e22]/[0.04]' : 'border-black/[0.08] bg-white',
+                  ehAvatar ? 'border-primary/25 bg-primary/[0.04]' : 'border-black/[0.08] bg-white',
                 )}>
                   <Badge tone={ehAvatar ? 'active' : 'neutral'}>
                     {ehAvatar ? 'recorte do apresentador' : 'ilustração vertical'}
                   </Badge>
-                  <span className="text-[12px] text-[#4a4a4a]">
+                  <span className="text-[12px] text-text-body">
                     de {s.source} · {Math.round(origem?.min_duration_s || 0)}s
                   </span>
                 </div>
@@ -351,11 +351,11 @@ export function CartaoArtigo({
           ele passa a valer. */}
       {publicado ? (
         <a href={url} target="_blank" rel="noopener noreferrer"
-          className="inline-block text-[13px] text-[#e67e22] underline underline-offset-2">
+          className="inline-block text-[13px] text-primary underline underline-offset-2">
           {url}
         </a>
       ) : (
-        <p className="break-all font-mono text-[12px] text-[#8a8a8a]">{url}</p>
+        <p className="break-all font-mono text-[12px] text-text-soft">{url}</p>
       )}
 
       <div className="mt-4 flex items-center gap-3 border-t border-black/[0.06] pt-4">
@@ -441,7 +441,7 @@ export function PassoSocial({
             {naFila > 0 ? (
               <div className="flex flex-wrap items-center gap-3">
                 <Badge tone="done">{naFila} na fila</Badge>
-                <p className="text-[12.5px] text-[#6b6b6b]">
+                <p className="text-[12.5px] text-text-muted">
                   O publicador roda de hora em hora e solta cada peça no horário marcado.
                 </p>
               </div>
@@ -450,7 +450,7 @@ export function PassoSocial({
                 <Button onClick={onAgendar} loading={ocupado}>
                   Agendar a semana
                 </Button>
-                <p className="text-[12.5px] text-[#6b6b6b]">
+                <p className="text-[12.5px] text-text-muted">
                   Distribui as peças em D+1 a D+7 e desenha as imagens de carrossel
                   e stories. Nada vai ao ar antes do horário marcado.
                 </p>
@@ -484,7 +484,7 @@ export function PassoSocial({
             {estado.artigo.titulo}
           </SectionTitle>
           <a href={estado.artigo.url} target="_blank" rel="noopener noreferrer"
-            className="text-[13px] text-[#e67e22] underline underline-offset-2">
+            className="text-[13px] text-primary underline underline-offset-2">
             {estado.artigo.url}
           </a>
         </Card>
@@ -509,11 +509,11 @@ export function PassoTrabalhando({ titulo, sub, trilha }: {
   return (
     <Card>
       <Working label={titulo} />
-      <p className="mt-2 text-[13px] text-[#6b6b6b]">{sub}</p>
+      <p className="mt-2 text-[13px] text-text-muted">{sub}</p>
       {trilha.length > 0 && (
         <ul className="mt-4 space-y-1.5 border-t border-black/[0.06] pt-4">
           {trilha.slice(-6).map((t, i) => (
-            <li key={i} className="font-mono text-[11px] text-[#8a8a8a]">{t}</li>
+            <li key={i} className="font-mono text-[11px] text-text-soft">{t}</li>
           ))}
         </ul>
       )}
@@ -562,7 +562,7 @@ export function PainelProducao({
           const m = STATUS_PRODUCAO[e.status] ?? STATUS_PRODUCAO.waiting;
           return (
             <span key={e.id} className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] px-2.5 py-1.5">
-              <span className="text-[12px] font-medium text-[#1e1e1e]">{e.rotulo}</span>
+              <span className="text-[12px] font-medium text-text-main">{e.rotulo}</span>
               <Badge tone={m.tone}>{m.rotulo}</Badge>
             </span>
           );
@@ -578,16 +578,16 @@ export function PainelProducao({
       )}
 
       {producao.youtubeUrl && (
-        <div className="mt-4 rounded-xl border border-[#16a34a]/25 bg-[#16a34a]/[0.04] p-4">
-          <p className="text-[13px] font-semibold text-[#1e1e1e]">
+        <div className="mt-4 rounded-xl border border-accent-success/25 bg-accent-success/[0.04] p-4">
+          <p className="text-[13px] font-semibold text-text-main">
             No YouTube como privado
             {producao.duracaoS ? ` · ${Math.round(producao.duracaoS / 60)} min` : ''}
           </p>
           <a href={producao.youtubeUrl} target="_blank" rel="noopener noreferrer"
-            className="mt-1 inline-block text-[13px] text-[#e67e22] underline underline-offset-2">
+            className="mt-1 inline-block text-[13px] text-primary underline underline-offset-2">
             {producao.youtubeUrl}
           </a>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-[#4a4a4a]">
+          <p className="mt-2 text-[12.5px] leading-relaxed text-text-body">
             Assista antes de tornar público. O corte vertical sai deste mesmo vídeo.
           </p>
 
@@ -595,7 +595,7 @@ export function PainelProducao({
               produções novas. O avatar sai de um crop 9:16 dos clipes já
               gerados e a fala é o mesmo áudio — zero HeyGen, zero ElevenLabs. */}
           {onDerivarVertical && (
-            <div className="mt-4 border-t border-[#16a34a]/20 pt-3.5">
+            <div className="mt-4 border-t border-accent-success/20 pt-3.5">
               {cortePronto ? (
                 <Badge tone="done">Reel e Short prontos</Badge>
               ) : corteEmCurso ? (
@@ -605,7 +605,7 @@ export function PainelProducao({
                   <Button variant="secondary" onClick={onDerivarVertical} loading={ocupado}>
                     Gerar Reel e Short
                   </Button>
-                  <p className="text-[12.5px] text-[#6b6b6b]">
+                  <p className="text-[12.5px] text-text-muted">
                     Recorta deste vídeo. Não gasta crédito de avatar nem de voz.
                   </p>
                 </div>

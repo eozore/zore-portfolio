@@ -43,15 +43,15 @@ function Cta({ cta }: { cta: Record<string, any> }) {
   return (
     <div className={cx(
       'mt-3 rounded-lg border px-3 py-2',
-      converte ? 'border-[#e67e22]/30 bg-[#e67e22]/[0.06]' : 'border-black/10 bg-black/[0.02]',
+      converte ? 'border-primary/30 bg-primary/[0.06]' : 'border-black/10 bg-black/[0.02]',
     )}>
       <div className="flex items-center gap-2">
-        <span className="font-mono text-[9px] uppercase tracking-wider text-[#8a8a8a]">
+        <span className="font-mono text-[9px] uppercase tracking-wider text-text-soft">
           {CTA_ROTULO[cta?.tipo] || cta?.tipo}
         </span>
         {converte && <Badge tone="active">leva ao vídeo</Badge>}
       </div>
-      <p className="mt-1 text-[13px] text-[#1e1e1e]">{comLinks(cta?.texto || '')}</p>
+      <p className="mt-1 text-[13px] text-text-main">{comLinks(cta?.texto || '')}</p>
     </div>
   );
 }
@@ -60,7 +60,7 @@ function Cta({ cta }: { cta: Record<string, any> }) {
 function Metodo({ id }: { id?: string }) {
   if (!id) return null;
   return (
-    <span className="font-mono text-[9px] uppercase tracking-wider text-[#a8a8a8]">
+    <span className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
       {id.replace('copy-', '')}
     </span>
   );
@@ -68,7 +68,7 @@ function Metodo({ id }: { id?: string }) {
 
 function Lacuna({ texto }: { texto: string }) {
   return (
-    <p className="mt-2 text-[12px] italic leading-relaxed text-[#8a8a8a]">
+    <p className="mt-2 text-[12px] italic leading-relaxed text-text-soft">
       Deixa em aberto: {texto}
     </p>
   );
@@ -92,6 +92,18 @@ function Cabecalho({ rotulo, cor, peca }: { rotulo: string; cor: string; peca: R
 
 // ── LinkedIn ─────────────────────────────────────────────────────────────────
 
+/**
+ * Cores de marca das plataformas. São referência EXTERNA — não fazem parte da
+ * paleta éozoré e não devem virar token: mudam quando a plataforma muda, não
+ * quando nosso design muda. Agrupadas para não ficarem como hex solto no meio
+ * do JSX, onde pareciam decisão nossa.
+ */
+const COR_PLATAFORMA = {
+  linkedin:  'text-[#0a66c2]',
+  instagram: 'text-[#c13584]',
+  youtube:   'text-[#ff0000]',
+} as const;
+
 export function LinkedInPreview({ post }: { post: Record<string, any> }) {
   const [aberto, setAberto] = useState(false);
   const corpo: string = post.corpo || '';
@@ -102,23 +114,23 @@ export function LinkedInPreview({ post }: { post: Record<string, any> }) {
 
   return (
     <Card padded={false} className="overflow-hidden">
-      <Cabecalho rotulo="LinkedIn" cor="text-[#0a66c2]" peca={post} />
+      <Cabecalho rotulo="LinkedIn" cor={COR_PLATAFORMA.linkedin} peca={post} />
       <div className="p-4">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-full bg-[#e67e22]/20" />
+          <div className="h-9 w-9 rounded-full bg-primary/20" />
           <div>
-            <p className="text-[13px] font-semibold leading-tight text-[#1e1e1e]">Victor Zoré</p>
-            <p className="text-[11px] text-[#8a8a8a]">Líder Técnico em IA e ML</p>
+            <p className="text-[13px] font-semibold leading-tight text-text-main">Victor Zoré</p>
+            <p className="text-[11px] text-text-soft">Líder Técnico em IA e ML</p>
           </div>
         </div>
-        <p className="mt-3 text-[14px] font-semibold leading-snug text-[#1e1e1e]">{post.gancho}</p>
-        <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-[#2b2b2b]">
+        <p className="mt-3 text-[14px] font-semibold leading-snug text-text-main">{post.gancho}</p>
+        <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
           {comLinks(visivel)}
           {cortado && !aberto && '… '}
           {cortado && (
             <button
               onClick={() => setAberto(!aberto)}
-              className="ml-0.5 font-semibold text-[#6b6b6b] hover:text-[#1e1e1e]"
+              className="ml-0.5 font-semibold text-text-muted hover:text-text-main"
             >
               {aberto ? 'ver menos' : 'ver mais'}
             </button>
@@ -138,12 +150,12 @@ export function LinkedInPreview({ post }: { post: Record<string, any> }) {
           verdade: um comentário publicado por você logo em seguida. */}
       {post.comentario_fixado && (
         <div className="border-t border-black/[0.06] bg-black/[0.015] p-4">
-          <p className="mb-1.5 font-mono text-[9px] uppercase tracking-wider text-[#8a8a8a]">
+          <p className="mb-1.5 font-mono text-[9px] uppercase tracking-wider text-text-soft">
             seu primeiro comentário
           </p>
           <div className="flex gap-2.5">
-            <div className="h-7 w-7 shrink-0 rounded-full bg-[#e67e22]/20" />
-            <p className="rounded-2xl bg-black/[0.04] px-3 py-2 text-[12.5px] leading-relaxed text-[#2b2b2b]">
+            <div className="h-7 w-7 shrink-0 rounded-full bg-primary/20" />
+            <p className="rounded-2xl bg-black/[0.04] px-3 py-2 text-[12.5px] leading-relaxed text-ink">
               {comLinks(post.comentario_fixado)}
             </p>
           </div>
@@ -159,9 +171,9 @@ export function ThreadsPreview({ thread }: { thread: Record<string, any> }) {
   const posts: string[] = thread.posts || [];
   return (
     <Card padded={false} className="overflow-hidden">
-      <Cabecalho rotulo={`Threads · série de ${posts.length}`} cor="text-[#1e1e1e]" peca={thread} />
+      <Cabecalho rotulo={`Threads · série de ${posts.length}`} cor="text-text-main" peca={thread} />
       <div className="p-4">
-        <p className="text-[14px] font-semibold leading-snug text-[#1e1e1e]">{thread.gancho}</p>
+        <p className="text-[14px] font-semibold leading-snug text-text-main">{thread.gancho}</p>
         <div className="mt-3 space-y-0">
           {posts.map((p, i) => (
             <div key={i} className="relative pb-4 pl-6 last:pb-0">
@@ -169,11 +181,11 @@ export function ThreadsPreview({ thread }: { thread: Record<string, any> }) {
               {i < posts.length - 1 && (
                 <span className="absolute left-[7px] top-4 h-full w-px bg-black/10" />
               )}
-              <span className="absolute left-0 top-1 h-3.5 w-3.5 rounded-full border-2 border-[#e67e22] bg-white" />
-              <p className="text-[13px] leading-relaxed text-[#2b2b2b]">{comLinks(p)}</p>
+              <span className="absolute left-0 top-1 h-3.5 w-3.5 rounded-full border-2 border-primary bg-white" />
+              <p className="text-[13px] leading-relaxed text-ink">{comLinks(p)}</p>
               <span className={cx(
                 'mt-1 inline-block font-mono text-[10px]',
-                p.length > 480 ? 'text-[#b91c1c]' : 'text-[#a8a8a8]',
+                p.length > 480 ? 'text-accent-error' : 'text-text-faint',
               )}>
                 {p.length}/500
               </span>
@@ -196,18 +208,18 @@ export function CarrosselPreview({ carrossel }: { carrossel: Record<string, any>
 
   return (
     <Card padded={false} className="overflow-hidden">
-      <Cabecalho rotulo={`Instagram · carrossel de ${slides.length}`} cor="text-[#c13584]" peca={carrossel} />
+      <Cabecalho rotulo={`Instagram · carrossel de ${slides.length}`} cor={COR_PLATAFORMA.instagram} peca={carrossel} />
 
       {/* Quadrado 1:1, como no feed. */}
-      <div className="relative aspect-square bg-[#0d0f14] p-8">
+      <div className="relative aspect-square bg-asset-bg p-8">
         <div className="flex h-full flex-col justify-center">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[#e8873a]">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-asset-accent">
             {i + 1} / {slides.length}
           </span>
-          <h3 className="mt-3 text-[22px] font-bold leading-tight text-[#eae4dc]">
+          <h3 className="mt-3 text-[22px] font-bold leading-tight text-asset-ink">
             {slide?.titulo}
           </h3>
-          <p className="mt-3 text-[13px] leading-relaxed text-[#a9a29a]">{slide?.corpo}</p>
+          <p className="mt-3 text-[13px] leading-relaxed text-asset-muted">{slide?.corpo}</p>
         </div>
         {i > 0 && (
           <button onClick={() => setI(i - 1)}
@@ -227,12 +239,12 @@ export function CarrosselPreview({ carrossel }: { carrossel: Record<string, any>
         {slides.map((_, n) => (
           <button key={n} onClick={() => setI(n)}
             className={cx('h-1.5 rounded-full transition-all',
-              n === i ? 'w-5 bg-[#e67e22]' : 'w-1.5 bg-black/15')} />
+              n === i ? 'w-5 bg-primary' : 'w-1.5 bg-black/15')} />
         ))}
       </div>
 
       <div className="border-t border-black/[0.06] p-4">
-        <p className="text-[13px] leading-relaxed text-[#2b2b2b]">{comLinks(carrossel.legenda || '')}</p>
+        <p className="text-[13px] leading-relaxed text-ink">{comLinks(carrossel.legenda || '')}</p>
         {carrossel.lacuna && <Lacuna texto={carrossel.lacuna} />}
         {carrossel.cta && <Cta cta={carrossel.cta} />}
       </div>
@@ -255,9 +267,9 @@ export function StoryPreview({ story }: { story: Record<string, any> }) {
 
   return (
     <Card padded={false} className="overflow-hidden">
-      <Cabecalho rotulo={`Story · ${frames.length} frames`} cor="text-[#c13584]" peca={story} />
+      <Cabecalho rotulo={`Story · ${frames.length} frames`} cor={COR_PLATAFORMA.instagram} peca={story} />
 
-      <div className="relative mx-auto my-3 aspect-[9/16] w-40 overflow-hidden rounded-xl bg-[#0d0f14]">
+      <div className="relative mx-auto my-3 aspect-[9/16] w-40 overflow-hidden rounded-xl bg-asset-bg">
         {/* Barrinhas de progresso — o sinal de "sequência" do Instagram */}
         <div className="absolute inset-x-2 top-2 z-10 flex gap-1">
           {frames.map((_, n) => (
@@ -276,12 +288,12 @@ export function StoryPreview({ story }: { story: Record<string, any> }) {
             deveria estar no fundo, e hoje nada a gera. Fica fora da moldura
             do telefone para não passar por conteúdo. */}
         <div className="flex h-full flex-col justify-center gap-2 p-4">
-          <p className="text-[13px] font-semibold leading-snug text-[#eae4dc]">{frame?.texto}</p>
+          <p className="text-[13px] font-semibold leading-snug text-asset-ink">{frame?.texto}</p>
         </div>
 
         {frame?.enquete && (
           <div className="absolute inset-x-3 bottom-4 rounded-lg bg-white/95 px-2.5 py-2">
-            <p className="text-[10px] font-semibold text-[#1e1e1e]">{frame.enquete}</p>
+            <p className="text-[10px] font-semibold text-text-main">{frame.enquete}</p>
             <div className="mt-1.5 flex gap-1">
               <span className="flex-1 rounded bg-black/[0.06] py-1 text-center text-[9px]">Sim</span>
               <span className="flex-1 rounded bg-black/[0.06] py-1 text-center text-[9px]">Não</span>
@@ -305,11 +317,11 @@ export function StoryPreview({ story }: { story: Record<string, any> }) {
             story sai tipográfico — dizer isso aqui é mais honesto do que
             desenhar um preview que promete o que não sai. */}
         {frame?.ilustracao && (
-          <div className="mb-3 rounded-lg border border-dashed border-[#e8873a]/40 bg-[#e8873a]/[0.05] px-3 py-2">
-            <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#e8873a]">
+          <div className="mb-3 rounded-lg border border-dashed border-asset-accent/40 bg-asset-accent/[0.05] px-3 py-2">
+            <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-asset-accent">
               direção de arte · não é publicada
             </p>
-            <p className="mt-1 text-[11.5px] leading-snug text-[#6b6b6b]">{frame.ilustracao}</p>
+            <p className="mt-1 text-[11.5px] leading-snug text-text-muted">{frame.ilustracao}</p>
           </div>
         )}
         {story.lacuna && <Lacuna texto={story.lacuna} />}
@@ -324,22 +336,22 @@ export function StoryPreview({ story }: { story: Record<string, any> }) {
 export function YouTubeCommunityPreview({ post }: { post: Record<string, any> }) {
   return (
     <Card padded={false} className="overflow-hidden">
-      <Cabecalho rotulo="Comunidade do YouTube" cor="text-[#ff0000]" peca={post} />
+      <Cabecalho rotulo="Comunidade do YouTube" cor={COR_PLATAFORMA.youtube} peca={post} />
       <div className="p-4">
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-full bg-[#e67e22]/20" />
+          <div className="h-9 w-9 rounded-full bg-primary/20" />
           <div>
-            <p className="text-[13px] font-semibold leading-tight text-[#1e1e1e]">Victor Zoré</p>
-            <p className="text-[11px] text-[#8a8a8a]">Alcança quem já é inscrito</p>
+            <p className="text-[13px] font-semibold leading-tight text-text-main">Victor Zoré</p>
+            <p className="text-[11px] text-text-soft">Alcança quem já é inscrito</p>
           </div>
         </div>
-        <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-[#2b2b2b]">
+        <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
           {comLinks(post.texto || '')}
         </p>
         {!!post.enquete_opcoes?.length && (
           <div className="mt-3 space-y-1.5">
             {post.enquete_opcoes.map((op: string, n: number) => (
-              <div key={n} className="rounded-lg border border-black/10 px-3 py-2 text-[12.5px] text-[#2b2b2b]">
+              <div key={n} className="rounded-lg border border-black/10 px-3 py-2 text-[12.5px] text-ink">
                 {op}
               </div>
             ))}

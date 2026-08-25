@@ -26,11 +26,11 @@ import {
 // ── Trilha ───────────────────────────────────────────────────────────────────
 
 const MARCA: Record<StatusPasso, { anel: string; ponto: string; texto: string }> = {
-  feito:     { anel: 'border-[#16a34a] bg-[#16a34a]',   ponto: 'text-white',    texto: 'text-[#1e1e1e]' },
-  fazendo:   { anel: 'border-[#e67e22] bg-white',        ponto: 'text-[#e67e22]', texto: 'text-[#1e1e1e]' },
-  seu_turno: { anel: 'border-[#e67e22] bg-[#e67e22]',    ponto: 'text-white',    texto: 'text-[#1e1e1e]' },
-  erro:      { anel: 'border-[#b91c1c] bg-[#b91c1c]',    ponto: 'text-white',    texto: 'text-[#b91c1c]' },
-  pendente:  { anel: 'border-black/15 bg-white',         ponto: 'text-black/25', texto: 'text-[#a8a8a8]' },
+  feito:     { anel: 'border-accent-success bg-accent-success',   ponto: 'text-white',    texto: 'text-text-main' },
+  fazendo:   { anel: 'border-primary bg-white',        ponto: 'text-primary', texto: 'text-text-main' },
+  seu_turno: { anel: 'border-primary bg-primary',    ponto: 'text-white',    texto: 'text-text-main' },
+  erro:      { anel: 'border-accent-error bg-accent-error',    ponto: 'text-white',    texto: 'text-accent-error' },
+  pendente:  { anel: 'border-black/15 bg-white',         ponto: 'text-black/25', texto: 'text-text-faint' },
 };
 
 function Trilha({ passos }: { passos: Passo[] }) {
@@ -44,7 +44,7 @@ function Trilha({ passos }: { passos: Passo[] }) {
             {!ultimo && (
               <span className={cx(
                 'absolute left-[11px] top-6 h-full w-px',
-                p.status === 'feito' ? 'bg-[#16a34a]/35' : 'bg-black/[0.09]',
+                p.status === 'feito' ? 'bg-accent-success/35' : 'bg-black/[0.09]',
               )} />
             )}
             <span className={cx(
@@ -61,10 +61,10 @@ function Trilha({ passos }: { passos: Passo[] }) {
                 <span className="mt-1 inline-block"><Badge tone="active">precisa de você</Badge></span>
               )}
               {p.status === 'fazendo' && (
-                <p className="mt-0.5 text-[11px] text-[#8a8a8a]">trabalhando…</p>
+                <p className="mt-0.5 text-[11px] text-text-soft">trabalhando…</p>
               )}
               {p.status === 'erro' && (
-                <p className="mt-0.5 text-[11px] text-[#b91c1c]">travou</p>
+                <p className="mt-0.5 text-[11px] text-accent-error">travou</p>
               )}
             </div>
           </div>
@@ -166,18 +166,24 @@ export default function Studio() {
 
   return (
     <AuthGate>
-      <div className="min-h-screen bg-[#f8f7f4]">
-        <header className="sticky top-0 z-20 border-b border-black/[0.07] bg-[#f8f7f4]/85 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[15px] font-bold tracking-tight">
-                <span className="text-[#e67e22]">é</span>ozoré
-              </span>
-              <span className="text-[13px] text-[#a8a8a8]">Studio</span>
+      <div className="min-h-screen bg-bg-deep">
+        {/* Espelha components/layout/Header.tsx — a mesma altura (h-16), o
+            mesmo contêiner (max-w-container = 1140px), o mesmo vidro
+            (glass-strong) e a MESMA marca. O Studio desenhava um logotipo
+            diferente do site: aqui o "é" era laranja, lá é o ponto final; a
+            fonte era 15px contra 20px; o contêiner tinha 1152px contra 1140.
+            Entrar no Studio parecia sair do site. */}
+        <header className="sticky top-0 z-50 glass-strong">
+          <div className="mx-auto flex h-16 max-w-container items-center justify-between px-4">
+            <div className="flex items-baseline gap-2.5">
+              <a href="/" className="text-xl font-bold text-text-main transition-colors hover:text-primary">
+                éozoré<span className="text-primary">.</span>
+              </a>
+              <span className="text-sm font-medium text-text-muted">Studio</span>
             </div>
             <div className="flex items-center gap-3">
               {estado?.tema && (
-                <span className="hidden max-w-xs truncate text-[12px] text-[#6b6b6b] sm:block">
+                <span className="hidden max-w-xs truncate text-sm text-text-muted sm:block">
                   {estado.tema}
                 </span>
               )}
@@ -188,10 +194,10 @@ export default function Studio() {
 
         <main className="mx-auto max-w-6xl px-5 py-8">
           <div className="mb-7">
-            <h1 className="text-[26px] font-bold leading-tight tracking-tight text-[#1e1e1e]">
+            <h1 className="text-[26px] font-bold leading-tight tracking-tight text-text-main">
               {resumo.titulo}
             </h1>
-            <p className="mt-1.5 text-[14px] text-[#6b6b6b]">{resumo.sub}</p>
+            <p className="mt-1.5 text-[14px] text-text-muted">{resumo.sub}</p>
           </div>
 
           {erro && (
