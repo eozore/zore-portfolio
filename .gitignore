@@ -122,3 +122,11 @@ tool_csm/
 
 # Log de execução local do studio.
 agents/cmo_agent/studio_execution.log
+
+# Artefato do docker-compose.local.yml, não código. O compose monta
+# `agents/cmo_agent` em /app e, por cima, `infra/local/seed.py` em
+# /app/seed.py. Para criar o alvo desse segundo bind mount o Docker cria um
+# arquivo vazio no host — dentro de agents/cmo_agent, que é um pacote Python.
+# Some ao dar `down -v`, reaparece ao subir, e volta a aparecer como untracked
+# em todo `git status` de quem roda o ambiente local.
+agents/cmo_agent/seed.py

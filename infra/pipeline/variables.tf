@@ -42,8 +42,8 @@ variable "heygen_engine" {
     avatar_v exige que o look declare "avatar_v" em supported_api_engines;
     o job checa antes de gastar e cai para avatar_iv se não suportar.
   EOT
-  type    = string
-  default = "avatar_v"
+  type        = string
+  default     = "avatar_v"
 
   validation {
     condition     = contains(["avatar_iii", "avatar_iv", "avatar_v"], var.heygen_engine)
