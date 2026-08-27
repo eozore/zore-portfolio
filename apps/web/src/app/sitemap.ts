@@ -5,7 +5,10 @@ import { getAllArticles } from '@/lib/articles';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://eozore.com';
 
 // Static pages that exist in every locale
-const STATIC_PATHS = ['', '/blog', '/tools'];
+// /privacy e /terms entram aqui porque o Google exige que sejam acessíveis
+// para publicar a tela de consentimento OAuth — e uma página que o sitemap
+// não anuncia é uma página que o revisor pode não encontrar.
+const STATIC_PATHS = ['', '/blog', '/tools', '/privacy', '/terms'];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
