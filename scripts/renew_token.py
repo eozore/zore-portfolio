@@ -24,7 +24,7 @@ provedor devolve redirect_uri_mismatch. Passe a sua com --redirect-uri:
 Dois modos, escolhidos automaticamente:
 
   localhost  sobe um servidor local e captura o redirect sozinho
-             (requer http://localhost:8080/ registrada no app)
+             (requer http://localhost:8080/callback registrada no app)
 
   pública    modo de colagem: você aprova, copia a URL da barra de endereço
              e cola no terminal. A página de callback NÃO precisa existir
@@ -69,14 +69,26 @@ def obtain_code(auth_url: str, redirect_uri: str, port: int) -> str:
     return paste_code(auth_url, redirect_uri)
 
 
+# O caminho registrado no OAuth client deste projeto é /callback, não a raiz.
+# O default era "/" e a renovação de 27/08/2026 morreu em
+# redirect_uri_mismatch por causa disso — o Google compara a redirect_uri
+# caractere a caractere, e "/" e "/callback" são URIs diferentes para ele.
+#
+# O servidor local ignora o caminho (só lê a query string), então mudar o
+# default não quebra nada; só faz o script pedir o que já está registrado.
+CAMINHO_CALLBACK = "/callback"
+
+
 def redirect_uri_for(port: int) -> str:
     """
-    A barra final importa: o Google compara a redirect_uri caractere a
-    caractere. "http://localhost:8080" e "http://localhost:8080/" são URIs
-    diferentes para ele, e a divergência aparece como redirect_uri_mismatch.
-    Registre no console exatamente a string que este script imprime.
+    Cada caractere importa, inclusive o caminho e a barra final: o Google
+    compara a redirect_uri byte a byte, e a divergência aparece como
+    redirect_uri_mismatch. Registre no console exatamente a string que este
+    script imprime.
+
+    Se o seu app registrar outro caminho, passe --redirect-uri.
     """
-    return f"http://localhost:{port}/"
+    return f"http://localhost:{port}{CAMINHO_CALLBACK}"
 
 
 # ── Secret Manager ────────────────────────────────────────────────────────────
