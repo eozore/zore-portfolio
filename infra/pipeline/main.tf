@@ -290,6 +290,7 @@ resource "google_cloud_run_v2_service" "pipeline_trigger" {
           memory = "512Mi"
           cpu    = "1"
         }
+        cpu_idle = false
       }
 
       dynamic "env" {
@@ -300,10 +301,6 @@ resource "google_cloud_run_v2_service" "pipeline_trigger" {
         }
       }
 
-      env {
-        name  = "PYTHONPATH"
-        value = "/app"
-      }
 
       env {
         name  = "GCP_REGION"
@@ -316,6 +313,10 @@ resource "google_cloud_run_v2_service" "pipeline_trigger" {
 
   # Pub/Sub push usa OIDC token — nao precisa de acesso publico anonimo
   ingress = "INGRESS_TRAFFIC_ALL"
+
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].containers[0].image]
+  }
 }
 
 # SA do pipeline pode acionar jobs (necessario para pipeline-trigger)
@@ -353,6 +354,7 @@ resource "google_cloud_run_v2_service" "heygen_callback" {
           memory = "512Mi"
           cpu    = "1"
         }
+        cpu_idle = false
       }
 
       dynamic "env" {
@@ -363,26 +365,27 @@ resource "google_cloud_run_v2_service" "heygen_callback" {
         }
       }
 
-      env {
-        name  = "PYTHONPATH"
-        value = "/app"
-      }
     }
 
     timeout = "60s"
   }
 
   ingress = "INGRESS_TRAFFIC_ALL"
+
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].containers[0].image]
+  }
 }
 
 # ── Cloud Run Service: publisher-immediate ────────────────────────────────
 
 
-# NOTA DE DRIFT: este resource está desatualizado em relação ao que
-# cloudbuild-pipeline.yaml realmente deploya (memory/cpu/timeout maiores,
-# secrets do YouTube, GCS_BUCKET/TENANT_ID/PLAYWRIGHT_CHROMIUM_ARGS). O
-# cloudbuild é quem roda em CI hoje; este arquivo não reflete a config viva.
-# Fica registrado para uma reconciliação futura — não bloqueia o uso normal.
+# Publica o vídeo assim que a pipeline sinaliza `video-ready`, e serve o
+# alvo do Cloud Scheduler diário. Chama YouTube e renderiza imagem social com
+# Playwright — daí 2 CPU/2Gi e o timeout de 600s, que são os valores no ar.
+#
+# YOUTUBE_UPLOAD_PRIVACY=private é um trinco, não um padrão: o vídeo sobe
+# privado e a publicação é uma decisão humana posterior.
 resource "google_cloud_run_v2_service" "publisher_immediate" {
   name     = "publisher-immediate"
   location = var.region
@@ -406,9 +409,10 @@ resource "google_cloud_run_v2_service" "publisher_immediate" {
 
       resources {
         limits = {
-          memory = "512Mi"
-          cpu    = "1"
+          memory = "2Gi"
+          cpu    = "2"
         }
+        cpu_idle = false
       }
 
       dynamic "env" {
@@ -420,15 +424,54 @@ resource "google_cloud_run_v2_service" "publisher_immediate" {
       }
 
       env {
-        name  = "PYTHONPATH"
-        value = "/app"
+        name  = "YOUTUBE_UPLOAD_PRIVACY"
+        value = "private"
+      }
+
+      env {
+        name  = "PLAYWRIGHT_CHROMIUM_ARGS"
+        value = "--disable-dev-shm-usage --no-sandbox --disable-gpu"
+      }
+
+      env {
+        name = "YOUTUBE_OAUTH_CLIENT_ID"
+        value_source {
+          secret_key_ref {
+            secret  = "youtube-oauth-client-id"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "YOUTUBE_OAUTH_CLIENT_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "youtube-oauth-client-secret"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "YOUTUBE_OAUTH_REFRESH_TOKEN"
+        value_source {
+          secret_key_ref {
+            secret  = "youtube-oauth-refresh-token"
+            version = "latest"
+          }
+        }
       }
     }
 
-    timeout = "300s"
+    timeout = "600s"
   }
 
   ingress = "INGRESS_TRAFFIC_ALL"
+
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].containers[0].image]
+  }
 }
 
 # ── Cloud Run Jobs ─────────────────────────────────────────────────────────
@@ -440,14 +483,15 @@ resource "google_cloud_run_v2_job" "package_job" {
   template {
     template {
       service_account = local.sa_email
-      max_retries     = 0   # o job persiste o erro na sessao; retry e do usuario
+      max_retries     = 0 # o job persiste o erro na sessao; retry e do usuario
       # 1h: scriptwriter + slide_designer (1 chamada LLM por slide) + manifest.
       # O limite antigo era o timeout de 600s do servico frontend.
       timeout = "3600s"
 
       containers {
         image   = var.pipeline_image
-        command = ["python", "-m", "package_job"]
+        command = ["python"]
+        args    = ["-m", "package_job"]
 
         resources {
           limits = {
@@ -464,10 +508,6 @@ resource "google_cloud_run_v2_job" "package_job" {
           }
         }
 
-        env {
-          name  = "PYTHONPATH"
-          value = "/app"
-        }
 
         # URL do cmo-agent, que hospeda os agentes especialistas.
         env {
@@ -477,8 +517,10 @@ resource "google_cloud_run_v2_job" "package_job" {
       }
     }
   }
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+  }
 }
-
 resource "google_cloud_run_v2_job" "tts_job" {
   name     = "tts-job"
   location = var.region
@@ -491,7 +533,8 @@ resource "google_cloud_run_v2_job" "tts_job" {
 
       containers {
         image   = var.pipeline_image
-        command = ["python", "-m", "tts_job"]
+        command = ["python"]
+        args    = ["-m", "tts_job"]
 
         resources {
           limits = {
@@ -508,10 +551,6 @@ resource "google_cloud_run_v2_job" "tts_job" {
           }
         }
 
-        env {
-          name  = "PYTHONPATH"
-          value = "/app"
-        }
 
         env {
           name = "ELEVENLABS_API_KEY"
@@ -535,8 +574,10 @@ resource "google_cloud_run_v2_job" "tts_job" {
       }
     }
   }
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+  }
 }
-
 resource "google_cloud_run_v2_job" "avatar_job" {
   name     = "avatar-job"
   location = var.region
@@ -549,7 +590,8 @@ resource "google_cloud_run_v2_job" "avatar_job" {
 
       containers {
         image   = var.pipeline_image
-        command = ["python", "-m", "avatar_job"]
+        command = ["python"]
+        args    = ["-m", "avatar_job"]
 
         resources {
           limits = {
@@ -566,10 +608,6 @@ resource "google_cloud_run_v2_job" "avatar_job" {
           }
         }
 
-        env {
-          name  = "PYTHONPATH"
-          value = "/app"
-        }
 
         env {
           name  = "HEYGEN_CALLBACK_URL"
@@ -597,8 +635,10 @@ resource "google_cloud_run_v2_job" "avatar_job" {
       }
     }
   }
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+  }
 }
-
 resource "google_cloud_run_v2_job" "video_editor_job" {
   name     = "video-editor-job"
   location = var.region
@@ -611,7 +651,8 @@ resource "google_cloud_run_v2_job" "video_editor_job" {
 
       containers {
         image   = var.pipeline_image
-        command = ["python", "-m", "video_editor_job"]
+        command = ["python"]
+        args    = ["-m", "video_editor_job"]
 
         resources {
           limits = {
@@ -628,10 +669,6 @@ resource "google_cloud_run_v2_job" "video_editor_job" {
           }
         }
 
-        env {
-          name  = "PYTHONPATH"
-          value = "/app"
-        }
 
         env {
           name  = "PLAYWRIGHT_CHROMIUM_ARGS"
@@ -640,8 +677,10 @@ resource "google_cloud_run_v2_job" "video_editor_job" {
       }
     }
   }
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+  }
 }
-
 # Corte vertical: mesmo perfil do editor (Playwright + FFmpeg), mas sem
 # nenhum secret de API — ele nao chama HeyGen nem ElevenLabs, so recorta e
 # remonta o que o video horizontal ja produziu.
@@ -657,7 +696,8 @@ resource "google_cloud_run_v2_job" "vertical_cut_job" {
 
       containers {
         image   = var.pipeline_image
-        command = ["python", "-m", "vertical_cut_job"]
+        command = ["python"]
+        args    = ["-m", "vertical_cut_job"]
 
         resources {
           limits = {
@@ -674,15 +714,6 @@ resource "google_cloud_run_v2_job" "vertical_cut_job" {
           }
         }
 
-        env {
-          name  = "PYTHONPATH"
-          value = "/app"
-        }
-
-        env {
-          name  = "PLAYWRIGHT_CHROMIUM_ARGS"
-          value = "--disable-dev-shm-usage --no-sandbox --disable-gpu"
-        }
 
         # Enquadramento do crop 9:16 sobre o frame 16:9. 0.5 = centrado, que e
         # onde o HeyGen posiciona o apresentador. Ajustavel por preset de
@@ -691,11 +722,24 @@ resource "google_cloud_run_v2_job" "vertical_cut_job" {
           name  = "HEYGEN_AVATAR_CROP_X_RATIO"
           value = "0.5"
         }
+
+        env {
+          name  = "PLAYWRIGHT_CHROMIUM_ARGS"
+          value = "--disable-dev-shm-usage --no-sandbox --disable-gpu"
+        }
       }
     }
   }
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+  }
 }
-
+# Fila agendada: publica o que a social_queue marcou para hoje. Mesmo perfil
+# do publisher-immediate (Playwright para renderizar imagem de post), por isso
+# 2 CPU/2Gi — 512Mi derrubava o Chromium.
+#
+# Precisa das TRÊS credenciais do YouTube. Com só o refresh token não há como
+# trocar por access token: o refresh exige client_id e client_secret juntos.
 resource "google_cloud_run_v2_job" "publisher_scheduled" {
   name     = "publisher-scheduled"
   location = var.region
@@ -704,16 +748,17 @@ resource "google_cloud_run_v2_job" "publisher_scheduled" {
     template {
       service_account = local.sa_email
       max_retries     = 0
-      timeout         = "1800s"
+      timeout         = "3600s"
 
       containers {
         image   = var.pipeline_image
-        command = ["python", "-m", "publisher_job"]
+        command = ["python"]
+        args    = ["-m", "publisher_job"]
 
         resources {
           limits = {
-            memory = "512Mi"
-            cpu    = "1"
+            memory = "2Gi"
+            cpu    = "2"
           }
         }
 
@@ -726,8 +771,28 @@ resource "google_cloud_run_v2_job" "publisher_scheduled" {
         }
 
         env {
-          name  = "PYTHONPATH"
-          value = "/app"
+          name  = "PLAYWRIGHT_CHROMIUM_ARGS"
+          value = "--disable-dev-shm-usage --no-sandbox --disable-gpu"
+        }
+
+        env {
+          name = "YOUTUBE_OAUTH_CLIENT_ID"
+          value_source {
+            secret_key_ref {
+              secret  = "youtube-oauth-client-id"
+              version = "latest"
+            }
+          }
+        }
+
+        env {
+          name = "YOUTUBE_OAUTH_CLIENT_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = "youtube-oauth-client-secret"
+              version = "latest"
+            }
+          }
         }
 
         env {
@@ -741,6 +806,10 @@ resource "google_cloud_run_v2_job" "publisher_scheduled" {
         }
       }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
   }
 }
 
