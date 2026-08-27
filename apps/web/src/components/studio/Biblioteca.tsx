@@ -97,11 +97,14 @@ function quando(iso: string): string {
 }
 
 function Linha({
-  p, onAbrir, onRetomar, ocupado,
+  p, onAbrir, onRetomar, onPublicarArtigo, onAgendar, onVertical, ocupado,
 }: {
   p: ProjetoResumo;
   onAbrir: (sessionId: string) => void;
   onRetomar: (projectId: string, etapa: string, custo?: string) => void;
+  onPublicarArtigo: (slug: string) => void;
+  onAgendar: (sessionId: string) => void;
+  onVertical: (projectId: string) => void;
   ocupado: boolean;
 }) {
   const travado = p.video.estado === 'erro';
@@ -142,6 +145,9 @@ function Linha({
             estado={p.artigo.estado}
             detalhe={p.artigo.status === 'draft' ? 'rascunho' : undefined}
             acao={p.artigo.url ? { texto: 'ver', onClick: () => window.open(p.artigo.url, '_blank') } : undefined}
+            extra={p.artigo.status === 'draft' && p.artigo.slug && !ocupado
+              ? { texto: 'publicar', onClick: () => onPublicarArtigo(p.artigo.slug as string) }
+              : undefined}
           />
           <Celula
             rotulo="Vídeo"
@@ -165,8 +171,23 @@ function Linha({
                 ? `${p.social.publicadas} pub · ${p.social.agendadas} na fila`
                 : undefined
             }
+            // Só quando NADA está na fila. Com peças agendadas, um segundo
+            // clique duplicaria a semana inteira — foi a queixa que abriu
+            // este redesenho.
+            extra={!p.social.agendadas && !p.social.publicadas && !ocupado
+              ? { texto: 'agendar a semana', onClick: () => onAgendar(p.sessionId) }
+              : undefined}
           />
-          <Celula rotulo="Vertical" estado={p.vertical.estado} />
+          <Celula
+            rotulo="Vertical"
+            estado={p.vertical.estado}
+            // O Reel é recorte do vídeo longo: sem vídeo pronto não há de onde
+            // recortar, e o job falharia depois de enfileirado.
+            extra={p.vertical.estado === 'na' && p.video.estado === 'pronto'
+                   && p.projectId && !ocupado
+              ? { texto: 'derivar Reel', onClick: () => onVertical(p.projectId as string) }
+              : undefined}
+          />
         </div>
       </div>
     </Card>
@@ -205,6 +226,56 @@ export default function Biblioteca({
   }, []);
 
   useEffect(() => { void buscar(); }, [buscar]);
+
+  /**
+   * Ação de um entregável, direto da lista.
+   *
+   * Os quatro caminhos já existiam no fluxo — publicar artigo, agendar a
+   * semana, derivar o vertical, reprocessar. O que faltava era alcançá-los
+   * sem antes abrir o projeto e navegar até o passo certo, que num ciclo já
+   * concluído nem aparece mais.
+   */
+  const acao = useCallback(async (
+    rotulo: string,
+    executar: () => Promise<Response>,
+  ) => {
+    setOcupado(true); setErro(''); setAviso('');
+    try {
+      const r = await executar();
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.detail || d.error || `HTTP ${r.status}`);
+      setAviso(`${rotulo}: pronto.`);
+      await buscar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(false);
+    }
+  }, [buscar]);
+
+  const publicarArtigo = useCallback((slug: string) => acao(
+    'Artigo publicado',
+    () => fetch('/api/csm/article-publish', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug }),
+    }),
+  ), [acao]);
+
+  const agendarSemana = useCallback((sessionId: string) => acao(
+    'Semana agendada',
+    () => fetch('/api/csm/studio', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'agendar', sessionId }),
+    }),
+  ), [acao]);
+
+  const derivarVertical = useCallback((projectId: string) => acao(
+    'Corte vertical pedido',
+    () => fetch('/api/csm/derive-vertical', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    }),
+  ), [acao]);
 
   /**
    * Retoma a produção reusando o MESMO projeto.
@@ -280,6 +351,9 @@ export default function Biblioteca({
           <Linha
             key={p.sessionId} p={p} onAbrir={onAbrir}
             onRetomar={retomar} ocupado={ocupado}
+            onPublicarArtigo={publicarArtigo}
+            onAgendar={agendarSemana}
+            onVertical={derivarVertical}
           />
         ))}
       </div>
