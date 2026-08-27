@@ -650,7 +650,6 @@ def wrap_scriptwriter_manifest(
     # do slide_designer sobrescrevem o CSS principal do manifesto, fazendo todos os
     # slides aparecerem simultaneamente em vez de obedecer ao goTo(i).
     slides_html_parts = []
-    shared_keyframes_added = False  # evita duplicar @keyframes em cada slide
 
     for sid in slide_ids:
         designer_html = _slide_htmls_cache.get(sid, "") if _slide_htmls_cache else ""
@@ -661,67 +660,24 @@ def wrap_scriptwriter_manifest(
 
             scoped_style = ""
             if style_match:
-                raw_css = style_match.group(1)
-
-                # 1. Extrair @keyframes separadamente (não precisam de escopo)
-                keyframes = re.findall(r'@keyframes\s+\w+\s*\{[^}]*(?:\{[^}]*\}[^}]*)*\}', raw_css)
-
-                # 2. Remover @keyframes do CSS principal para reprocessar
-                css_no_kf = re.sub(r'@keyframes\s+\w+\s*\{[^}]*(?:\{[^}]*\}[^}]*)*\}', '', raw_css)
-
-                # 3. Remover regras que se aplicam ao html/body do documento do slide
-                #    (seriam corretas em documento standalone, mas vazam no manifesto)
-                css_no_kf = re.sub(
-                    r'(?:html\s*,\s*body|html|body|:root)\s*\{[^}]*\}',
-                    '',
-                    css_no_kf,
-                    flags=re.IGNORECASE,
-                )
-
-                # 4. Remover regras de .slide e .slide.active que conflitam com o
-                #    sistema de navegação do manifesto
-                css_no_kf = re.sub(
-                    r'\.slide(?:\.active)?\s*\{[^}]*\}',
-                    '',
-                    css_no_kf,
-                    flags=re.IGNORECASE,
-                )
-
-                # 5. Escopar todas as regras restantes ao #sid
-                #    para que seletores como "div", ".content", etc. não vazem
-                scoped_rules = []
-                for rule in re.finditer(
-                    r'([^{}\n]+)\s*\{([^{}]*)\}',
-                    css_no_kf,
-                    re.MULTILINE,
-                ):
-                    selector = rule.group(1).strip()
-                    props    = rule.group(2).strip()
-                    if not selector or not props:
-                        continue
-                    # Escopar: ".foo { ... }" → "#sid .foo { ... }"
-                    scoped_selectors = ", ".join(
-                        f"#{sid} {s.strip()}" for s in selector.split(",") if s.strip()
-                    )
-                    scoped_rules.append(f"{scoped_selectors} {{ {props} }}")
-
-                kf_css = "\n".join(keyframes) if not shared_keyframes_added and keyframes else ""
-                if keyframes:
-                    shared_keyframes_added = True
-
-                scoped_style = (
-                    f'<style id="style-{sid}">\n'
-                    f'{kf_css}\n'
-                    f'{chr(10).join(scoped_rules)}\n'
-                    f'</style>'
-                )
+                # Todo o trabalho está em escopar_css_do_slide: o que havia
+                # aqui era uma sequência de regexes que apagava `:root`
+                # (levando junto as custom properties do designer) e entrava
+                # dentro dos `@keyframes`. Ver o docstring da função.
+                css = escopar_css_do_slide(style_match.group(1), sid)
+                if css.strip():
+                    scoped_style = f'<style id="style-{sid}">\n{css}\n</style>'
 
             slide_content = body_match.group(1).strip() if body_match else designer_html
 
             slides_html_parts.append(
                 f'{scoped_style}\n'
+                # Sem padding nem alinhamento aqui: o slide_designer desenha o
+                # próprio `.slide-container` de 1920x1080 e este inline
+                # style brigava com ele — o conteúdo saía encostado à
+                # esquerda, dentro de uma caixa menor que o vídeo.
                 f'<section class="slide" id="{sid}" data-seg="{sid}" '
-                f'style="position:absolute;inset:0;overflow:hidden;flex-direction:column;justify-content:center;align-items:flex-start;padding:80px;background:#0d0f14;">'
+                f'style="position:absolute;inset:0;overflow:hidden;background:#0d0f14;">'
                 f'{slide_content}'
                 f'</section>'
             )
@@ -865,6 +821,128 @@ def manifest_stats(manifest_dict: dict) -> dict:
         "vertical_cut_count": len(cut),
         "vertical_slides":    len([i for i in cut if i.get("slide")]),
     }
+
+
+# ── Escopamento do CSS dos slides ─────────────────────────────────────────────
+
+def _blocos_de_topo(css: str) -> list[tuple[str, str]]:
+    r"""
+    Divide o CSS em blocos de primeiro nível casando chaves de verdade.
+
+    A versão anterior usava a regex `([^{}\n]+)\s*\{([^{}]*)\}`, que não
+    enxerga aninhamento: ela entrava DENTRO de um `@keyframes` e tratava os
+    passos `from {` e `to {` como se fossem seletores. O manifesto de 27/08
+    saiu com regras literais `#yt-02 to { opacity: 1 }`.
+    """
+    css = re.sub(r"/\*[\s\S]*?\*/", "", css)
+    blocos: list[tuple[str, str]] = []
+    prof = 0
+    ini_prelude = 0
+    ini_corpo = 0
+    for i, ch in enumerate(css):
+        if ch == "{":
+            prof += 1
+            if prof == 1:
+                ini_corpo = i + 1
+        elif ch == "}":
+            prof -= 1
+            if prof == 0:
+                blocos.append((css[ini_prelude:ini_corpo - 1].strip(), css[ini_corpo:i]))
+                ini_prelude = i + 1
+    return blocos
+
+
+def _escopar_seletor(seletor: str, sid: str) -> str:
+    """`.foo, .bar` → `#sid .foo, #sid .bar`; `:root`/`html`/`body` → `#sid`."""
+    partes = []
+    for bruto in seletor.split(","):
+        alvo = bruto.strip()
+        if not alvo:
+            continue
+        # `:root`, `html` e `body` descrevem o documento do slide quando ele é
+        # standalone. No deck eles NÃO podem ser apagados: é onde o
+        # slide_designer declara as custom properties. Apagá-los foi o que
+        # deixou o manifesto de 27/08 com 173 referências `var(--…)` e ZERO
+        # definições — todo tamanho, cor e espaçamento caiu no padrão do
+        # navegador, e o slide virou texto corrido a 18px.
+        #
+        # Re-alvejar para `#sid` preserva as variáveis e ainda as mantém
+        # herdando só dentro do slide.
+        if re.fullmatch(r"(:root|html|body)", alvo, flags=re.IGNORECASE):
+            partes.append(f"#{sid}")
+        elif re.match(r"(:root|html|body)\b", alvo, flags=re.IGNORECASE):
+            resto = re.sub(r"^(:root|html|body)\b", "", alvo, flags=re.IGNORECASE).strip()
+            partes.append(f"#{sid} {resto}".strip())
+        else:
+            partes.append(f"#{sid} {alvo}")
+    return ", ".join(partes)
+
+
+def escopar_css_do_slide(raw_css: str, sid: str) -> str:
+    """
+    Prende o CSS de um slide ao seu próprio `#sid`, sem perder nada.
+
+    Três coisas que a versão por regex fazia errado, todas verificadas contra
+    o manifesto que foi para produção em 27/08:
+
+      1. apagava `:root` e com ele as custom properties — o slide perdia todo
+         o design e saía como texto sem estilo;
+      2. entrava dentro de `@keyframes` e escopava `from`/`to` como seletor;
+      3. só mantinha os `@keyframes` do PRIMEIRO slide (`shared_keyframes_added`),
+         então do segundo em diante as animações não existiam.
+
+    Os `@keyframes` agora são renomeados por slide, o que elimina tanto a
+    colisão de nomes quanto a necessidade de descartar os repetidos.
+    """
+    sufixo = sid.replace("-", "_")
+    regras: list[str] = []
+    nomes_kf: set[str] = set()
+
+    def emitir(prelude: str, corpo: str) -> None:
+        nome_at = prelude.split()[0].lower() if prelude.startswith("@") else ""
+
+        if nome_at in ("@keyframes", "@-webkit-keyframes"):
+            partes = prelude.split(None, 1)
+            nome = partes[1].strip() if len(partes) > 1 else ""
+            if nome:
+                nomes_kf.add(nome)
+                regras.append(f"{partes[0]} {nome}__{sufixo} {{{corpo}}}")
+            return
+
+        if nome_at == "@font-face":
+            regras.append(f"@font-face {{{corpo}}}")
+            return
+
+        if nome_at in ("@media", "@supports", "@layer", "@container"):
+            internas = [
+                f"{_escopar_seletor(p, sid)} {{{c}}}"
+                for p, c in _blocos_de_topo(corpo)
+                if p and c.strip() and not p.startswith("@")
+            ]
+            if internas:
+                regras.append(prelude + " {\n" + "\n".join(internas) + "\n}")
+            return
+
+        if prelude.startswith("@"):      # @import, @charset e afins: descartar
+            return
+
+        if prelude and corpo.strip():
+            regras.append(f"{_escopar_seletor(prelude, sid)} {{{corpo}}}")
+
+    for prelude, corpo in _blocos_de_topo(raw_css):
+        emitir(prelude, corpo)
+
+    css = "\n".join(regras)
+
+    # Os nomes renomeados precisam ser trocados também em quem os referencia,
+    # senão a animação aponta para um `@keyframes` que não existe mais.
+    for nome in nomes_kf:
+        css = re.sub(
+            r"(animation(?:-name)?\s*:[^;}]*?)\b" + re.escape(nome) + r"\b",
+            lambda m: m.group(1) + f"{nome}__{sufixo}",
+            css,
+        )
+    return css
 
 
 def validate_manifest(manifest_dict: dict) -> tuple[list[str], dict]:

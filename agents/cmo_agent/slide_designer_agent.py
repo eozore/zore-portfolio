@@ -51,6 +51,19 @@ Design system éozoré:
   font-display: 'Space Grotesk', sans-serif
   font-mono: 'JetBrains Mono', monospace
 
+Escala tipográfica — ISTO É VÍDEO, não uma página web:
+  eyebrow (mono, caixa alta, letter-spacing .2em)  34px
+  subtítulo / apoio                                34px
+  texto de corpo e de coluna                       32px
+  número ou destaque grande                        72px a 120px
+  remate de rodapé                                 38px
+  NENHUM texto abaixo de 28px, em nenhuma hipótese.
+
+  O espectador assiste no celular, muitas vezes com o vídeo ocupando metade
+  da tela. Tamanho de site (16px a 20px) fica ilegível: num quadro de
+  1920x1080, 18px é 1,7% da altura. Prefira MENOS palavras em corpo grande
+  a mais palavras em corpo pequeno.
+
 Grid de fundo (obrigatório em todos os slides):
   background-image: linear-gradient(rgba(232,135,58,.045) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(232,135,58,.045) 1px, transparent 1px);
@@ -210,11 +223,48 @@ REGRAS OBRIGATÓRIAS:
 10. Sem JavaScript no HTML — as âncoras são disparadas externamente pelo Playwright
 11. Zero LaTeX (\\, $, mathbb) — use Unicode para símbolos matemáticos (₀ ₁ ² ∆ × → ≈ etc.)
 12. Conteúdo em português brasileiro
+13. O "Script falado" acima é a LOCUÇÃO — o que a voz vai dizer por cima deste
+    slide. NUNCA reproduza esse texto na tela, nem inteiro nem em trechos, nem
+    entre aspas, nem como rodapé ou legenda. Slide que exibe a própria narração
+    faz o espectador ler e ouvir a mesma frase ao mesmo tempo, e não sobra
+    atenção para nenhuma das duas.
+14. O slide MOSTRA o que a fala não consegue: um diagrama, uma comparação, um
+    número, uma estrutura. Use o script apenas para saber SOBRE O QUE desenhar.
+15. Orçamento de texto por slide: no máximo ~30 palavras somando tudo. Se não
+    couber, corte conteúdo — não diminua a fonte.
 
 Retorne SOMENTE o HTML. Nenhum texto antes ou depois."""
 
 
 # ── Validação do HTML gerado ──────────────────────────────────────────────────
+
+def _narracao_vazou_para_a_tela(html: str, script: str, minimo: int = 60) -> bool:
+    """
+    True quando o slide exibe um trecho literal da locução.
+
+    Nasceu do vídeo de 27/08: o slide `yt-02` trazia a narração inteira entre
+    aspas num `.footer-script`. O espectador lia e ouvia a mesma frase ao mesmo
+    tempo. O prompt agora proíbe, mas proibição em prompt é sugestão — esta
+    checagem é o que de fato barra.
+
+    Compara o TEXTO visível (sem tags, sem <style>) contra janelas do script.
+    `minimo` em 60 caracteres evita acusar coincidência: um termo técnico
+    repetido é esperado e legítimo; uma frase inteira não.
+    """
+    limpo = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", html, flags=re.IGNORECASE)
+    limpo = re.sub(r"<[^>]+>", " ", limpo)
+    limpo = re.sub(r"\s+", " ", limpo).lower()
+
+    fala = re.sub(r"\s+", " ", (script or "")).strip().lower()
+    if len(fala) < minimo:
+        return False
+
+    passo = max(1, minimo // 3)
+    for i in range(0, len(fala) - minimo + 1, passo):
+        if fala[i:i + minimo] in limpo:
+            return True
+    return False
+
 
 def _is_valid_slide_html(html: str, width: int, height: int) -> bool:
     """Verifica se o HTML gerado tem a estrutura mínima necessária."""
@@ -281,7 +331,9 @@ async def run_slide_designer(
         html = re.sub(r"\s*```\s*$", "", html, flags=re.MULTILINE)
         html = html.strip()
 
-        if _is_valid_slide_html(html, width, height):
+        if _is_valid_slide_html(html, width, height) and not _narracao_vazou_para_a_tela(
+            html, segment.get("script", "")
+        ):
             logger.info(
                 "[slide_designer] Slide OK: id=%s beat=%s target=%s (%d chars)",
                 seg_id, beat, target, len(html),
