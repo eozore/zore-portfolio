@@ -232,6 +232,10 @@ REGRAS OBRIGATÓRIAS:
     número, uma estrutura. Use o script apenas para saber SOBRE O QUE desenhar.
 15. Orçamento de texto por slide: no máximo ~30 palavras somando tudo. Se não
     couber, corte conteúdo — não diminua a fonte.
+16. O container do slide leva `data-capitulo="..."` com um título de 3 a 6
+    palavras para o trecho — é o que vira capítulo na descrição do YouTube.
+    Escreva o ASSUNTO do trecho ("Vazamento temporal na validação"), não o
+    rótulo da seção ("Problema") nem a categoria ("Engenharia de IA").
 
 Retorne SOMENTE o HTML. Nenhum texto antes ou depois."""
 

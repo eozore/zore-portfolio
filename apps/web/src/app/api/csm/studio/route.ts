@@ -188,6 +188,11 @@ async function dispararProducao(
       items: [],
       manifestV2: manifesto,
       slideHtmls: slides,
+      // Sem a pauta a descrição do YouTube sai VAZIA: quem a monta procura
+      // por uma sessão do CSM antigo, que num fluxo do grafo não existe. O
+      // vídeo de 27/08 subiu com duas linhas e nenhum capítulo por causa
+      // disto.
+      pauta: estado?.pauta,
     },
     tenantId,
   );

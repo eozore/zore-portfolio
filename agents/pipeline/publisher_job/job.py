@@ -243,6 +243,126 @@ def _get_secret_json(project_id: str, secret_id: str) -> dict:
     return json.loads(_get_secret(project_id, secret_id))
 
 
+# ── Capítulos do YouTube ──────────────────────────────────────────────────────
+
+MARCADOR_CAPITULOS = "<!--CAPITULOS-->"
+
+# Rótulo de fallback por beat, para o segmento de avatar (que não tem slide de
+# onde tirar um título) e para quando o HTML não expõe cabeçalho legível.
+_ROTULO_POR_BEAT = {
+    "hook":        "O problema",
+    "intro":       "Do que se trata",
+    "teoria":      "Como funciona",
+    "codigo":      "Na prática",
+    "demo":        "Demonstração",
+    "comparativo": "Comparando as opções",
+    "resumo":      "O que levar",
+    "cta":         "Próximo passo",
+}
+
+
+def _titulo_do_slide(manifest_html: str, slide_id: str) -> str:
+    """Cabeçalho visível do slide, extraído do deck já montado."""
+    import re as _re
+
+    m = _re.search(
+        r'<section[^>]*id="' + _re.escape(slide_id) + r'"[\s\S]*?</section>',
+        manifest_html, _re.IGNORECASE,
+    )
+    if not m:
+        return ""
+    bloco = m.group(0)
+
+    # O slide DECLARA o próprio capítulo. Adivinhar por nome de classe é
+    # frágil: o slide_designer varia a marcação a cada geração, e a lista de
+    # capítulos degradava toda para o rótulo genérico do beat.
+    declarado = _re.search(r'data-capitulo="([^"]{4,80})"', bloco, _re.IGNORECASE)
+    if declarado:
+        return _normalizar_titulo(declarado.group(1))
+
+    # Fallback para decks gerados antes da regra existir. Só classes de TÍTULO. `badge-tag`, `badge-label` e `eyebrow` carregam o
+    # rótulo da categoria ("ENGENHARIA DE IA MODERNA"), que se repete slide a
+    # slide e não diz nada sobre o trecho — vira capítulo inútil.
+    candidatos: list[str] = []
+    for classe in ("main-title", "slide-title", "titulo"):
+        achado = _re.search(
+            r'class="[^"]*\b' + classe + r'\b[^"]*"[^>]*>([^<]{4,80})<', bloco, _re.IGNORECASE
+        )
+        if achado:
+            candidatos.append(achado.group(1))
+    for achado in _re.finditer(r"<h[12][^>]*>([^<]{4,80})<", bloco, _re.IGNORECASE):
+        candidatos.append(achado.group(1))
+
+    for bruto in candidatos:
+        titulo = _normalizar_titulo(bruto)
+        # Uma palavra só quase sempre é rótulo ("PROBLEMA", "SOLUÇÃO"), não
+        # assunto. Capítulo precisa de frase.
+        if titulo and " " in titulo:
+            return titulo
+    return ""
+
+
+def _normalizar_titulo(bruto: str) -> str:
+    """
+    Limpa o texto do slide para virar capítulo.
+
+    O `//` vem do `content` do CSS do eyebrow e às vezes aparece no HTML; e
+    títulos escritos em caixa alta ficam gritando no meio de uma lista de
+    capítulos em caixa normal.
+    """
+    import re as _re
+
+    t = _re.sub(r"\s+", " ", bruto).strip()
+    t = _re.sub(r"^[/·•\-–—\s]+", "", t).strip()
+    letras = [c for c in t if c.isalpha()]
+    if letras and all(c.isupper() for c in letras):
+        t = t.capitalize()
+    return t
+
+
+def montar_capitulos(timeline: list[dict], manifest_html: str = "") -> str:
+    """
+    Capítulos no formato que o YouTube reconhece.
+
+    O YouTube só cria capítulos se o PRIMEIRO for `00:00` e houver ao menos
+    três — por isso a função devolve string vazia abaixo disso, em vez de uma
+    lista pela metade que não vira nada e só ocupa a descrição.
+
+    Os tempos vêm do `timeline.json`, que o video_editor grava com a duração
+    MEDIDA de cada clipe. Estimar pelo manifesto daria capítulos deslocados,
+    e capítulo deslocado é pior que capítulo nenhum.
+    """
+    if len(timeline) < 3:
+        return ""
+
+    linhas: list[str] = []
+    usados: set[str] = set()
+    for item in timeline:
+        inicio = float(item.get("start_s") or 0)
+        slide  = item.get("slide")
+        titulo = _titulo_do_slide(manifest_html, slide) if slide and manifest_html else ""
+        if not titulo:
+            titulo = _ROTULO_POR_BEAT.get(str(item.get("beat") or "").lower(), "")
+        # Sem título e sem beat conhecido, o segmento fica de fora: "Continuação"
+        # não ajuda ninguém a navegar e só ocupa linha.
+        if not titulo:
+            continue
+        # Dois segmentos seguidos com o mesmo rótulo viram um capítulo só: uma
+        # lista com "Como funciona" três vezes não ajuda ninguém a navegar.
+        chave = titulo.lower()
+        if chave in usados:
+            continue
+        usados.add(chave)
+        linhas.append(f"{int(inicio // 60):02d}:{int(inicio % 60):02d} — {titulo}")
+
+    if len(linhas) < 3:
+        return ""
+    # O YouTube exige que o primeiro capítulo seja 00:00.
+    if not linhas[0].startswith("00:00"):
+        linhas[0] = "00:00 — " + linhas[0].split(" — ", 1)[-1]
+    return "📌 O que você verá neste episódio:\n\n" + "\n".join(linhas)
+
+
 class PublisherJob:
     """
     Dispatcher de publicação. Lê a fila do Firestore e publica em cada plataforma.
@@ -453,6 +573,25 @@ class PublisherJob:
 
     # ── Publicação imediata pós-vídeo ──────────────────────────────────────────
 
+    def _ler_timeline(self, project_id: str) -> list[dict]:
+        """`timeline.json` do editor: início e fim medidos de cada segmento."""
+        from google.cloud import storage as _gcs
+        blob = (_gcs.Client(project=self._project_id)
+                .bucket(f"{self._project_id}-pipeline-media")
+                .blob(f"projects/{project_id}/timeline.json"))
+        dados = json.loads(blob.download_as_text())
+        if isinstance(dados, list):
+            return dados
+        return dados.get("segments") or dados.get("timeline") or []
+
+    def _ler_manifest_html(self, project_id: str) -> str:
+        """Deck montado — é dele que sai o título visível de cada slide."""
+        from google.cloud import storage as _gcs
+        return (_gcs.Client(project=self._project_id)
+                .bucket(f"{self._project_id}-pipeline-media")
+                .blob(f"projects/{project_id}/manifest.html")
+                .download_as_text())
+
     def publish_video_ready(self, msg: VideoReadyMsg) -> dict[str, str]:
         """
         Publicação imediata quando um vídeo finalizado chega do video-editor-job.
@@ -502,11 +641,31 @@ class PublisherJob:
         youtube_id  = (meta.get("publish_results") or {}).get("youtube") or already_ok.get("youtube")
         youtube_url = f"https://youtu.be/{youtube_id}" if youtube_id else YOUTUBE_CHANNEL_URL
 
+        # Capítulos entram no marcador que a descrição já reserva. Ficam aqui
+        # e não em quem monta a descrição porque dependem da duração MEDIDA de
+        # cada clipe, que só existe depois da edição.
+        capitulos = ""
+        try:
+            capitulos = montar_capitulos(
+                self._ler_timeline(project_id),
+                self._ler_manifest_html(project_id),
+            )
+        except Exception as exc:                       # noqa: BLE001
+            logger.warning("[publisher] capítulos indisponíveis: %s", exc)
+
+        corpo = description or ""
+        if MARCADOR_CAPITULOS in corpo:
+            # Sem capítulos, o marcador some junto com a linha em branco que o
+            # cercava — em vez de deixar um buraco no meio da descrição.
+            corpo = (corpo.replace(f"\n\n{MARCADOR_CAPITULOS}", f"\n\n{capitulos}")
+                     if capitulos else corpo.replace(f"\n\n{MARCADOR_CAPITULOS}", ""))
+        elif capitulos:
+            corpo = f"{corpo}\n\n{capitulos}" if corpo else capitulos
+
         copy_long = (
-            f"{description}\n\n"
-            f"📖 Artigo completo: {article_url}\n\n"
-            f"💡 Assine o canal para mais conteúdo técnico sobre IA e ML."
-        )
+            f"{corpo}\n\n"
+            f"📖 Artigo completo: {article_url}"
+        ).strip()
         # Sem "#" colado no título: `f"#{title} (Short)"` transformava o título
         # inteiro numa hashtag quebrada ('#matemática por trás do teste a/b').
         short_title = f"{title} #Shorts"

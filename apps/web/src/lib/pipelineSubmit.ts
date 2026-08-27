@@ -70,6 +70,11 @@ export interface SubmitRequest {
    *  em vez de no draft da sessão. Tem precedência sobre draft.manifestV2. */
   manifestV2?:   ManifestV2;
   slideHtmls?:   Record<string, string>;
+  /** Pauta do grafo. O Studio precisa mandá-la: `loadSession` procura uma
+   *  sessão do CSM antigo, que num fluxo nascido no grafo não existe, e a
+   *  descrição do YouTube saía VAZIA — o vídeo de 27/08 subiu com duas
+   *  linhas (link do artigo e "assine o canal") e nenhum capítulo. */
+  pauta?:        Record<string, unknown>;
 }
 
 /** Manifesto v2 aprovado — o contrato que vira vídeo, sem reinterpretação. */
@@ -159,28 +164,103 @@ interface ProjectMeta {
 }
 
 /**
- * Monta a descrição do YouTube a partir da pauta.
+ * Monta a descrição do YouTube na estrutura que o canal já usa.
  *
- * O publisher lia `meta.description` e caía em string vazia porque este
- * documento nunca gravava o campo — o vídeo subiria com descrição em branco e
- * o copy_social de LinkedIn/Threads/Instagram começaria literalmente com "...".
+ * O molde vem dos vídeos escritos à mão (BT71_36ScDc, 9QFbpcYsac8):
+ * um parágrafo que nomeia o problema, um que diz a quem interessa, a lista
+ * "Você vai aprender", os capítulos com timestamp, links e hashtags.
+ *
+ * Os capítulos NÃO entram aqui: eles dependem da duração real de cada
+ * segmento, que só existe depois da edição. O publisher os insere no
+ * marcador CAPITULOS quando lê o timeline.json.
  */
-function buildDescription(draft: Record<string, unknown> | undefined): string {
-  const pauta = (draft?.pauta ?? {}) as Record<string, unknown>;
-  const parts: string[] = [];
+export const MARCADOR_CAPITULOS = '<!--CAPITULOS-->';
 
-  if (typeof pauta.subtitulo === 'string' && pauta.subtitulo.trim()) {
-    parts.push(pauta.subtitulo.trim());
+function buildDescription(
+  pauta: Record<string, unknown> | undefined,
+  slideHtmls: Record<string, string> = {},
+): string {
+  const p = pauta ?? {};
+  const txt = (k: string): string =>
+    typeof p[k] === 'string' ? (p[k] as string).trim() : '';
+
+  const partes: string[] = [];
+
+  const tese = txt('tese');
+  const sub  = txt('subtitulo');
+  if (tese) partes.push(`Neste vídeo eu explico ${primeiraMinuscula(tese)}`);
+  else if (sub) partes.push(sub);
+
+  const publico = txt('publico');
+  const objetivo = txt('objetivo_aprendizado');
+  if (publico && objetivo) {
+    partes.push(`Se você é ${primeiraMinuscula(publico)}, o que está em jogo é ${primeiraMinuscula(objetivo)}`);
+  } else if (objetivo) {
+    partes.push(objetivo);
   }
-  if (typeof pauta.objetivo_aprendizado === 'string' && pauta.objetivo_aprendizado.trim()) {
-    parts.push(`Neste vídeo: ${pauta.objetivo_aprendizado.trim()}`);
+
+  // Os títulos dos slides são o que o vídeo REALMENTE cobre — melhor fonte
+  // para as promessas do que a lista de tecnologias da pauta.
+  const topicos = titulosDosSlides(slideHtmls);
+  if (topicos.length) {
+    partes.push(`Você vai aprender:\n\n${topicos.map((t) => `✔ ${t};`).join('\n')}`);
+  } else {
+    const skills = Array.isArray(p.hardskills) ? (p.hardskills as string[]) : [];
+    if (skills.length) {
+      partes.push(`Você vai aprender:\n\n${skills.map((sk) => `✔ ${sk};`).join('\n')}`);
+    }
   }
-  const skills = Array.isArray(pauta.hardskills) ? (pauta.hardskills as string[]) : [];
-  if (skills.length) {
-    parts.push(`O que você vai desenvolver:\n${skills.map((s) => `• ${s}`).join('\n')}`);
+
+  partes.push(MARCADOR_CAPITULOS);
+
+  partes.push(
+    '🔗 Meu portfólio: https://www.eozore.com\n' +
+    '🔗 Redes sociais:\n' +
+    'https://www.linkedin.com/in/victor-zor%C3%A9/\n' +
+    'https://github.com/eozore\n' +
+    'https://www.instagram.com/eozore.ai/',
+  );
+
+  const tags = buildTags({ pauta: p }, txt('categoria') || 'ia');
+  if (tags.length) {
+    partes.push(tags.map((t) => `#${t.replace(/[^a-z0-9à-ú]/gi, '').toLowerCase()}`).join(' '));
   }
-  return parts.join('\n\n');
+
+  return partes.filter(Boolean).join('\n\n');
 }
+
+/** "Pipelines de IA falham" → "pipelines de IA falham" (segue a frase iniciada). */
+function primeiraMinuscula(s: string): string {
+  if (!s) return s;
+  // Só rebaixa se a segunda letra for minúscula: preserva siglas (IA, LLM).
+  if (s.length > 1 && s[1] === s[1].toUpperCase() && s[1] !== s[1].toLowerCase()) return s;
+  return s[0].toLowerCase() + s.slice(1);
+}
+
+/**
+ * Título visível de cada slide, na ordem, extraído do HTML do designer.
+ *
+ * Os slides carregam o que o vídeo cobre de fato. A alternativa era a lista
+ * `hardskills` da pauta, que traz nomes de tecnologia ("LangGraph",
+ * "Firestore") em vez de promessas — e promessa é o que faz alguém assistir.
+ */
+export function titulosDosSlides(slideHtmls: Record<string, string>): string[] {
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const html of Object.values(slideHtmls ?? {})) {
+    const m =
+      html.match(/class="[^"]*\b(?:main-title|badge-label|card-tag|col-title|eyebrow)\b[^"]*"[^>]*>([^<]{4,90})</i) ??
+      html.match(/<h[12][^>]*>([^<]{4,90})</i);
+    const bruto = m?.[1]?.replace(/\s+/g, ' ').trim();
+    if (!bruto) continue;
+    const chave = bruto.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push(bruto);
+  }
+  return saida.slice(0, 8);
+}
+
 
 /** Tags do YouTube derivadas da pauta, em vez das três genéricas do fallback. */
 function buildTags(draft: Record<string, unknown> | undefined, category: string): string[] {
@@ -304,9 +384,14 @@ export async function executarSubmit(
     (sessionDraft?.publishedArticleUrl as string) ||
     `${BLOG_BASE_URL}/${articleLanguage}/blog/${articleSlug}`;
   const projectCategory = (sessionDraft?.category as string) || 'ia';
+  // A pauta do CORPO tem precedência: é a do grafo, e num fluxo do Studio o
+  // `sessionDraft` não existe.
+  const pautaEfetiva =
+    (body.pauta as Record<string, unknown> | undefined) ??
+    ((sessionDraft?.pauta ?? {}) as Record<string, unknown>);
   const projectMeta: ProjectMeta = {
-    description: buildDescription(sessionDraft),
-    tags:        buildTags(sessionDraft, projectCategory),
+    description: buildDescription(pautaEfetiva, slideHtmls),
+    tags:        buildTags({ pauta: pautaEfetiva }, projectCategory),
     articleUrl,
     subtitle:    ((sessionDraft?.pauta ?? {}) as Record<string, unknown>).subtitulo as string | undefined,
     category:    projectCategory,
