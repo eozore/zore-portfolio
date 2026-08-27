@@ -73,6 +73,11 @@ services:
       # parênteses não tem o que codificar. Só existe aqui; produção usa o
       # padrão. Ver o comentário em agents/cmo_agent/tools.py.
       FIRESTORE_DATABASE: local
+      # Só para o seed.py criar os topics: o emulador sobe sem topic nenhum e
+      # o gate do vídeo aborta em `Topic not found`. O cmo-agent em si não
+      # publica — quem publica é o Next.js.
+      PUBSUB_EMULATOR_HOST: pubsub:8085
+      GCP_PROJECT_ID: vazfy-417019
       # Vertex é real: precisa das credenciais do gcloud da máquina.
       GOOGLE_APPLICATION_CREDENTIALS: /gcloud/application_default_credentials.json
       CMO_INTERNAL_SECRET: local
@@ -104,6 +109,9 @@ services:
       TENANT_KEY_PEPPER: local
       FIREBASE_PROJECT_ID: vazfy-417019
       FIRESTORE_EMULATOR_HOST: firestore:8080
+      # Mesmo banco que o cmo-agent usa. Sem isto o Node grava em `(default)`
+      # e o Python em `local` — ver o comentário em src/lib/firebase.ts.
+      FIRESTORE_DATABASE: local
       # sha256("local") — senha do ambiente local, nunca a de produção.
       CSM_PASSWORD_HASH: 25bf8e1a2393f1108d37029b3df5593236c755742ec93465bbafa9b290bddcf6
       CSM_AUTH_SECRET: local-dev-secret
