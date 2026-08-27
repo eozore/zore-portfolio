@@ -672,12 +672,22 @@ def wrap_scriptwriter_manifest(
 
             slides_html_parts.append(
                 f'{scoped_style}\n'
-                # Sem padding nem alinhamento aqui: o slide_designer desenha o
-                # próprio `.slide-container` de 1920x1080 e este inline
-                # style brigava com ele — o conteúdo saía encostado à
-                # esquerda, dentro de uma caixa menor que o vídeo.
+                # O slide_designer desenha o próprio `.slide-container` de
+                # 1920x1080. A regra base `.slide` centraliza e aplica
+                # padding:60px, o que reduz a caixa para 1800x960 e faz o
+                # conteúdo transbordar por cima e por baixo do quadro.
+                #
+                # Zera APENAS o padding. A centralização da regra base fica:
+                # para um slide que traz o próprio container de 1920x1080 ela
+                # é inócua (centralizar um filho do tamanho do pai não move
+                # nada), e para um slide que NÃO traz é o que o mantém no meio
+                # do quadro em vez de no canto superior esquerdo.
+                #
+                # `display` não pode ser sobrescrito aqui: `.slide.active` usa
+                # `!important` e é ele que controla a navegação.
                 f'<section class="slide" id="{sid}" data-seg="{sid}" '
-                f'style="position:absolute;inset:0;overflow:hidden;background:#0d0f14;">'
+                f'style="position:absolute;inset:0;overflow:hidden;padding:0;'
+                f'background:#0d0f14;">'
                 f'{slide_content}'
                 f'</section>'
             )

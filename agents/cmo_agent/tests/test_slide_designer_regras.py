@@ -72,3 +72,38 @@ def test_quebra_de_linha_e_tag_no_meio_nao_escondem_o_vazamento():
     meio = len(FALA) // 2
     html = f"<p>{FALA[:meio]}<span>{FALA[meio:]}</span></p>"
     assert _narracao_vazou_para_a_tela(html, FALA)
+
+
+# ── Enquadramento ─────────────────────────────────────────────────────────────
+
+def test_slide_com_duas_composicoes_e_rejeitado():
+    """
+    Regressão de 27/08: o modelo devolveu DUAS composições completas na mesma
+    resposta para o `yt-02`. O HTML era válido, tinha DOCTYPE, `</html>`, as
+    dimensões e o `fd1` — passava em tudo. O que quebrava era o enquadramento:
+    a segunda composição empurrava a primeira para fora dos 1080px.
+
+    O grid de fundo é obrigatório e existe um por slide, então contá-lo é a
+    forma barata de detectar a duplicação.
+    """
+    from slide_designer_agent import _is_valid_slide_html
+
+    # Passa dos 200 chars de propósito: abaixo disso a validação recusa por
+    # tamanho e o teste passaria pelo motivo errado.
+    base = (
+        '<!DOCTYPE html><html><head><style>'
+        + ('/* padding para o tamanho minimo */' * 6) +
+        '</style></head><body style="width:1920px;height:1080px">'
+        '{grids}<div class="slide-container" id="fd1">conteudo do slide</div>'
+        '</body></html>'
+    )
+    um    = base.format(grids='<div class="bg-grid"></div>')
+    dois  = base.format(grids='<div class="bg-grid"></div><div class="bg-grid"></div>')
+
+    assert _is_valid_slide_html(um, 1920, 1080)
+    assert not _is_valid_slide_html(dois, 1920, 1080)
+
+    # Zero PASSA de propósito: há composições legítimas que desenham a grade
+    # com outro nome de classe ou direto no fundo do container. Exigir a classe
+    # reprovaria slides bons.
+    assert _is_valid_slide_html(base.format(grids=''), 1920, 1080)

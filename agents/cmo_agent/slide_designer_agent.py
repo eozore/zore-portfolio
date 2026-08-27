@@ -280,6 +280,19 @@ def _is_valid_slide_html(html: str, width: int, height: int) -> bool:
     # Deve ter pelo menos fd1
     if 'id="fd1"' not in html and "id='fd1'" not in html:
         return False
+
+    # No máximo UM grid de fundo. Dois significa que o modelo concatenou duas
+    # composições completas na mesma resposta — aconteceu com o `yt-02` numa
+    # regeração de 27/08, e uma composição empurra a outra para fora dos
+    # 1080px. O HTML fica válido e passa em todas as outras checagens; só se vê
+    # olhando o frame.
+    #
+    # ZERO não é rejeitado de propósito: slides legítimos desenham a grade com
+    # outro nome de classe ou direto no fundo do container, e exigir a classe
+    # `bg-grid` reprovaria composições boas — o `yt-07` desta mesma rodada é
+    # uma delas.
+    if len(re.findall(r'class="[^"]*\bbg-grid\b', html)) > 1:
+        return False
     return True
 
 
