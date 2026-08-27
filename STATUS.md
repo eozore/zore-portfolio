@@ -97,18 +97,40 @@ os três silenciosos, e os três desarmando a validação que o ambiente promete
 3. o Pub/Sub emulado subia sem topic, então o gate do vídeo — o mais caro do
    fluxo — abortava sempre e nunca podia ser exercitado.
 
+## O primeiro ciclo em produção — 27/08
+
+Rodou ponta a ponta: artigo publicado, semana de 51 peças agendada (28/08 a
+03/09), vídeo montado e enviado ao YouTube como privado (`c24oqVj_CRQ`).
+
+E revelou cinco defeitos que só aparecem no produto final. Nenhum deu erro em
+lugar nenhum — cada etapa reportou sucesso:
+
+| O que quebrou | Como se manifestou |
+|---|---|
+| URL do callback com path depois da query | 4 callbacks em 404; projeto travado em `pending_callback` com crédito gasto |
+| MP3 embrulhado em cabeçalho WAV | ilustrações cortadas em 18% da fala; vídeo de 94s em vez de 208s |
+| `:root` apagado no escopamento do CSS | 173 `var(--…)` sem definição; slides sem design nenhum |
+| Narração renderizada no slide | espectador lia e ouvia a mesma frase |
+| Endpoint de thumbnail sem `/set` | vídeo publicado sem capa, com a imagem pronta no GCS |
+
+Mais três na interface: agendamento sem confirmação, etapa de edição
+invisível (e polling congelando junto) e login ilegível.
+
+Todos corrigidos, cada um com teste de regressão que falha sem a correção.
+
+---
+
 ## O que falta
 
+- **Refazer o vídeo de 27/08** com o áudio e os slides corrigidos. Os clipes
+  de avatar já estão no GCS e são reaproveitáveis: custa zero de HeyGen.
 - **Nenhum ciclo completo rodou em PRODUÇÃO.** O ciclo local fecha ponta a
   ponta, mas o ambiente local não cobre IAM, Secret Manager, rede entre
   serviços do Cloud Run, nem a produção do vídeo em si (HeyGen e ElevenLabs
   são stub, e nenhum Cloud Run Job roda localmente).
 
-  **Bloqueado hoje**: o refresh token do YouTube está inválido
-  (`./scripts/check-credentials.sh` acusa). Renove com
-  `./scripts/renew_token.py youtube` — exige o seu consentimento OAuth no
-  navegador — antes de aprovar o gate do vídeo. Sem isso o vídeo é gerado,
-  gasta os créditos, e falha só na publicação.
+  Um ciclo rodou (ver acima), mas com os cinco defeitos. O próximo é que
+  vale como entrega.
 
 - **Sincronia labial não medida.** O diagnóstico está fechado (era o motor de
   renderização, não o modo de entrada de áudio — ver `PIPELINE_E2E_REVIEW.md`),

@@ -80,6 +80,28 @@ gerado. Qualquer mudança que aumente segmentos de avatar aumenta a conta.
 devolve `None` quando não consegue ler o saldo). É deliberado — mas significa
 que quebrar a leitura de saldo não dá erro, só desarma o gate em silêncio.
 
+**O formato do áudio é o que VEIO, não o que foi pedido.** A ElevenLabs
+aceita `pcm_44100` com HTTP 200 e devolve MP3. Embrulhar isso em cabeçalho
+PCM faz o arquivo mentir a duração por 5,5x: o HeyGen decodifica e vê 18s, o
+`ffprobe` lê o cabeçalho e vê 3,3s, e a ilustração é cortada em 18% da fala.
+Nenhuma etapa dá erro.
+
+**O CSS do slide não pode perder o `:root`.** É onde o `slide_designer`
+declara as custom properties. Apagar o bloco (para evitar vazamento de regra
+de documento) deixou o manifesto com 173 `var(--…)` e zero definições — todo
+o design caiu no padrão do navegador e o vídeo saiu com texto corrido a 18px.
+Re-alveje para `#sid`; não apague. E não processe CSS com regex: ela entra
+dentro do `@keyframes` e escopa o `to {` como seletor.
+
+**O slide nunca exibe a própria narração.** Ler e ouvir a mesma frase divide
+a atenção sem ganho. A regra está no prompt, mas quem barra é
+`_narracao_vazou_para_a_tela` — regra em prompt é sugestão.
+
+**Toda URL de webhook é montada num lugar só.** O token do callback é query
+string; concatenar o path depois dela põe o endpoint dentro do valor do token
+e o HeyGen recebe 404 na URL que você mesmo mandou. O projeto fica em
+`pending_callback` para sempre, com o crédito gasto.
+
 **Um formato só entra na `social_queue` se o publisher souber publicá-lo.**
 Story do Instagram é uma imagem por documento: quatro frames num documento só
 publicam o primeiro e descartam três sem erro.
