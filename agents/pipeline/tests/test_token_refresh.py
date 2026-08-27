@@ -270,3 +270,33 @@ def test_dry_run_nao_grava_segredo(monkeypatch):
     assert r.acao == "renovado"
     assert "dry-run" in r.detalhe
     assert cofre.gravacoes == []
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def test_main_importa_o_job_pelo_pacote(monkeypatch):
+    """
+    Regressão de produção: a primeira execução do job em produção morreu em
+    `ModuleNotFoundError: No module named 'job'`.
+
+    `from job import TokenRefreshJob` só resolve se o diretório do próprio job
+    estiver no sys.path. Sob PYTHONPATH=/app no Cloud Run ele não está — o que
+    está é `/app`, onde `token_refresh_job` é um pacote. Mesma classe do
+    434a1f8 (import de anchor_resolver sem qualificar o pacote).
+
+    O import acontece DENTRO de main(), então importar o módulo não basta para
+    pegar o erro: é preciso chamar main().
+    """
+    import token_refresh_job.__main__ as entrypoint
+
+    monkeypatch.setattr(entrypoint, "_ler_segredo", lambda p: lambda nome: "{}")
+    monkeypatch.setattr(entrypoint, "_gravar_segredo", lambda p: lambda nome, v: None)
+    monkeypatch.setattr(
+        "token_refresh_job.job._post_form", lambda url, dados: {"access_token": "at"}
+    )
+
+    # Não deve levantar. Os provedores falham (segredo vazio), e falha de
+    # provedor sai 1 — o que importa aqui é não ser ModuleNotFoundError.
+    with pytest.raises(SystemExit) as exc:
+        entrypoint.main()
+    assert exc.value.code == 1

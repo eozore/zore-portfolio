@@ -58,7 +58,10 @@ def main() -> None:
     project_id = os.environ.get("GCP_PROJECT_ID", "vazfy-417019")
     dry_run = os.environ.get("TOKEN_REFRESH_DRY_RUN", "false").lower() in ("1", "true", "yes")
 
-    from job import TokenRefreshJob
+    # Qualificado pelo pacote. `from job import ...` importa sob PYTHONPATH=/app
+    # apenas se o diretório do job estiver no sys.path, o que no Cloud Run não
+    # está: a execução morre em ModuleNotFoundError antes de qualquer trabalho.
+    from token_refresh_job.job import TokenRefreshJob
 
     tarefa = TokenRefreshJob(
         ler_segredo=_ler_segredo(project_id),

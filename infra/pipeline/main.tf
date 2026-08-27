@@ -907,6 +907,22 @@ resource "google_cloud_scheduler_job" "weekly_token_refresh" {
       service_account_email = local.sa_email
     }
   }
+
+  # Declarado porque o recurso nasceu por `gcloud scheduler jobs create`, que
+  # grava estes defaults explicitamente. Sem o bloco aqui, todo plan pedia
+  # para removê-los — drift permanente por uma diferença que não é de intenção.
+  #
+  # retry_count = 0 não é "não tenta": para o Scheduler significa tentar até
+  # max_retry_duration. Com 0s de duração, é uma tentativa por disparo — e é o
+  # que se quer, porque a próxima execução é em uma semana e a janela de
+  # renovação tem 15 dias de folga.
+  retry_config {
+    max_backoff_duration = "3600s"
+    max_doublings        = 5
+    max_retry_duration   = "0s"
+    min_backoff_duration = "5s"
+    retry_count          = 0
+  }
 }
 
 # ── Outputs ────────────────────────────────────────────────────────────────
