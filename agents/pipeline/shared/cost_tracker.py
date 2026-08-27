@@ -60,14 +60,21 @@ USD_POR_CHAR_PADRAO: float = max(USD_POR_CHAR_POR_MODELO.values())
 # Agent, produtos que esta pipeline não usa. O gate estimava o dobro do custo
 # real do avatar padrão.
 #
-# `avatar_v` não tem preço publicado. Fica igual ao IV, que é o maior valor
-# conhecido para geração de avatar, e o job MEDE o custo real pela variação do
-# saldo a cada produção (ver AvatarJob._saldo_usd) — a medição corrige a
-# estimativa sem depender de a HeyGen publicar a tabela.
+# Confirmado em developers.heygen.com/docs/pricing (consultado em 27/08/2026).
+# `avatar_v` deixou de ser presunção: a HeyGen publica US$4,00/min, que é o
+# valor que já estava aqui. O job continua MEDINDO o custo real pela variação
+# do saldo a cada produção (ver AvatarJob._saldo_usd) — a tabela é estimativa
+# de gate, a medição é o número verdadeiro.
+#
+# A tabela publicada tem FAIXA, não valor único: III custa US$1,00–2,60/min e
+# IV custa US$3,00–4,00/min, conforme o tipo de avatar. Os valores abaixo são
+# os do avatar padrão (III) e o teto (IV). Se algum dia um avatar de tipo mais
+# caro entrar em uso no III, esta linha subestima — e subestimar custo desarma
+# o gate.
 USD_POR_MINUTO_POR_MOTOR: dict[str, float] = {
-    "avatar_iii": 1.0,   # avatar padrão, 720p/1080p
-    "avatar_iv":  4.0,   # 1080p ($5/min em 4k, que não usamos)
-    "avatar_v":   4.0,   # não publicado — presumido igual ao IV
+    "avatar_iii": 1.0,   # avatar padrão, 720p/1080p (faixa vai até 2,60)
+    "avatar_iv":  4.0,   # teto da faixa 3,00–4,00, em 1080p
+    "avatar_v":   4.0,   # publicado, Digital Twins
 }
 
 # Motor desconhecido cai no mais caro: subestimar custo desarma o gate.

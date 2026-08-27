@@ -44,15 +44,50 @@ code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://api.elevenlabs.io
 # ── HeyGen (chave vive no Firestore, não no Secret Manager) ───────────────────
 # Lida via REST do Firestore: `gcloud firestore documents describe` não existe
 # como subcomando, e silenciosamente devolvia vazio — gerando alarme falso.
+#
+# O saldo vem de GET /v3/users/me, e NÃO de /v2/user/remaining_quota. O v2
+# devolvia `remaining_quota: 17` numa unidade opaca e este script imprimia
+# "17 créditos" em VERDE — enquanto o pool que a API realmente consome tinha
+# US$0,28. Os 17 não eram dólares, e o `plan_credit: 4000` ao lado deles é o
+# saldo da assinatura da plataforma, que chamada de API não gasta.
+#
+# Era falso positivo no único check que existe para não gastar à toa: o
+# operador via verde, aprovava o pacote, e o avatar-job barrava depois — ou
+# pior, gerava parte e falhava no meio. O v2 ainda é removido em 2026-10-31.
 HG=$(curl -s -H "Authorization: Bearer $(gcloud auth print-access-token 2>/dev/null)" \
   "https://firestore.googleapis.com/v1/projects/$PROJECT/databases/(default)/documents/agent_configurations/api_keys" \
   | python3 -c "import sys,json;print(json.load(sys.stdin).get('fields',{}).get('HEYGEN_API_KEY',{}).get('stringValue',''))" 2>/dev/null | tr -d '\n')
-if [ -n "$HG" ]; then
-  q=$(curl -s -H "X-Api-Key: $HG" https://api.heygen.com/v2/user/remaining_quota)
-  credits=$(echo "$q" | python3 -c "import sys,json;print(json.load(sys.stdin).get('data',{}).get('remaining_quota','?'))" 2>/dev/null)
-  [ "$credits" != "?" ] && [ -n "$credits" ] && green "HeyGen" "$credits créditos" || red "HeyGen" "resposta inesperada"
-else
+if [ -z "$HG" ]; then
   red "HeyGen" "HEYGEN_API_KEY ausente em agent_configurations/api_keys"
+else
+  # Custo de referência: um vídeo típico tem ~1,3 min de avatar. Em avatar_iv
+  # ou avatar_v (US$4/min) isso é ~US$5. Abaixo disso o pacote não fecha.
+  saldo=$(curl -s -H "X-Api-Key: $HG" https://api.heygen.com/v3/users/me | python3 -c '
+import sys, json
+d = json.load(sys.stdin).get("data") or {}
+tipo = d.get("billing_type")
+if tipo == "wallet":
+    print("%.2f" % float((d.get("wallet") or {}).get("remaining_balance") or 0))
+elif tipo == "usage_based":
+    u = d.get("usage_based") or {}
+    teto, gasto = u.get("spending_cap_usd"), u.get("spending_current_usd")
+    if teto is not None and gasto is not None:
+        print("%.2f" % max(0.0, float(teto) - float(gasto)))
+    else:
+        print("%.2f" % float(u.get("remaining_credits") or 0))
+elif tipo == "subscription":
+    # A API consome pool próprio; os créditos do plano não pagam chamada.
+    print("0.00")
+else:
+    print("?")
+' 2>/dev/null)
+  if [ -z "$saldo" ] || [ "$saldo" = "?" ]; then
+    red "HeyGen" "não consegui ler o saldo em /v3/users/me"
+  elif [ "$(echo "$saldo >= 5" | bc -l 2>/dev/null)" = "1" ]; then
+    green "HeyGen" "US\$$saldo no pool de API"
+  else
+    red "HeyGen" "US\$$saldo no pool de API — ~US\$5 por vídeo. Recarregue (crédito de plano NÃO paga API)."
+  fi
 fi
 
 # ── YouTube ───────────────────────────────────────────────────────────────────
