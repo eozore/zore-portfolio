@@ -120,6 +120,31 @@ Todos corrigidos, cada um com teste de regressão que falha sem a correção.
 
 ---
 
+## O Studio
+
+`/admin/studio` abre na **biblioteca**: um item por ciclo, com o estado de
+cada um dos quatro entregáveis. Não é barra de progresso — é matriz, porque
+as combinações reais incluem "artigo publicado, vídeo travado, social
+agendada", que nenhuma barra representa.
+
+Cada célula é acionável quando faz sentido: publicar o artigo em rascunho,
+agendar a semana, derivar o Reel, remontar o vídeo.
+
+**Retomar reusa o mesmo `projectId`.** É a diferença entre custar zero e
+custar US$5: aprovar o gate de novo cria um projeto novo e refaz o avatar,
+enquanto retomar da edição reaproveita os clipes que já estão no GCS. `tts` e
+`avatar` gastam dinheiro e exigem confirmação explícita.
+
+Antes disto o checkpoint do LangGraph era **inlistável**: ele grava em
+`graph_threads/{thread}/checkpoints/{id}` e o documento pai nunca é criado —
+no Firestore, um documento que só tem subcoleção não aparece em listagem nem
+responde a `get()`. O id da sessão vivia no `localStorage` e "Novo tema" o
+sobrescrevia; o ciclo anterior ficava inalcançável. `studio_sessions` resolve
+isso, e `scripts/backfill_sessoes.py` reconstrói o índice para ciclos
+anteriores a ele.
+
+---
+
 ## O que falta
 
 - **Refazer o vídeo de 27/08** com o áudio e os slides corrigidos. Os clipes

@@ -102,6 +102,22 @@ string; concatenar o path depois dela põe o endpoint dentro do valor do token
 e o HeyGen recebe 404 na URL que você mesmo mandou. O projeto fica em
 `pending_callback` para sempre, com o crédito gasto.
 
+**Retomar produção é reusar o `projectId`, nunca aprovar o gate de novo.**
+Aprovar cria `slug-yt-{timestamp}` novo e refaz o avatar a US$4/min. Retomar
+da edição reaproveita os clipes do GCS e custa zero. Reabra a etapa alvo E
+todas as seguintes: reabrir só o alvo deixa a próxima como `completed`, o job
+ignora a mensagem, e o projeto parece reprocessado sem ter sido.
+
+**Republicar no YouTube ATUALIZA, não sobe de novo.** O YouTube não deixa
+trocar o arquivo de um vídeo, mas deixa trocar tudo em volta. Limpar o
+registro de publicações para forçar upload deixou três vídeos do mesmo tema no
+canal em 27/08. Só a edição — que refaz o arquivo — justifica upload novo.
+
+**O checkpoint do LangGraph é inlistável.** O doc pai da thread nunca é
+criado, e no Firestore documento que só tem subcoleção não aparece em
+listagem. Quem precisa listar sessões usa `studio_sessions`, não
+`graph_threads`.
+
 **Um formato só entra na `social_queue` se o publisher souber publicá-lo.**
 Story do Instagram é uma imagem por documento: quatro frames num documento só
 publicam o primeiro e descartam três sem erro.
