@@ -64,7 +64,13 @@ const TRABALHANDO: Fase[] = ['planejamento', 'artigo', 'video', 'social'];
 
 const POLL_MS = 6000;
 
-export function useStudio(sessionId: string) {
+/**
+ * @param ativo  false enquanto a biblioteca está aberta. Sem isto o hook fica
+ *               pedindo o estado de um ciclo que ninguém está olhando, e um
+ *               erro do agente aparece por cima de uma lista que não depende
+ *               dele para nada.
+ */
+export function useStudio(sessionId: string, ativo = true) {
   const [estado, setEstado]   = useState<EstadoStudio | null>(null);
   const [erro, setErro]       = useState<string>('');
   const [ocupado, setOcupado] = useState(false);
@@ -76,7 +82,7 @@ export function useStudio(sessionId: string) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buscar = useCallback(async (silencioso = false) => {
-    if (!sessionId) return;
+    if (!sessionId || !ativo) return;
     if (!silencioso) setCarregando(true);
     try {
       const res = await fetch(`/api/csm/studio?sessionId=${encodeURIComponent(sessionId)}`);
@@ -161,7 +167,7 @@ export function useStudio(sessionId: string) {
     } finally {
       setCarregando(false);
     }
-  }, [sessionId]);
+  }, [sessionId, ativo]);
 
   // Polling condicional: só enquanto um nó está rodando.
   //
@@ -172,10 +178,10 @@ export function useStudio(sessionId: string) {
     if (timer.current) clearTimeout(timer.current);
     const produzindo = producao !== null &&
       producao.etapas.some((e) => ['running', 'pending_callback', 'queued'].includes(e.status));
-    if (!estado || (!TRABALHANDO.includes(estado.fase) && !produzindo)) return;
+    if (!ativo || !estado || (!TRABALHANDO.includes(estado.fase) && !produzindo)) return;
     timer.current = setTimeout(() => void buscar(true), POLL_MS);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [estado, producao, buscar]);
+  }, [ativo, estado, producao, buscar]);
 
   useEffect(() => { void buscar(); }, [buscar]);
 

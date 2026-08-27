@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react';
 import AuthGate from '../csm/AuthGate';
+import Biblioteca from './Biblioteca';
 import { Badge, Button, Card, Notice, cx } from './ui/primitives';
 import {
   CartaoArtigo, PainelProducao, PassoArtigo, PassoSocial, PassoTema, PassoTrabalhando, PassoVideo,
@@ -78,6 +79,10 @@ function Trilha({ passos }: { passos: Passo[] }) {
 
 export default function Studio() {
   const [sessionId, setSessionId] = useState('');
+  // A biblioteca é a porta de entrada. Antes o Studio abria no formulário de
+  // tema e o único ponteiro para o trabalho anterior era o localStorage —
+  // "Começar outro tema" o sobrescrevia e o ciclo antigo ficava inalcançável.
+  const [naBiblioteca, setNaBiblioteca] = useState(true);
 
   useEffect(() => {
     // Chave PRÓPRIA do Studio. Antes era `csm_session_id`, a mesma do CSM
@@ -89,21 +94,33 @@ export default function Studio() {
     setSessionId(id);
   }, []);
 
+  function abrirProjeto(id: string) {
+    localStorage.setItem('studio_session_id', id);
+    setSessionId(id);
+    setNaBiblioteca(false);
+  }
+
   const {
     estado, producao, agendamento, statusArtigo, erro, ocupado, carregando,
     iniciar, decidir, agendar, derivarVertical, publicarArtigo, recarregar,
-  } = useStudio(sessionId);
+  } = useStudio(sessionId, !naBiblioteca);
   const passos = passosDaJornada(estado);
   const resumo = resumoDaFase(estado);
   const fatais = (estado?.erros || []).filter((e) => e.fatal);
 
   function novoCiclo() {
+    // Sobrescrever o ponteiro deixou de perder trabalho: a sessão anterior
+    // continua na biblioteca, que agora sabe listar.
     const id = crypto.randomUUID();
     localStorage.setItem('studio_session_id', id);
     setSessionId(id);
+    setNaBiblioteca(false);
   }
 
   function palco() {
+    if (naBiblioteca) {
+      return <Biblioteca onAbrir={abrirProjeto} onNovo={novoCiclo} />;
+    }
     if (carregando && !estado) {
       return <Card><div className="h-32 animate-pulse rounded-lg bg-black/[0.04]" /></Card>;
     }
@@ -194,13 +211,28 @@ export default function Studio() {
 
         <main className="mx-auto max-w-6xl px-5 py-8">
           <div className="mb-7">
+            {!naBiblioteca && (
+              <button
+                type="button"
+                onClick={() => setNaBiblioteca(true)}
+                className="mb-2 text-[13px] font-medium text-text-muted hover:text-primary"
+              >
+                ← Seus projetos
+              </button>
+            )}
             <h1 className="text-[26px] font-bold leading-tight tracking-tight text-text-main">
-              {resumo.titulo}
+              {naBiblioteca ? 'Content Studio' : resumo.titulo}
             </h1>
-            <p className="mt-1.5 text-[14px] text-text-muted">{resumo.sub}</p>
+            <p className="mt-1.5 text-[14px] text-text-muted">
+              {naBiblioteca
+                ? 'Um tema vira artigo, vídeo e uma semana de posts.'
+                : resumo.sub}
+            </p>
           </div>
 
-          {erro && (
+          {/* O erro é do FLUXO. Mostrá-lo sobre a biblioteca põe uma falha de
+              agente por cima de uma lista que não depende dele. */}
+          {erro && !naBiblioteca && (
             <div className="mb-5">
               {/* Título neutro: este Notice mostra QUALQUER falha de ação —
                   publicar artigo, disparar produção, agendar, cortar o
@@ -214,12 +246,19 @@ export default function Studio() {
             </div>
           )}
 
-          <div className="grid gap-8 lg:grid-cols-[168px_1fr]">
-            <aside className="lg:sticky lg:top-24 lg:self-start">
-              <Trilha passos={passos} />
-            </aside>
+          {/* A trilha descreve o fluxo de UM ciclo. Na biblioteca não há
+              ciclo corrente, e mostrá-la ali sugeriria um progresso que não
+              corresponde a nenhum dos projetos da lista. */}
+          {naBiblioteca ? (
             <div className="min-w-0">{palco()}</div>
-          </div>
+          ) : (
+            <div className="grid gap-8 lg:grid-cols-[168px_1fr]">
+              <aside className="lg:sticky lg:top-24 lg:self-start">
+                <Trilha passos={passos} />
+              </aside>
+              <div className="min-w-0">{palco()}</div>
+            </div>
+          )}
         </main>
       </div>
     </AuthGate>
