@@ -255,8 +255,13 @@ class YouTubeClient:
                 "Authorization":  f"Bearer {self._get_access_token()}",
                 "Content-Type":   img_r.headers.get("Content-Type", "image/jpeg"),
             }
+            # `/thumbnails/set`, não `/thumbnails`. O recurso da API é
+            # `thumbnails.set` e o caminho tem o verbo; sem ele o Google
+            # devolve 404 com corpo VAZIO, que não se parece nada com um erro
+            # de permissão e por isso passou despercebido — o vídeo de 27/08
+            # foi publicado sem thumbnail, com a imagem já gerada no GCS.
             r = requests.post(
-                f"{UPLOAD_API}/thumbnails?uploadType=media&videoId={video_id}",
+                f"{UPLOAD_API}/thumbnails/set?uploadType=media&videoId={video_id}",
                 headers=headers, data=img_r.content, timeout=60,
             )
             if r.status_code in (200, 201):
