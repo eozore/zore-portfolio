@@ -89,6 +89,7 @@ interface ManifestBuildResult {
   manifest_gcs_path:   string;
   thumb_frase?:        string | null;
   thumb_apoio?:        string | null;
+  youtube_copy?:       YoutubeCopy | null;
   segment_count:       number;
   avatar_segments:     number;
   slide_segments:      number;
@@ -184,10 +185,40 @@ interface ProjectMeta {
  */
 export const MARCADOR_CAPITULOS = '<!--CAPITULOS-->';
 
+/** Parte escrita da descrição, vinda do /build-manifest. */
+export interface YoutubeCopy {
+  abertura:     string;
+  contexto:     string;
+  aprendizados: string[];
+  hashtags:     string[];
+}
+
 function buildDescription(
   pauta: Record<string, unknown> | undefined,
   slideHtmls: Record<string, string> = {},
+  copy?: YoutubeCopy | null,
 ): string {
+  // Caminho preferido: os blocos escritos pelo modelo. O encadeamento abaixo
+  // é o fallback — publica, mas produz frases quebradas quando a tese já é
+  // uma oração completa ("Neste vídeo eu explico sem um harness…").
+  if (copy?.abertura && copy?.contexto && copy.aprendizados?.length) {
+    const blocos = [
+      copy.abertura,
+      copy.contexto,
+      `Você vai aprender:\n\n${copy.aprendizados.map((a) => `✔ ${a};`).join('\n')}`,
+      MARCADOR_CAPITULOS,
+      '🔗 Meu portfólio: https://www.eozore.com\n' +
+      '🔗 Redes sociais:\n' +
+      'https://www.linkedin.com/in/victor-zor%C3%A9/\n' +
+      'https://github.com/eozore\n' +
+      'https://www.instagram.com/eozore.ai/',
+    ];
+    if (copy.hashtags?.length) {
+      blocos.push(copy.hashtags.map((h) => `#${h.replace(/[^a-z0-9]/gi, '').toLowerCase()}`).join(' '));
+    }
+    return blocos.join('\n\n');
+  }
+
   const p = pauta ?? {};
   const txt = (k: string): string =>
     typeof p[k] === 'string' ? (p[k] as string).trim() : '';
@@ -400,6 +431,7 @@ export async function executarSubmit(
     (body.pauta as Record<string, unknown> | undefined) ??
     ((sessionDraft?.pauta ?? {}) as Record<string, unknown>);
   const projectMeta: ProjectMeta = {
+    // Recalculada após o /build-manifest, que devolve os blocos escritos.
     description: buildDescription(pautaEfetiva, slideHtmls),
     tags:        buildTags({ pauta: pautaEfetiva }, projectCategory),
     articleUrl,
@@ -492,6 +524,9 @@ export async function executarSubmit(
                                // depois de projectMeta já ter sido montado.
                                thumbFrase: manifestData.thumb_frase ?? undefined,
                                thumbApoio: manifestData.thumb_apoio ?? undefined,
+                               description: buildDescription(
+                                 pautaEfetiva, slideHtmls, manifestData.youtube_copy,
+                               ),
                              });
 
       const msg = {

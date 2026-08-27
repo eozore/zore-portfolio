@@ -2081,18 +2081,37 @@ async def build_manifest_endpoint(
             # onde o Vertex está e por onde todo pacote passa. Falha ABERTO —
             # sem frase, o gerador cai no título, que é o comportamento antigo.
             from thumbnail_copy import gerar_frase_de_capa
+            from youtube_copy import gerar_copy_do_youtube
+
             pauta_req = req.pauta or {}
-            capa = await gerar_frase_de_capa(
-                titulo  = req.title,
-                tese    = str(pauta_req.get("tese") or ""),
-                publico = str(pauta_req.get("publico") or ""),
+            roteiro = "\n".join(
+                str(seg.get("script") or "")
+                for seg in (manifest.get("youtube", {}) or {}).get("segments", [])
+            )
+            capa, copy_yt = await asyncio.gather(
+                gerar_frase_de_capa(
+                    titulo  = req.title,
+                    tese    = str(pauta_req.get("tese") or ""),
+                    publico = str(pauta_req.get("publico") or ""),
+                ),
+                # A parte escrita da descrição. Colar prefixo em campo de pauta
+                # produzia frase quebrada ("Neste vídeo eu explico sem um
+                # harness…", "Se você é líderes técnicos") — concordância não
+                # sai de concatenação.
+                gerar_copy_do_youtube(
+                    titulo   = req.title,
+                    tese     = str(pauta_req.get("tese") or ""),
+                    publico  = str(pauta_req.get("publico") or ""),
+                    objetivo = str(pauta_req.get("objetivo_aprendizado") or ""),
+                    roteiro  = roteiro,
+                ),
             )
             logger.info(
                 "[build-manifest] Manifesto v2 aprovado enviado direto: %s "
                 "(%d slides embutidos)", gcs_uri, len(req.slide_htmls or {}),
             )
         elif req.script:
-            capa = None          # caminho legado não gera frase de capa
+            capa = copy_yt = None   # caminho legado não gera copy
             gcs_uri = build_and_upload_manifest(
                 script_markdown = req.script,
                 title           = req.title,
@@ -2168,6 +2187,7 @@ async def build_manifest_endpoint(
             # título, que é o comportamento anterior.
             "thumb_frase": (capa or {}).get("frase"),
             "thumb_apoio": (capa or {}).get("apoio"),
+            "youtube_copy": copy_yt,
         }
 
     except HTTPException:
@@ -2293,6 +2313,18 @@ async def graph_start(req: GraphStartRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(exc)[:300])
 
     snap = await app_graph.aget_state(cfg)
+
+    # O checkpoint é inlistável: o doc pai da thread nunca existe. Sem este
+    # índice a sessão só é alcançável por quem já tem o id — e o Studio o
+    # guardava só no localStorage, perdendo o ciclo anterior a cada "novo tema".
+    from sessoes_index import registrar as _registrar_sessao
+    _registrar_sessao(
+        db, tenant_id, req.sessionId,
+        tema  = req.tema,
+        fase  = str(snap.values.get("fase") or ""),
+        erros = len(snap.values.get("erros") or []),
+    )
+
     return {
         "threadId":   cfg["configurable"]["thread_id"],
         "fase":       snap.values.get("fase"),
@@ -2373,6 +2405,19 @@ async def graph_state(sessionId: str, request: Request):
     }
 
 
+@app.get("/graph/sessions")
+async def graph_sessions(request: Request, limite: int = 50):
+    """
+    Sessões do Studio, mais recentes primeiro.
+
+    Lê o índice, não os checkpoints: o doc pai da thread não existe, então
+    `graph_threads` não responde a listagem nenhuma.
+    """
+    from sessoes_index import listar
+
+    return {"sessoes": listar(db, _graph_tenant(request), limite)}
+
+
 @app.post("/graph/approve")
 async def graph_approve(req: GraphApproveRequest, request: Request):
     """
@@ -2419,6 +2464,19 @@ async def graph_approve(req: GraphApproveRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(exc)[:300])
 
     novo = await app_graph.aget_state(cfg)
+
+    from sessoes_index import registrar as _registrar_sessao
+    v = novo.values
+    _registrar_sessao(
+        db, tenant_id, req.sessionId,
+        tema             = str(v.get("tema") or ""),
+        fase             = str(v.get("fase") or ""),
+        artigo_slug      = str((v.get("artigo") or {}).get("slug") or v.get("artigo_slug") or ""),
+        artigo_url       = str(v.get("artigo_url") or ""),
+        video_project_id = str(v.get("video_project_id") or ""),
+        erros            = len(v.get("erros") or []),
+    )
+
     return {
         "fase":       novo.values.get("fase"),
         "aguardando": list(novo.next),

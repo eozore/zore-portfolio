@@ -37,6 +37,14 @@ export const dbPaths = {
   socialQueueDoc: (id: string, tenantId: string | null = DEFAULT_TENANT_ID) =>
     tenantId ? `tenants/${tenantId}/social_queue/${id}` : `social_queue/${id}`,
 
+  /**
+   * Índice das sessões do Studio. Existe porque o checkpoint do LangGraph é
+   * inlistável: o doc pai da thread nunca é criado, e no Firestore um
+   * documento que só tem subcoleção não aparece em listagem.
+   */
+  studioSessions: (tenantId: string | null = DEFAULT_TENANT_ID) =>
+    tenantId ? `tenants/${tenantId}/studio_sessions` : `studio_sessions`,
+
   contentProjects: (tenantId: string | null = DEFAULT_TENANT_ID) =>
     tenantId ? `tenants/${tenantId}/content_projects` : `content_projects`,
 
