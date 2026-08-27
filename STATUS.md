@@ -298,22 +298,23 @@ acontece no seu navegador; o script não vê a senha.
 
 ## Segurança
 
-**Pendência aberta: `csm-password-hash` nunca foi rotacionado.** O
-`NEXT_SESSION.md` trazia a senha de produção do CSM em texto puro. O arquivo
-foi removido em `388fed1`, mas **a senha continua no histórico do git**, e o
-segredo segue na versão 1, de 27/07 — anterior ao vazamento ter sido notado.
+**`csm-password-hash` rotacionado em 27/08.** O `NEXT_SESSION.md` trazia a
+senha de produção em texto puro; o arquivo saiu em `388fed1`, mas a senha
+continua no histórico do git — o que importa é que ela deixou de valer.
 
-A chave de sessão já foi separada da senha (`csm-auth-secret`, criado em
-25/08 por `fb4227d`), então uma sessão não é mais forjável a partir dela. Mas
-quem tiver o histórico do repositório ainda consegue **entrar** em
-`/admin/csm` e `/admin/studio`.
+A versão 2 do segredo está ativa e a **versão 1 foi desativada**, então o
+valor que está no histórico não abre mais nada. A chave de sessão já era
+separada da senha desde `fb4227d`, então uma sessão também não é forjável a
+partir dela.
 
-Rotacionar exige escolher uma senha nova — é ação sua:
+A ordem importa em qualquer rotação futura: publique a versão nova, force uma
+revisão do frontend (o segredo é resolvido no start da instância, não no
+deploy), CONFIRME que a senha nova autentica, e só então desative a antiga.
+Desativar antes de confirmar tranca o dono do canal para fora.
 
 ```bash
-printf '%s' 'NOVA_SENHA' | shasum -a 256 | cut -d" " -f1 \
-  | gcloud secrets versions add csm-password-hash --data-file=-
-./scripts/deploy.sh web
+gcloud run services update frontend --region us-central1 \
+  --update-secrets=CSM_PASSWORD_HASH=csm-password-hash:latest
 ```
 
 Ver `CSM_SECURITY_SETUP.md` para o segredo interno Next.js ↔ cmo-agent.
