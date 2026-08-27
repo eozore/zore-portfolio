@@ -57,6 +57,15 @@ resource "google_project_iam_member" "sa_secret_accessor" {
   member  = "serviceAccount:${google_service_account.pipeline_jobs.email}"
 }
 
+# O token-refresh-job GRAVA versões novas de segredo. `secretAccessor` só lê —
+# com ele o job renovaria o token na API do provedor e perderia o valor novo,
+# invalidando o antigo sem guardar o substituto. Pior que não renovar.
+resource "google_project_iam_member" "sa_secret_version_adder" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretVersionAdder"
+  member  = "serviceAccount:${google_service_account.pipeline_jobs.email}"
+}
+
 resource "google_project_iam_member" "sa_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
@@ -813,6 +822,51 @@ resource "google_cloud_run_v2_job" "publisher_scheduled" {
   }
 }
 
+# Renova os tokens de publicação antes de vencerem. Semanal, e a janela de
+# renovação é de 15 dias — folga para falhar algumas semanas seguidas sem que
+# nenhum token morra.
+#
+# Não recebe secret nenhum por env de propósito: ele lê E grava versões pela
+# API do Secret Manager. Env é resolvida no início da execução e ficaria
+# desatualizada no instante em que o job gravasse a versão nova.
+resource "google_cloud_run_v2_job" "token_refresh_job" {
+  name     = "token-refresh-job"
+  location = var.region
+
+  template {
+    template {
+      service_account = local.sa_email
+      max_retries     = 0
+      timeout         = "600s"
+
+      containers {
+        image   = var.pipeline_image
+        command = ["python"]
+        args    = ["-m", "token_refresh_job"]
+
+        resources {
+          limits = {
+            memory = "512Mi"
+            cpu    = "1"
+          }
+        }
+
+        dynamic "env" {
+          for_each = local.env_vars
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+  }
+}
+
 # ── Cloud Scheduler ───────────────────────────────────────────────────────
 
 resource "google_cloud_scheduler_job" "daily_publisher" {
@@ -831,6 +885,25 @@ resource "google_cloud_scheduler_job" "daily_publisher" {
     }
 
     oidc_token {
+      service_account_email = local.sa_email
+    }
+  }
+}
+
+# Segunda-feira 09:00 UTC. Dia útil de propósito: se o job alertar que um
+# token precisa de consentimento humano, o aviso chega quando há alguém para
+# agir sobre ele, e sobra a semana inteira antes do vencimento.
+resource "google_cloud_scheduler_job" "weekly_token_refresh" {
+  name      = "content-pipeline-weekly-token-refresh"
+  region    = var.region
+  schedule  = "0 9 * * 1"
+  time_zone = "UTC"
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.token_refresh_job.name}:run"
+
+    oauth_token {
       service_account_email = local.sa_email
     }
   }

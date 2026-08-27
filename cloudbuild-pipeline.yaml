@@ -282,6 +282,36 @@ steps:
 
     waitFor: [push]
 
+  # ── Step 10: Update token-refresh-job ─────────────────────────
+  # Renova os tokens de publicação antes de vencerem e alerta sobre os que
+  # exigem consentimento humano. Roda semanalmente pelo Cloud Scheduler.
+  # Criado no primeiro deploy pelo `|| create`.
+  #
+  # Sem secrets em env: o job LÊ e GRAVA versões no Secret Manager pela API,
+  # com a SA. Montar como env congelaria o valor no início da execução, e o
+  # job precisa reler o que acabou de gravar.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy-token-refresh-job
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        deploy() {
+          gcloud run jobs "$$1" token-refresh-job \
+            --image=gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA \
+            --region=$_REGION \
+            --command=python \
+            --args=-m,token_refresh_job \
+            --memory=512Mi \
+            --cpu=1 \
+            --task-timeout=600s \
+            --max-retries=0 \
+            --service-account=$_SA_EMAIL \
+            --set-env-vars="^##^GCP_PROJECT_ID=$PROJECT_ID##GCS_BUCKET=$_GCS_BUCKET##TENANT_ID=default"
+        }
+        deploy update || deploy create
+    waitFor: [push]
+
 images:
   - gcr.io/$PROJECT_ID/pipeline:$COMMIT_SHA
   - gcr.io/$PROJECT_ID/pipeline:latest

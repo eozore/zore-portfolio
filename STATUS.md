@@ -203,6 +203,39 @@ roda dentro deles.
 
 ---
 
+## Tokens de publicação
+
+Expiram sozinhos, e a pipeline só descobria na hora de publicar — depois de
+ter gasto ElevenLabs e HeyGen no vídeo inteiro.
+
+`token-refresh-job` roda toda segunda 09:00 UTC e renova o que é renovável:
+
+| Token | Vence em | Automatizável |
+|---|---|---|
+| YouTube `refresh_token` | 7 dias em "Testing"; indefinido em produção | ❌ exige consentimento no navegador |
+| LinkedIn `access_token` | 60 dias | ✅ via `refresh_token` |
+| LinkedIn `refresh_token` | 365 dias | ❌ exige consentimento |
+| Threads | 60 dias | ✅ `th_refresh_token` |
+| Instagram | não expira (token de página) | — só se verifica |
+
+O que não é renovável vira log de ERROR com o comando da correção, dias antes
+de vencer. **Alerta não marca o job como falho**: ele funcionou e encontrou
+algo que só um humano resolve — marcar vermelho ensinaria a ignorar.
+
+**O YouTube expirar em 7 dias tem causa e tem cura, e a cura não é código.**
+Autorização de test user vale 7 dias; publicar a tela de consentimento em
+"In production" remove o limite. Enquanto estiver em "Testing", nenhum job
+resolve — só avisa.
+
+Verificação manual, a qualquer momento:
+
+```bash
+./scripts/check-credentials.sh
+gcloud run jobs execute token-refresh-job --region us-central1   # renova de verdade
+```
+
+---
+
 ## Antes de aprovar um pacote
 
 ```bash
