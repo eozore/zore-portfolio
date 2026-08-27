@@ -334,3 +334,32 @@ async def test_modelo_padrao_vem_do_ambiente(custo, monkeypatch):
     monkeypatch.setenv("ELEVENLABS_MODEL_ID", "eleven_flash_v2_5")
     valor = await custo.estimate_tts_cost(1_000)
     assert valor == pytest.approx(1_000 * USD_POR_CHAR_POR_MODELO["eleven_flash_v2_5"])
+
+
+def test_callback_url_do_payload_e_usada_como_esta():
+    """
+    Regressão de produção (27/08/2026): os quatro callbacks do ciclo voltaram
+    404 e o projeto ficou em `pending_callback` para sempre, com os créditos
+    do HeyGen já gastos.
+
+    O `__main__` montava `{base}?token=xxx` e o job concatenava
+    `/heygen-video-callback` no fim, produzindo
+    `.../?token=xxx/heygen-video-callback` — path "/" e o endpoint DENTRO do
+    valor do token. O HeyGen fez o POST exatamente nessa URL, como faz sempre,
+    e recebeu 404.
+
+    O contrato agora é: quem monta a URL é o `__main__`, path antes da query,
+    e o job não toca nela. Este teste falha se alguém voltar a concatenar.
+    """
+    import inspect
+
+    from avatar_job import job as job_mod
+
+    src = inspect.getsource(job_mod.AvatarJob._generate_avatar_video)
+    assert '"callback_url":   self.callback_url,' in src or \
+           '"callback_url": self.callback_url,' in src, \
+        "o payload deve usar self.callback_url sem concatenar path"
+    assert "/heygen-video-callback" not in src, (
+        "o path não pode ser concatenado aqui — ele entra depois da query "
+        "string do token e o webhook volta 404"
+    )

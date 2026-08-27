@@ -50,11 +50,22 @@ async def main() -> None:
     doc = await db.document("agent_configurations/api_keys").get()
     heygen_key: str = doc.to_dict()["HEYGEN_API_KEY"]
 
+    # A URL COMPLETA é montada aqui — path primeiro, token depois.
+    #
+    # A ordem não é estética. Antes, o token era colado primeiro e o
+    # `avatar_job/job.py` concatenava "/heygen-video-callback" no fim, o que
+    # produzia `.../?token=xxx/heygen-video-callback`: o path virava "/" e o
+    # endpoint ia parar DENTRO do valor do token. Os quatro callbacks do ciclo
+    # de 27/08 voltaram 404, o projeto ficou em `pending_callback` para sempre
+    # e os créditos do HeyGen já tinham sido gastos.
+    #
+    # Quem recebe esta string usa como está. Não concatene nada nela.
+    #
     # Token embutido na URL, não em header: o HeyGen só faz POST na URL exata
     # configurada em callback_url, sem suporte a header customizado. É esta
     # query string que autentica o webhook depois que heygen-callback passa a
     # aceitar tráfego não-autenticado por IAM (ver heygen_callback/app.py).
-    callback_url = HEYGEN_CALLBACK_URL
+    callback_url = f"{HEYGEN_CALLBACK_URL.rstrip('/')}/heygen-video-callback"
     try:
         callback_token = get_secret("heygen-callback-token", GCP_PROJECT_ID)
         if callback_token:

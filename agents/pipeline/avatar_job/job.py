@@ -78,6 +78,9 @@ class AvatarJob:
         pubsub: PubSubClient,
         heygen_api_key: str,
         gcs_bucket: str,
+        # URL COMPLETA do webhook, com path e token já embutidos pelo
+        # __main__. É usada como está — concatenar path aqui foi o defeito que
+        # travou o ciclo de 27/08 em pending_callback.
         callback_url: str,
         tenant_id: str = "default",
     ) -> None:
@@ -612,7 +615,9 @@ class AvatarJob:
             "aspect_ratio":   fmt["aspect_ratio"],
             "resolution":     fmt["resolution"],
             "engine":         {"type": engine},
-            "callback_url":   f"{self.callback_url}/heygen-video-callback",
+            # Já vem pronta do __main__ (path + token, nessa ordem).
+            # Concatenar aqui foi o que colocou o endpoint dentro da query.
+            "callback_url":   self.callback_url,
             "callback_id":    callback_id,
         }
 
