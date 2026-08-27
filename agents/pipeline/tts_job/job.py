@@ -69,6 +69,37 @@ FORMATOS_PREFERIDOS: tuple[tuple[str, int, str, str], ...] = (
 _FORMATO_FORCADO = os.environ.get("ELEVENLABS_OUTPUT_FORMAT", "").strip()
 
 
+def _detectar_formato(bruto: bytes) -> str:
+    """
+    Descobre o formato pelos BYTES, não pelo que foi pedido.
+
+    Existe por causa de um defeito que só apareceu no vídeo pronto: a
+    ElevenLabs aceitou `pcm_44100` com HTTP 200 e devolveu MP3. O código
+    confiava no formato pedido, embrulhava os bytes de MP3 num cabeçalho WAV
+    que declarava PCM 16 bits a 44.1kHz, e o arquivo passava a mentir sobre a
+    própria duração — 88200 B/s declarados contra ~16000 B/s reais, um fator
+    de 5,5x.
+
+    Quem decodifica de verdade (o HeyGen) via os 18s corretos e gerava o
+    avatar certo. Quem lê o cabeçalho (`ffprobe`, e portanto o
+    `render_slide_clip`) via 3,3s e cortava a ilustração ali. No ciclo de
+    27/08 os oito segmentos de ilustração entregaram 18% da narração cada,
+    todos cortando no meio da frase, e o vídeo saiu com 94s em vez de 208s.
+
+    Devolve "mp3", "wav" ou "pcm".
+    """
+    if len(bruto) < 4:
+        return "pcm"
+    if bruto[:3] == b"ID3":
+        return "mp3"
+    # Frame sync do MPEG audio: 11 bits em 1. Cobre MP3 sem tag ID3.
+    if bruto[0] == 0xFF and (bruto[1] & 0xE0) == 0xE0:
+        return "mp3"
+    if bruto[:4] == b"RIFF" and bruto[8:12] == b"WAVE":
+        return "wav"
+    return "pcm"
+
+
 def _pcm_para_wav(pcm: bytes, sample_rate: int) -> bytes:
     """
     Embrulha PCM cru em contêiner WAV.
@@ -378,7 +409,25 @@ class TTSJob:
                 raise ApiError(502, "ElevenLabs não retornou audio_base64")
 
             bruto = base64.b64decode(audio_b64)
-            audio = _pcm_para_wav(bruto, taxa) if formato.startswith("pcm_") else bruto
+
+            # O que veio manda. Pedir pcm_44100 e receber MP3 é um caso REAL
+            # (27/08/2026) e a API responde 200 nele — não há erro para tratar,
+            # só bytes diferentes do combinado.
+            real = _detectar_formato(bruto)
+            if real == "pcm":
+                audio, extensao, content_type = _pcm_para_wav(bruto, taxa), "wav", "audio/wav"
+            elif real == "mp3":
+                audio, extensao, content_type = bruto, "mp3", "audio/mpeg"
+            else:                                   # já é um WAV completo
+                audio, extensao, content_type = bruto, "wav", "audio/wav"
+
+            if real != "pcm" and formato.startswith("pcm_"):
+                logger.warning(
+                    "[TTSJob] Pedi %s e recebi %s. Gravando como .%s — embrulhar "
+                    "isto em cabeçalho PCM faria o arquivo mentir a duração e "
+                    "cortar a ilustração no vídeo.",
+                    formato, real, extensao,
+                )
 
             if indice > 0:
                 logger.info("[TTSJob] Áudio gerado em %s (fallback).", formato)
