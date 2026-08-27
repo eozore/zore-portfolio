@@ -94,16 +94,34 @@ export function useStudio(sessionId: string) {
         // fallback, e ela é traiçoeira: um session_id reaproveitado casa com
         // projetos de semanas anteriores e a tela mostra o vídeo errado como
         // se fosse o desta rodada — foi o que aconteceu em 24/08.
+        // O sessionId vai SEMPRE, mesmo quando há projectId: é por ele que o
+        // pipeline-status consulta a social_queue. Mandar só o projectId
+        // deixava `scheduledItems` vazio, `naFila` em 0, e o botão "Agendar a
+        // semana" nunca virava o selo "N na fila" — sem feedback nenhum e com
+        // risco de agendar a mesma semana duas vezes.
+        //
+        // O projectId continua tendo precedência para achar o PROJETO; ele é
+        // que evita casar com um vídeo de outra semana por session_id.
         const projetoDoGrafo = (data as EstadoStudio)?.video?.projectId;
-        const alvo = projetoDoGrafo
-          ? `projectId=${encodeURIComponent(projetoDoGrafo)}`
-          : `sessionId=${encodeURIComponent(sessionId)}`;
+        const alvo = [
+          projetoDoGrafo ? `projectId=${encodeURIComponent(projetoDoGrafo)}` : '',
+          `sessionId=${encodeURIComponent(sessionId)}`,
+        ].filter(Boolean).join('&');
         const pr = await fetch(`/api/csm/pipeline-status?${alvo}`);
         if (pr.ok) {
           const pd = await pr.json();
+          // As chaves têm que ser as MESMAS que os jobs gravam em
+          // content_projects.stages. O backend escreve `editor`; aqui estava
+          // `video_editor`, então a etapa era filtrada fora e a Edição nunca
+          // aparecia. Pior: o polling abaixo só continua enquanto alguma
+          // etapa DESTA lista estiver ativa — com `editor` de fora, a tela
+          // congelava justamente quando a edição começava.
+          //
+          // `publisher` não é escrito por job nenhum; a publicação aparece
+          // por `videoPronto`/`youtubeUrl`, não como etapa.
           const ROTULOS: Record<string, string> = {
-            tts: 'Voz', avatar: 'Avatar', video_editor: 'Edição',
-            publisher: 'Publicação', vertical_cut: 'Corte vertical',
+            tts: 'Voz', avatar: 'Avatar', editor: 'Edição',
+            vertical_cut: 'Corte vertical',
           };
           const etapas = Object.entries(pd.stages ?? {})
             .filter(([id]) => id in ROTULOS)
