@@ -12,6 +12,7 @@ import urllib.request
 import urllib.parse
 import re
 import logging
+import os
 from datetime import datetime
 import db_paths
 
@@ -26,8 +27,22 @@ except ValueError:
     firebase_admin.initialize_app()
 
 # Get Firestore instance
+#
+# `FIRESTORE_DATABASE` existe por causa do emulador. O nome padrão do banco é
+# `(default)`, e o cliente 2.2x manda esse nome PERCENT-ENCODED no cabeçalho de
+# roteamento (`%28default%29`); o emulador não decodifica e recusa toda escrita
+# e toda query com `400 Illegal string`. Leitura de documento único passa, o
+# que fazia a falha parecer intermitente.
+#
+# Não dá para resolver por versão: o cliente que funciona com o emulador é
+# anterior ao que o firebase-admin 7.5 exige, e o downgrade arrasta o protobuf
+# para trás e quebra o import do google-antigravity.
+#
+# Um banco com nome sem parênteses não tem o que codificar. Produção continua
+# em `(default)` porque a variável não é setada lá.
 try:
-    db = firestore.client()
+    _DATABASE = os.environ.get("FIRESTORE_DATABASE", "").strip()
+    db = firestore.client(database_id=_DATABASE) if _DATABASE else firestore.client()
 except Exception as e:
     logger.warning(f"Failed to initialize Firestore client: {e}")
     db = None

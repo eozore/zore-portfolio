@@ -67,6 +67,12 @@ services:
       FIREBASE_PROJECT_ID: vazfy-417019
       GOOGLE_CLOUD_PROJECT: vazfy-417019
       FIRESTORE_EMULATOR_HOST: firestore:8080
+      # O emulador recusa o banco `(default)`: o cliente manda o nome
+      # percent-encoded (`%28default%29`) no cabeçalho de roteamento e ele não
+      # decodifica — toda escrita e toda query voltam 400. Um nome sem
+      # parênteses não tem o que codificar. Só existe aqui; produção usa o
+      # padrão. Ver o comentário em agents/cmo_agent/tools.py.
+      FIRESTORE_DATABASE: local
       # Vertex é real: precisa das credenciais do gcloud da máquina.
       GOOGLE_APPLICATION_CREDENTIALS: /gcloud/application_default_credentials.json
       CMO_INTERNAL_SECRET: local
