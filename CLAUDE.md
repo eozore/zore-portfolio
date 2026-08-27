@@ -32,6 +32,20 @@ dos jobs, aprovar um vídeo dispara a produção pelo caminho antigo.
 
 Projeto GCP: `vazfy-417019`, região `us-central1`.
 
+**Antes de aprovar um pacote**, e não antes de deployar:
+
+```bash
+./scripts/check-credentials.sh
+```
+
+Tokens de publicação expiram sozinhos. Sem esta checagem o vídeo é gerado,
+gasta ElevenLabs e HeyGen, e falha só na hora de publicar. Renove com
+`./scripts/renew_token.py youtube`.
+
+A infra da pipeline está em `infra/pipeline/`. `terraform plan` deve dizer
+`No changes`; se não disser, descubra qual lado está errado antes de aplicar.
+A imagem dos jobs está sob `ignore_changes` — quem manda nela é o Cloud Build.
+
 ---
 
 ## As duas interfaces
@@ -73,6 +87,21 @@ publicam o primeiro e descartam três sem erro.
 **Áudio é a única entrada que o HeyGen tem para inferir fonema.** Não troque
 o modelo do ElevenLabs nem o formato sem entender o efeito na sincronia labial
 (ver PIPELINE_E2E_REVIEW.md).
+
+**O ambiente local tem que gravar num banco só.** `FIRESTORE_DATABASE`
+existe porque o emulador recusa `(default)` para o cliente Python. Ela precisa
+valer para o Node também — quando valia só para o Python, o artigo ia para um
+banco e o grafo, a `social_queue` e os agentes para outro, sem erro nenhum. O
+ambiente seguia "passando" enquanto deixava de validar todo contrato que
+cruza Node↔Python, que é metade do que ele existe para pegar.
+
+**O `seed.py` local cria os topics do Pub/Sub, não só os agentes.** O emulador
+sobe vazio, e sem topic o gate do vídeo aborta em `Topic not found` — o gate
+mais caro do fluxo era o único que nunca rodava localmente.
+
+**Um ciclo de teste tem que passar pela rota do frontend.** Quem grava o
+artigo no blog e dispara a produção é `/api/csm/studio`, não o grafo. Falar
+direto com o `cmo-agent` pula as duas coisas e ainda devolve `fase: concluido`.
 
 **Estilos são compartilhados entre abas.** `ArticleTab` e `ReviewTab` importam
 CSS modules de abas que já não existem. Apagar um `.module.css` "órfão" quebra
