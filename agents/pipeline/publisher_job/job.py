@@ -632,6 +632,11 @@ class PublisherJob:
         tags        = meta.get("tags", ["ia", "machinelearning", "eozore"])
         article_url = meta.get("article_url", "https://eozore.com/pt-BR/blog")
         subtitle    = meta.get("subtitle", description[:80] if description else "Canal Victor Zoré")
+        # A capa NÃO usa o título. Com os 63 caracteres do vídeo de 27/08 ela
+        # saiu com sete linhas de texto — ilegível em miniatura. Cai no título
+        # só quando a frase não foi gerada, que é o comportamento anterior.
+        thumb_frase = (meta.get("thumb_frase") or "").strip() or title
+        thumb_apoio = (meta.get("thumb_apoio") or "").strip() or subtitle
         category    = meta.get("category", "ia")
 
         # URL do vídeo longo, quando ele já subiu numa execução anterior. É o
@@ -705,8 +710,8 @@ class PublisherJob:
                 tmp_files.append(path)
                 generate_thumbnail(
                     video_path  = source,
-                    title       = title,
-                    subtitle    = subtitle,
+                    title       = thumb_frase,
+                    subtitle    = thumb_apoio,
                     format      = fmt,
                     category    = category,
                     output_path = path,

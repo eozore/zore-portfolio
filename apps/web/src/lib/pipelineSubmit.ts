@@ -87,6 +87,8 @@ export interface ManifestV2 {
 /** Resposta do /build-manifest, incluindo o gate do produto. */
 interface ManifestBuildResult {
   manifest_gcs_path:   string;
+  thumb_frase?:        string | null;
+  thumb_apoio?:        string | null;
   segment_count:       number;
   avatar_segments:     number;
   slide_segments:      number;
@@ -161,6 +163,12 @@ interface ProjectMeta {
   articleUrl?:  string;
   subtitle?:    string;
   category?:    string;
+  /** Frase de capa da thumbnail. A capa NÃO usa o título: com os 63
+   *  caracteres do vídeo de 27/08 ela saiu com sete linhas, ilegível em
+   *  miniatura. Vem do /build-manifest e pode ser undefined — nesse caso o
+   *  gerador cai no título, comportamento anterior. */
+  thumbFrase?:  string;
+  thumbApoio?:  string;
 }
 
 /**
@@ -301,6 +309,8 @@ async function createProjectDoc(
     // blog em vez do artigo.
     description:  meta.description ?? '',
     tags:         meta.tags ?? [],
+    thumb_frase:  meta.thumbFrase ?? '',
+    thumb_apoio:  meta.thumbApoio ?? '',
     article_url:  meta.articleUrl ?? '',
     subtitle:     meta.subtitle ?? '',
     category:     meta.category ?? 'ia',
@@ -438,6 +448,9 @@ export async function executarSubmit(
           title:       articleTitle,
           project_id:  projectId,
           language:    (sessionDraft?.language as string) || 'pt-BR',
+          // A pauta viaja junto só para a frase de capa da thumbnail ter tese
+          // e público. Sem ela a frase sai genérica.
+          pauta:       pautaEfetiva,
         }),
         signal: AbortSignal.timeout(60_000),
       });
@@ -472,7 +485,14 @@ export async function executarSubmit(
       const mainChannels = ['youtube'];
 
       await createProjectDoc(projectId, articleTitle, manifestPath, articleSlug, sessionId, tenantId,
-                             { ...projectMeta, channelsApproved: mainChannels });
+                             {
+                               ...projectMeta,
+                               channelsApproved: mainChannels,
+                               // Só chega aqui: a frase nasce no /build-manifest,
+                               // depois de projectMeta já ter sido montado.
+                               thumbFrase: manifestData.thumb_frase ?? undefined,
+                               thumbApoio: manifestData.thumb_apoio ?? undefined,
+                             });
 
       const msg = {
         project_id:        projectId,

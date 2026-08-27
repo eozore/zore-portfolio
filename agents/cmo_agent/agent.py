@@ -2016,6 +2016,8 @@ class BuildManifestRequest(BaseModel):
     # `manifest` não vem. Foi ele que achatou 8 segmentos em 1 e produziu um
     # vídeo de avatar puro — não use para conteúdo novo.
     script:     Optional[str]   = None
+    # Pauta, só para a frase de capa da thumbnail ter tese e público.
+    pauta:      Optional[dict]  = None
 
 
 @app.post("/build-manifest")
@@ -2073,11 +2075,24 @@ async def build_manifest_endpoint(
                 html, content_type="text/html; charset=utf-8"
             )
             gcs_uri = f"gs://{gcs_bucket}/{blob_name}"
+
+            # Frase de capa: a thumbnail recebia o TÍTULO e saía com sete
+            # linhas de texto, ilegível em miniatura. Gerada aqui porque é
+            # onde o Vertex está e por onde todo pacote passa. Falha ABERTO —
+            # sem frase, o gerador cai no título, que é o comportamento antigo.
+            from thumbnail_copy import gerar_frase_de_capa
+            pauta_req = req.pauta or {}
+            capa = await gerar_frase_de_capa(
+                titulo  = req.title,
+                tese    = str(pauta_req.get("tese") or ""),
+                publico = str(pauta_req.get("publico") or ""),
+            )
             logger.info(
                 "[build-manifest] Manifesto v2 aprovado enviado direto: %s "
                 "(%d slides embutidos)", gcs_uri, len(req.slide_htmls or {}),
             )
         elif req.script:
+            capa = None          # caminho legado não gera frase de capa
             gcs_uri = build_and_upload_manifest(
                 script_markdown = req.script,
                 title           = req.title,
@@ -2149,6 +2164,10 @@ async def build_manifest_endpoint(
             "estimated_cost_usd": round(
                 total_chars * 0.00005 + avatar_seconds * HEYGEN_USD_PER_SECOND, 4
             ),
+            # Podem vir None: a frase falha aberto, e quem consome cai no
+            # título, que é o comportamento anterior.
+            "thumb_frase": (capa or {}).get("frase"),
+            "thumb_apoio": (capa or {}).get("apoio"),
         }
 
     except HTTPException:

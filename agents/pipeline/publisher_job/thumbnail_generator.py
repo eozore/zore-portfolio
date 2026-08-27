@@ -154,6 +154,73 @@ def find_best_frame_timestamp(video_path: str) -> float:
 
 # ── HTML templates ────────────────────────────────────────────────────────────
 
+RETRATO_GCS = os.environ.get(
+    "THUMB_RETRATO_GCS", "gs://vazfy-417019-assets/brand/zore-retrato.png"
+)
+
+
+def _retrato_b64() -> str:
+    """
+    Retrato do apresentador, em base64. String vazia quando indisponível.
+
+    As thumbnails que o canal usa têm o rosto: a pessoa olhando para a câmera
+    é o que separa uma capa de canal de um slide com texto por cima. As
+    geradas pela pipeline não tinham nenhum, e ficavam sendo um print do
+    vídeo com uma frase — indistinguíveis entre si na lista de recomendados.
+
+    Falha ABERTO: sem o asset, a composição cai para o frame do vídeo. Uma
+    thumbnail sem rosto ainda é melhor que nenhuma.
+    """
+    try:
+        from google.cloud import storage as _gcs
+
+        bucket_name, blob_path = RETRATO_GCS.replace("gs://", "").split("/", 1)
+        dados = _gcs.Client().bucket(bucket_name).blob(blob_path).download_as_bytes()
+        return base64.b64encode(dados).decode()
+    except Exception as exc:                                   # noqa: BLE001
+        logger.warning("[thumbnail] retrato indisponível (%s) — usando o frame.", exc)
+        return ""
+
+
+def _linhas_da_frase(frase: str) -> list[str]:
+    """
+    Quebra a frase de impacto em 2 ou 3 linhas curtas.
+
+    O molde é o das capas feitas à mão: "O ERRO / MAIS CARO / DE ML". Linhas
+    curtas empilhadas ocupam a coluna esquerda inteira e são legíveis no
+    tamanho de miniatura; uma linha longa encolhe a fonte até sumir.
+    """
+    palavras = frase.strip().split()
+    if not palavras:
+        return []
+    if len(palavras) <= 2:
+        return [" ".join(palavras).upper()]
+
+    alvo = 3 if len(palavras) >= 5 else 2
+    alvo = min(alvo, len(palavras))
+
+    # Testa TODAS as divisões em `alvo` grupos contíguos e fica com a mais
+    # equilibrada. O guloso anterior fechava a linha assim que passava da
+    # largura alvo e produzia "O ERRO / MAIS / CARO DE ML" — a linha do meio
+    # com um terço da largura das outras. Com no máximo 8 palavras o custo é
+    # irrelevante e o resultado é ótimo, não aproximado.
+    from itertools import combinations
+
+    n = len(palavras)
+    melhor: Optional[list[str]] = None
+    melhor_custo = float("inf")
+    for cortes in combinations(range(1, n), alvo - 1):
+        limites = (0, *cortes, n)
+        grupos = [palavras[limites[i]:limites[i + 1]] for i in range(alvo)]
+        larguras = [len(" ".join(g)) for g in grupos]
+        # Diferença entre a maior e a menor linha: é o que salta aos olhos.
+        custo = max(larguras) - min(larguras)
+        if custo < melhor_custo:
+            melhor_custo, melhor = custo, [" ".join(g).upper() for g in grupos]
+
+    return melhor or [" ".join(palavras).upper()]
+
+
 def _build_youtube_html(
     frame_b64:   str,
     title:       str,
@@ -162,115 +229,108 @@ def _build_youtube_html(
     title_words: int = 1,
 ) -> str:
     """
-    Gera HTML para thumbnail YouTube 1280x720.
+    Thumbnail 1280x720 no padrão do canal.
 
-    Layout:
-    - Frame como background full-bleed
-    - Gradiente preto da esquerda (opaco) → direita (transparente)
-    - Título laranja enorme à esquerda (ocupa ~55% da largura)
-    - Subtítulo branco menor
-    - Ícone SVG embaixo do subtítulo
+    Layout: retrato à direita, gradiente escuro cobrindo a esquerda, frase de
+    impacto empilhada em 2–3 linhas, régua laranja e apoio em monoespaçada.
+
+    O tamanho da fonte é ajustado por script depois do layout, e não por uma
+    tabela de faixas. A versão anterior dimensionava pelo comprimento da
+    PRIMEIRA palavra: com "O que é harness e como usar corretamente no
+    desenvolvimento com IA", `big_text` era "O", a fonte ia para 120px, e as
+    outras 58 letras vazavam por cima e por baixo do quadro.
     """
-    # Divide título: primeira(s) palavras maior, resto menor
-    words = title.strip().split()
-    if len(words) <= 2:
-        big_text  = title.upper()
-        small_text = ""
-    else:
-        # Tenta dividir em 1-2 palavras grandes + resto
-        split_at = min(title_words, len(words) - 1)
-        big_text   = " ".join(words[:split_at]).upper()
-        small_text = " ".join(words[split_at:]).upper()
+    linhas = _linhas_da_frase(title)
+    if not linhas:
+        linhas = ["ÉOZORÉ"]
 
-    # Tamanho da fonte dinâmico baseado no comprimento
-    big_len   = len(big_text)
-    font_size = "120px" if big_len <= 8 else "90px" if big_len <= 12 else "72px"
+    # Primeira linha branca, resto laranja — é o contraste das capas do canal.
+    html_linhas = "".join(
+        f'<span class="l {"br" if i == 0 else "lj"}">{l}</span>' for i, l in enumerate(linhas)
+    )
+
+    retrato = _retrato_b64()
+    camada_direita = (
+        f"background-image:url('data:image/png;base64,{retrato}');"
+        if retrato
+        else f"background-image:url('data:image/jpeg;base64,{frame_b64}');"
+    )
 
     return f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
+<link href="{FONT_URL}" rel="stylesheet">
 <style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  html, body {{ width: 1280px; height: 720px; overflow: hidden; font-family: 'Oswald', Impact, sans-serif; }}
-
-  .bg {{
-    position: absolute; inset: 0;
-    background-image: url('data:image/jpeg;base64,{frame_b64}');
-    background-size: cover;
-    background-position: center right;
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  html, body {{
+    width:1280px; height:720px; overflow:hidden;
+    background:#0d0f14; font-family:'Oswald', Impact, sans-serif;
   }}
-
-  .gradient {{
-    position: absolute; inset: 0;
-    background: linear-gradient(
-      to right,
-      rgba(0,0,0,0.96) 0%,
-      rgba(0,0,0,0.88) 35%,
-      rgba(0,0,0,0.55) 55%,
-      rgba(0,0,0,0.10) 75%,
-      rgba(0,0,0,0.00) 100%
-    );
+  .retrato {{
+    position:absolute; top:0; right:0; width:58%; height:100%;
+    {camada_direita}
+    background-size:cover; background-position:center 18%;
   }}
-
-  .content {{
-    position: absolute;
-    left: 48px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 620px;
+  /* Cobre a esquerda por inteiro e some sobre o rosto. Sem o trecho opaco a
+     tipografia perde contraste em cima de um fundo claro de escritório. */
+  .veu {{
+    position:absolute; inset:0;
+    background:linear-gradient(to right,
+      rgba(13,15,20,1) 0%, rgba(13,15,20,0.99) 30%,
+      rgba(13,15,20,0.94) 42%, rgba(13,15,20,0.72) 52%,
+      rgba(13,15,20,0.34) 64%, rgba(13,15,20,0.08) 76%, rgba(13,15,20,0) 88%);
   }}
-
-  .title-big {{
-    font-size: {font_size};
-    font-weight: 900;
-    color: {ORANGE};
-    line-height: 0.95;
-    letter-spacing: -2px;
-    text-shadow: 3px 3px 0px rgba(0,0,0,0.5);
-    display: block;
+  .bloco {{
+    position:absolute; left:56px; top:50%; transform:translateY(-50%);
+    width:600px; max-height:600px; display:flex; flex-direction:column;
   }}
-
-  .title-small {{
-    font-size: {font_size};
-    font-weight: 900;
-    color: {WHITE};
-    line-height: 0.95;
-    letter-spacing: -2px;
-    text-shadow: 3px 3px 0px rgba(0,0,0,0.5);
-    display: block;
-    margin-bottom: 16px;
+  .frase {{ display:flex; flex-direction:column; }}
+  /* `nowrap` é o que faz o ajuste automático funcionar: com quebra livre a
+     linha nunca excede a largura do bloco, o script não vê excesso e a frase
+     sai empilhada em mais linhas do que o previsto, desmontando a composição. */
+  .l {{
+    font-weight:700; line-height:0.94; letter-spacing:-1px;
+    text-transform:uppercase; font-size:112px; white-space:nowrap;
   }}
-
-  .subtitle {{
-    font-family: 'Roboto Mono', 'Courier New', monospace;
-    font-size: 22px;
-    font-weight: 400;
-    color: {GRAY};
-    letter-spacing: 0.5px;
-    margin-top: 8px;
-    border-left: 3px solid {ORANGE};
-    padding-left: 12px;
-    line-height: 1.4;
-  }}
-
-  .icon {{
-    margin-top: 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  .br {{ color:{WHITE}; }}
+  .lj {{ color:{ORANGE}; }}
+  .regua {{ width:132px; height:4px; background:{ORANGE}; margin:22px 0 14px; }}
+  .apoio {{
+    font-family:'Roboto Mono','Courier New',monospace;
+    font-size:24px; color:{GRAY}; letter-spacing:0.3px; line-height:1.35;
   }}
 </style>
 </head>
 <body>
-  <div class="bg"></div>
-  <div class="gradient"></div>
-  <div class="content">
-    <span class="title-big">{big_text}</span>
-    {'<span class="title-small">' + small_text + '</span>' if small_text else ''}
-    <div class="subtitle">{subtitle}</div>
-    <div class="icon">{icon_svg}</div>
+  <div class="retrato"></div>
+  <div class="veu"></div>
+  <div class="bloco">
+    <div class="frase" id="frase">{html_linhas}</div>
+    <div class="regua"></div>
+    <div class="apoio">{subtitle}</div>
   </div>
+<script>
+// Encolhe até caber. O ajuste é por MEDIÇÃO e não por faixa de comprimento:
+// acento, maiúscula e a própria fonte mudam a largura real, e qualquer tabela
+// erra em algum título. Roda antes do screenshot porque é síncrono no parse.
+(function () {{
+  var bloco = document.querySelector('.bloco');
+  var linhas = document.querySelectorAll('.l');
+  var tamanho = 112;
+  function cabe() {{
+    if (bloco.scrollHeight > bloco.clientHeight) return false;
+    for (var i = 0; i < linhas.length; i++) {{
+      if (linhas[i].scrollWidth > bloco.clientWidth) return false;
+    }}
+    return true;
+  }}
+  while (!cabe() && tamanho > 34) {{
+    tamanho -= 2;
+    for (var i = 0; i < linhas.length; i++) linhas[i].style.fontSize = tamanho + 'px';
+  }}
+}})();
+</script>
 </body>
 </html>"""
 
