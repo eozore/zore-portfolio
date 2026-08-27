@@ -810,8 +810,27 @@ class PublisherJob:
         platforms_status: dict[str, str] = dict(already_ok)  # preserva sucessos anteriores
         for platform, _source, attempt in platform_attempts:
             if already_ok.get(platform):
-                results[platform] = already_ok[platform]
-                logger.info(f"[publisher] {platform} já publicado em tentativa anterior (post_id={already_ok[platform]}) — pulando.")
+                post_id = already_ok[platform]
+                # No YouTube, "já publicado" não significa "nada a fazer":
+                # descrição e capa podem ter sido regeradas. Atualizar no lugar
+                # é o que evita um segundo vídeo do mesmo tema no canal — em
+                # 27/08, republicar deixou três.
+                if platform == "youtube":
+                    try:
+                        self._get_youtube().update_video_metadata(
+                            video_id=post_id, title=title, description=copy_long,
+                            tags=tags, category_id="27",
+                            thumbnail_url=thumbnail_youtube_url,
+                        )
+                        logger.info("[publisher] youtube %s atualizado no lugar.", post_id)
+                    except Exception as exc:                     # noqa: BLE001
+                        # Não sobe: um vídeo com descrição velha continua no ar
+                        # e visível. Falhar aqui e reenviar criaria o duplicado
+                        # que este caminho existe para evitar.
+                        logger.warning("[publisher] update do youtube falhou (%s).", exc)
+                results[platform] = post_id
+                if platform != "youtube":
+                    logger.info(f"[publisher] {platform} já publicado (post_id={post_id}) — pulando.")
                 continue
             try:
                 post_id = attempt()

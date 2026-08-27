@@ -244,6 +244,55 @@ class YouTubeClient:
 
         raise RuntimeError("YouTube upload: loop terminou sem video_id")
 
+    def update_video_metadata(
+        self,
+        video_id:     str,
+        title:        str,
+        description:  str,
+        tags:         list[str] | None = None,
+        category_id:  str = "27",
+        thumbnail_url: str | None = None,
+    ) -> str:
+        """
+        Atualiza título, descrição, tags e capa de um vídeo QUE JÁ ESTÁ no canal.
+
+        Existe porque o YouTube não permite trocar o ARQUIVO de um vídeo, mas
+        permite trocar tudo em volta. Sem isto, reprocessar a publicação só
+        podia subir de novo — e em 27/08 isso deixou três vídeos do mesmo tema
+        no canal, dois deles lixo.
+
+        Reupload é o certo quando a EDIÇÃO refez o vídeo. Quando só a descrição
+        ou a capa mudaram, o certo é isto.
+
+        Exige o escopo `youtube.force-ssl`: `upload` sozinho recusa
+        `videos.update` com "insufficient authentication scopes".
+        """
+        corpo = {
+            "id": video_id,
+            "snippet": {
+                "title":       title[:100],
+                "description": description[:5000],
+                "categoryId":  category_id,
+                **({"tags": tags[:15]} if tags else {}),
+            },
+        }
+        r = requests.put(
+            f"{YOUTUBE_API}/videos?part=snippet",
+            headers={
+                "Authorization": f"Bearer {self._get_access_token()}",
+                "Content-Type":  "application/json",
+            },
+            json=corpo,
+            timeout=60,
+        )
+        if r.status_code != 200:
+            raise RuntimeError(f"YouTube update {r.status_code}: {r.text[:200]}")
+
+        logger.info("YouTube metadata atualizada: %s", video_id)
+        if thumbnail_url:
+            self._set_thumbnail(video_id, thumbnail_url)
+        return video_id
+
     def _set_thumbnail(self, video_id: str, thumbnail_url: str) -> None:
         """Define thumbnail customizada. Não levanta exceção se falhar."""
         try:

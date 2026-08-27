@@ -40,12 +40,16 @@ const TOM: Record<EstadoEntregavel, 'neutral' | 'active' | 'done' | 'error' | 'w
 };
 
 function Celula({
-  rotulo, estado, detalhe, acao,
+  rotulo, estado, detalhe, acao, extra,
 }: {
   rotulo: string;
   estado: EstadoEntregavel;
   detalhe?: string;
   acao?: { texto: string; onClick: () => void };
+  /** Ação de retomada — separada de `acao` porque MUDA o projeto, enquanto
+   *  `acao` só abre um link. As duas juntas e iguais convidariam ao clique
+   *  errado. */
+  extra?: { texto: string; onClick: () => void };
 }) {
   return (
     // `items-start` porque o Badge é inline-flex: num flex column o padrão
@@ -62,6 +66,15 @@ function Celula({
           className="self-start text-[12px] font-medium text-primary underline-offset-2 hover:underline"
         >
           {acao.texto}
+        </button>
+      )}
+      {extra && (
+        <button
+          type="button"
+          onClick={extra.onClick}
+          className="self-start text-[12px] text-text-muted underline-offset-2 hover:text-text-main hover:underline"
+        >
+          {extra.texto}
         </button>
       )}
     </div>
@@ -84,12 +97,17 @@ function quando(iso: string): string {
 }
 
 function Linha({
-  p, onAbrir,
+  p, onAbrir, onRetomar, ocupado,
 }: {
   p: ProjetoResumo;
   onAbrir: (sessionId: string) => void;
+  onRetomar: (projectId: string, etapa: string, custo?: string) => void;
+  ocupado: boolean;
 }) {
   const travado = p.video.estado === 'erro';
+  // Retomar a EDIÇÃO é o caminho gratuito: os clipes de avatar já estão no
+  // GCS. É o que resolve vídeo montado errado sem gastar de novo.
+  const podeRemontar = Boolean(p.projectId) && ['pronto', 'erro'].includes(p.video.estado);
   return (
     <Card>
       <div className="flex flex-col gap-4">
@@ -132,6 +150,12 @@ function Linha({
             acao={p.video.youtubeUrl
               ? { texto: 'ver', onClick: () => window.open(p.video.youtubeUrl, '_blank') }
               : undefined}
+            extra={podeRemontar && !ocupado
+              ? {
+                  texto: RETOMADA.editor.texto,
+                  onClick: () => onRetomar(p.projectId as string, 'editor'),
+                }
+              : undefined}
           />
           <Celula
             rotulo="Social"
@@ -149,6 +173,13 @@ function Linha({
   );
 }
 
+/** Etapa da pipeline por onde retomar, com o custo declarado. */
+const RETOMADA: Record<string, { etapa: string; texto: string; custo?: string }> = {
+  editor:    { etapa: 'editor',    texto: 'remontar o vídeo' },
+  publisher: { etapa: 'publisher', texto: 'publicar de novo' },
+  avatar:    { etapa: 'avatar',    texto: 'refazer o avatar', custo: '~US$4/min de avatar no HeyGen' },
+};
+
 export default function Biblioteca({
   onAbrir, onNovo,
 }: {
@@ -157,6 +188,8 @@ export default function Biblioteca({
 }) {
   const [projetos, setProjetos] = useState<ProjetoResumo[] | null>(null);
   const [erro, setErro] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState('');
 
   const buscar = useCallback(async () => {
     try {
@@ -172,6 +205,32 @@ export default function Biblioteca({
   }, []);
 
   useEffect(() => { void buscar(); }, [buscar]);
+
+  /**
+   * Retoma a produção reusando o MESMO projeto.
+   *
+   * Aprovar o gate de novo criaria um `projectId` novo e refaria o avatar do
+   * zero. Aqui a edição é remontada sobre os clipes que já estão no GCS —
+   * custo zero.
+   */
+  const retomar = useCallback(async (projectId: string, etapa: string, custo?: string) => {
+    if (custo && !window.confirm(`Isso gasta ${custo}. Continuar?`)) return;
+    setOcupado(true); setErro(''); setAviso('');
+    try {
+      const r = await fetch('/api/csm/projects/reprocess', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, apartirDe: etapa, confirmarCusto: Boolean(custo) }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      setAviso('Reprocessando. A lista se atualiza sozinha.');
+      await buscar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(false);
+    }
+  }, [buscar]);
 
   // Só há polling quando ALGO está em produção. Uma biblioteca parada não
   // precisa de rede — é a mesma regra do polling do fluxo.
@@ -202,6 +261,12 @@ export default function Biblioteca({
         </div>
       )}
 
+      {aviso && (
+        <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-[13px] text-primary-deep">
+          {aviso}
+        </div>
+      )}
+
       {projetos === null && <Working label="Carregando seus projetos" />}
 
       {projetos?.length === 0 && !erro && (
@@ -212,7 +277,10 @@ export default function Biblioteca({
 
       <div className={cx('space-y-3')}>
         {projetos?.map((p) => (
-          <Linha key={p.sessionId} p={p} onAbrir={onAbrir} />
+          <Linha
+            key={p.sessionId} p={p} onAbrir={onAbrir}
+            onRetomar={retomar} ocupado={ocupado}
+          />
         ))}
       </div>
     </div>
