@@ -339,8 +339,15 @@ def renew_youtube(port: int, redirect_uri: str) -> None:
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
+        # `force-ssl` além de `upload`: subir vídeo novo só precisa de
+        # `upload`, e a pipeline normal se resolve com ele. Mas EDITAR um
+        # vídeo já publicado — trocar descrição ou capa depois de uma correção
+        # — é `videos.update`, que recusa `upload` com "insufficient
+        # authentication scopes". Sem isto, reprocessar a publicação de um
+        # vídeo que já está no canal é impossível pela API.
         "scope": "https://www.googleapis.com/auth/youtube.upload "
-                 "https://www.googleapis.com/auth/youtube.readonly",
+                 "https://www.googleapis.com/auth/youtube.readonly "
+                 "https://www.googleapis.com/auth/youtube.force-ssl",
         # offline + consent sao obrigatorios para vir refresh_token; sem
         # prompt=consent o Google reaproveita o grant e devolve so o access.
         "access_type": "offline",
