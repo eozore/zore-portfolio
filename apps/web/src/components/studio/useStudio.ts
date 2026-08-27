@@ -117,11 +117,13 @@ export function useStudio(sessionId: string) {
           // etapa DESTA lista estiver ativa — com `editor` de fora, a tela
           // congelava justamente quando a edição começava.
           //
-          // `publisher` não é escrito por job nenhum; a publicação aparece
-          // por `videoPronto`/`youtubeUrl`, não como etapa.
+          // `publisher` É escrito, por caminho de campo
+          // (publisher_job/job.py:679 grava `stages.publisher.status`), e não
+          // por `update_stage` — foi por isso que um grep por `update_stage(`
+          // não o encontrou e ele chegou a sair desta lista.
           const ROTULOS: Record<string, string> = {
             tts: 'Voz', avatar: 'Avatar', editor: 'Edição',
-            vertical_cut: 'Corte vertical',
+            publisher: 'Publicação', vertical_cut: 'Corte vertical',
           };
           const etapas = Object.entries(pd.stages ?? {})
             .filter(([id]) => id in ROTULOS)
