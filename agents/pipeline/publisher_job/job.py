@@ -447,6 +447,72 @@ class PublisherJob:
             resolved = resolved.replace(CHANNEL_PLACEHOLDER, video_url or YOUTUBE_CHANNEL_URL)
         return resolved
 
+    # ── Link nas peças sociais ────────────────────────────────────────────────
+
+    def _link_da_campanha(self, data: dict[str, Any]) -> str:
+        """
+        O melhor link disponível NO MOMENTO da publicação, nesta ordem:
+        vídeo → artigo → canal.
+
+        A ordem existe porque o vídeo é o item mais demorado do ciclo: o plano
+        social é enfileirado logo depois do gate, e o vídeo só fica pronto
+        (e às vezes só é publicado à mão) horas ou dias depois. Resolver o link
+        no enfileiramento congelaria `video_url: None` para sempre — foi o que
+        aconteceu com as 51 peças de 27/08.
+        """
+        video = self._video_url_for(
+            data.get("session_id") or data.get("sessionId"),
+            data.get("article_slug") or data.get("articleSlug"),
+        )
+        return video or _article_url_from(data) or YOUTUBE_CHANNEL_URL
+
+    @staticmethod
+    def _tem_link(texto: str | None) -> bool:
+        return bool(texto) and ("http://" in texto or "https://" in texto)
+
+    def _garantir_link(self, data: dict[str, Any], platform: str) -> dict[str, Any]:
+        """
+        Põe o link na peça quando a plataforma sabe renderizá-lo.
+
+        `_resolve_placeholders` só age se o marcador estiver no texto, e o
+        modelo emitiu marcador em UMA das 51 peças do ciclo de 27/08 — as
+        outras 50 foram para a fila sem link nenhum, nem do vídeo nem do
+        artigo. Pedir o marcador ao modelo é sugestão; isto é garantia.
+
+        O Instagram fica DE FORA de propósito: ele não renderiza link em
+        legenda nem em comentário, e enfiar uma URL ali só suja o texto. Lá o
+        caminho é a bio, e disso cuida a regra de copy.
+        """
+        link = self._link_da_campanha(data)
+
+        if platform == "linkedin":
+            # No corpo o link derruba o alcance; o lugar dele é o primeiro
+            # comentário, que é o que `comentario_fixado` publica.
+            atual = data.get("comentario_fixado") or data.get("firstComment")
+            if not self._tem_link(atual):
+                data["comentario_fixado"] = (
+                    f"{atual.strip()}\n\n{link}" if isinstance(atual, str) and atual.strip()
+                    else f"Vídeo completo: {link}"
+                )
+            return data
+
+        if platform == "threads":
+            posts = data.get("thread_posts") or data.get("threadPosts")
+            if isinstance(posts, list) and posts:
+                if not any(self._tem_link(p) for p in posts):
+                    posts[-1] = f"{str(posts[-1]).rstrip()}\n\n{link}"
+                    data["thread_posts"] = posts
+            elif not self._tem_link(data.get("copy")):
+                data["copy"] = f"{str(data.get('copy') or '').rstrip()}\n\n{link}"
+            return data
+
+        if platform in ("youtube_community", "facebook"):
+            if not self._tem_link(data.get("copy")):
+                data["copy"] = f"{str(data.get('copy') or '').rstrip()}\n\n{link}"
+            return data
+
+        return data
+
     # ── Clientes (lazy) ────────────────────────────────────────────────────────
 
     def _get_linkedin(self):
@@ -907,6 +973,9 @@ class PublisherJob:
         for key in ("comentario_fixado", "firstComment"):
             if isinstance(data.get(key), str):
                 data[key] = self._resolve_placeholders(data[key], data)
+
+        # Marcador resolvido é o caminho feliz; isto é a rede embaixo dele.
+        data = self._garantir_link(data, platform)
 
         # Normaliza asset_urls
         if not data.get("asset_urls") and data.get("videoUrl"):
