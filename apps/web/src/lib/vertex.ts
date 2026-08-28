@@ -2,7 +2,7 @@ import { getApps } from 'firebase-admin/app';
 import { getFirestoreDb } from './firebase';
 
 export const VERTEX_REGION = 'us-central1';
-export const VERTEX_MODEL = 'gemini-2.5-flash';
+export const VERTEX_MODEL = 'gemini-3.7-flash';
 
 export function getVertexStreamEndpoint(projectId: string): string {
   return (

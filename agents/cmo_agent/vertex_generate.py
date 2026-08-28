@@ -28,9 +28,13 @@ import requests as req_lib
 logger = logging.getLogger("cmo_agent.vertex_generate")
 
 VERTEX_REGION = "us-central1"
-# gemini-3.5-flash-lite disponível via endpoint GLOBAL (não regional).
 # Modelos 3.x do Vertex AI usam aiplatform.googleapis.com sem prefixo de região.
-VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-3.5-flash-lite")
+#
+# `gemini-3.7-flash` custa US$0,75/US$3,75 por 1M de tokens até 31/12/2026 e
+# US$1,50/US$7,50 depois — contra US$0,30/US$2,50 do 3.5-flash-lite. A troca
+# multiplica a conta de entrada por 2,5x, e é deliberada: o roteiro e o artigo
+# são o produto, e é onde a diferença de modelo aparece.
+VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-3.7-flash")
 VERTEX_USE_GLOBAL = True  # endpoint global para modelos 3.x
 
 

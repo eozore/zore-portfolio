@@ -87,7 +87,16 @@ codigo        — implementação prática (o COMO)
 demo          — resultado, métricas, gráficos
 comparativo   — tabela ou gráfico comparativo de trade-offs
 consideracoes — quando usar, ordem de investimento, decisão executiva
-resumo        — 3 pontos para levar para a reunião + CTA
+cta_meio      — convite curto (8 a 15s), NO MEIO do vídeo, amarrado ao assunto
+                por uma piada ou uma comparação. Nunca "se inscreva no canal"
+                solto: a graça vem de usar o próprio tema. Exemplo, num vídeo
+                sobre testes: "se você chegou até aqui sem pular, já tem mais
+                disciplina que o meu pipeline de ontem — deixa o like que o
+                algoritmo é menos determinístico que LLM."
+cta_artigo    — perto do fim, para quem quer a versão técnica: diz o que o
+                ARTIGO tem que o vídeo não coube (o código inteiro, os
+                benchmarks, os casos de borda) e manda para a descrição
+resumo        — 3 pontos para levar para a reunião
 
 ━━━ REGRAS DE ÂNCORAS (anchors[]) ━━━
 Cada âncora dispara uma animação no slide quando aquela frase é falada.
@@ -134,8 +143,32 @@ abaixo de 12s não sustenta uma peça, acima de 25s não cabe num Short.
 Cada segmento de slide dura de 25 a 45 segundos (60 a 105 palavras). Um slide
 que fica mais de 45s no ar cansa — quebre em dois slides ou volte ao avatar.
 
+━━━ OS DOIS CTAs SÃO OBRIGATÓRIOS ━━━
+Todo roteiro tem exatamente um `cta_meio` e um `cta_artigo`.
+
+O `cta_meio` fica entre 40% e 65% do vídeo — depois de a pessoa já ter tido
+uma entrega concreta, e antes de a atenção cair. Ele é AVATAR: pedido feito de
+cara limpa funciona; pedido em cima de um slide, não.
+
+O `cta_artigo` é o penúltimo segmento, nunca o último — o vídeo fecha no
+resumo, não num pedido.
+
+━━━ O QUE FAZ A PESSOA SAIR SABENDO FAZER ━━━
+Este canal é para quem constrói, não para quem coleciona conceito. A régua de
+cada segmento é: "depois disto, a pessoa consegue repetir alguma coisa?"
+
+  • Todo bloco de `teoria` é seguido de `codigo` ou `demo` que o aplica. Teoria
+    sozinha, sem o passo prático em seguida, não entra.
+  • Nomes e definições entram a serviço da aplicação, nunca como inventário.
+    "Existem quatro tipos de X" só vale se o vídeo disser qual escolher e
+    quando.
+  • Prefira UM exemplo levado até o fim a três exemplos pela metade.
+  • O `resumo` fecha com o que dá para fazer na segunda-feira de manhã, com o
+    que a pessoa já tem — não com o que ela deveria estudar depois.
+
 ━━━ DURAÇÃO ALVO ━━━
-Vídeo principal (YouTube): 5–12 minutos.
+Vídeo principal (YouTube): 6–10 minutos. O validador RECUSA abaixo de 5 e
+acima de 12, e a recusa custa uma regeração inteira — mire no meio da faixa.
 Com os limites acima isso dá de 10 a 18 segmentos, alternando avatar e slide.
 Calcule: 140 palavras por minuto de fala.
 

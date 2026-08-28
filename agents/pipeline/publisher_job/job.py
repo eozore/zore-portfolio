@@ -258,6 +258,8 @@ _ROTULO_POR_BEAT = {
     "comparativo": "Comparando as opções",
     "resumo":      "O que levar",
     "cta":         "Próximo passo",
+    "cta_meio":    "Uma pausa",
+    "cta_artigo":  "Onde aprofundar",
 }
 
 
@@ -446,6 +448,47 @@ class PublisherJob:
             )
             resolved = resolved.replace(CHANNEL_PLACEHOLDER, video_url or YOUTUBE_CHANNEL_URL)
         return resolved
+
+    # ── Artigo ────────────────────────────────────────────────────────────────
+
+    MARCA_VIDEO = "<!--VIDEO-DO-ARTIGO-->"
+
+    def _anexar_video_ao_artigo(self, article_slug: str | None, video_url: str) -> None:
+        """
+        Acrescenta o vídeo ao fim do artigo, depois que ele existe.
+
+        A ordem do ciclo é artigo primeiro, vídeo depois — às vezes dias
+        depois. Quando o artigo é publicado o vídeo ainda não existe, então
+        não há link para pôr; e nada voltava para pôr depois. O leitor do
+        artigo nunca descobria que havia um vídeo do mesmo assunto.
+
+        Idempotente pelo marcador HTML: republicar não empilha seções.
+        Best-effort — o artigo já está no ar e vale por si, e falhar aqui não
+        pode derrubar a publicação do vídeo.
+        """
+        if not article_slug or not video_url:
+            return
+        try:
+            col = self._db.collection("articles")
+            docs = list(col.where("slug", "==", article_slug).limit(1).get())
+            if not docs:
+                logger.info("[publisher] artigo %s não encontrado para anexar o vídeo.", article_slug)
+                return
+            ref = docs[0].reference
+            corpo = (docs[0].to_dict() or {}).get("content") or ""
+            if self.MARCA_VIDEO in corpo:
+                logger.info("[publisher] artigo %s já tem o vídeo anexado.", article_slug)
+                return
+            bloco = (
+                f"\n\n{self.MARCA_VIDEO}\n\n---\n\n"
+                f"## Veja em vídeo\n\n"
+                f"Se preferir assistir, gravei este mesmo assunto em vídeo — "
+                f"com a demonstração rodando:\n\n{video_url}\n"
+            )
+            ref.update({"content": corpo + bloco})
+            logger.info("[publisher] vídeo anexado ao artigo %s.", article_slug)
+        except Exception as exc:                                # noqa: BLE001
+            logger.warning("[publisher] falha ao anexar vídeo ao artigo: %s", exc)
 
     # ── Link nas peças sociais ────────────────────────────────────────────────
 
@@ -906,6 +949,15 @@ class PublisherJob:
                 logger.error(f"{platform} failed: {e}")
                 results[f"{platform}_error"] = str(e)[:200]
                 platforms_status[platform] = ""  # marca tentativa feita, sem sucesso — não vira "já ok"
+
+        # O artigo foi publicado ANTES do vídeo existir — às vezes dias antes.
+        # Este é o único momento em que se sabe o id do YouTube, então é aqui
+        # que o link volta para o artigo.
+        id_youtube = results.get("youtube")
+        if id_youtube and not str(id_youtube).startswith("pending"):
+            self._anexar_video_ao_artigo(
+                meta.get("article_slug"), f"https://youtu.be/{id_youtube}",
+            )
 
         # YouTube Community Post: não tem API pública — salva para publicação manual
         results["youtube_community"] = "pending_manual — publicar manualmente no YouTube Studio"

@@ -166,6 +166,49 @@ def _quando(base: datetime, dia_offset: int, indice_no_dia: int, minutos_extra: 
 
 # ── Montagem dos itens ────────────────────────────────────────────────────────
 
+def montar_copy(
+    gancho: str | None,
+    corpo: str | None,
+    cta: dict | None = None,
+    hashtags: list[str] | None = None,
+) -> str:
+    """
+    Junta as partes de uma peça sem repetir o gancho e SEM perder o CTA.
+
+    Dois defeitos que as 51 peças de 27/08 carregaram:
+
+    1. **O CTA sumia.** O agente escolhe o tipo por peça, o schema valida a
+       mistura no plano — e o `cta.texto` nunca entrava na copy. 48 das 51
+       peças foram publicadas sem pedir nada a ninguém.
+    2. **O gancho aparecia duas vezes.** O modelo devolve `corpo` já começando
+       pelo gancho, e o código o prefixava de novo. O post do LinkedIn abria
+       repetindo a mesma frase.
+    """
+    partes: list[str] = []
+    g = (gancho or "").strip()
+    c = (corpo or "").strip()
+
+    if g:
+        partes.append(g)
+    if c:
+        # Só prefixa o gancho quando o corpo não começa por ele.
+        inicio = c[: len(g)].strip().lower() if g else ""
+        if g and inicio == g.lower():
+            partes = [c]
+        else:
+            partes.append(c)
+
+    texto_cta = ((cta or {}).get("texto") or "").strip()
+    if texto_cta and texto_cta.lower() not in " ".join(partes).lower():
+        partes.append(texto_cta)
+
+    tags = " ".join(f"#{t.lstrip('#')}" for t in (hashtags or []))
+    if tags:
+        partes.append(tags)
+
+    return "\n\n".join(partes)
+
+
 def _doc(**campos: Any) -> dict:
     """Documento de fila com os campos que o publisher_job sempre lê."""
     agora = datetime.now(timezone.utc).isoformat()
@@ -226,12 +269,10 @@ def montar_itens(
 
     # ── LinkedIn ──────────────────────────────────────────────────────────────
     for p in plano.get("linkedin") or []:
-        corpo = "\n\n".join(x for x in [p.get("gancho"), p.get("corpo")] if x)
-        tags  = " ".join(f"#{t.lstrip('#')}" for t in (p.get("hashtags") or []))
         itens.append(_doc(
             platform="linkedin", format="text",
             title=(p.get("gancho") or "")[:120],
-            copy="\n\n".join(x for x in [corpo, tags] if x),
+            copy=montar_copy(p.get("gancho"), p.get("corpo"), p.get("cta"), p.get("hashtags")),
             # O link fora do corpo é o que preserva o alcance no LinkedIn; o
             # publisher posta isto como primeiro comentário.
             comentario_fixado=p.get("comentario_fixado") or None,
@@ -247,7 +288,15 @@ def montar_itens(
             copy=t.get("gancho") or "",
             # O gancho é o post RAIZ; `posts` são as respostas encadeadas. O
             # publisher espera a thread inteira, raiz inclusa, nesta lista.
-            thread_posts=[t.get("gancho") or "", *(t.get("posts") or [])],
+            # O CTA fecha a sequência: pedir no meio de uma thread interrompe
+            # a leitura, e no fim é onde quem chegou até ali está disposto.
+            thread_posts=[
+                x for x in [
+                    t.get("gancho") or "",
+                    *(t.get("posts") or []),
+                    ((t.get("cta") or {}).get("texto") or "").strip() or None,
+                ] if x
+            ],
             scheduled_at=_quando(base, t.get("dia_offset", 1), slot(t.get("dia_offset", 1))),
             **comum,
         ))
@@ -260,7 +309,7 @@ def montar_itens(
         itens.append(_doc(
             platform="instagram", format="carousel",
             title=(c.get("gancho") or "")[:120],
-            copy=c.get("legenda") or "",
+            copy=montar_copy(None, c.get("legenda"), c.get("cta"), c.get("hashtags")),
             scheduled_at=_quando(base, c.get("dia_offset", 1), slot(c.get("dia_offset", 1))),
             _render=[
                 {
@@ -310,7 +359,7 @@ def montar_itens(
         itens.append(_doc(
             platform="youtube_community", format="text",
             title=(p.get("gancho") or "")[:120],
-            copy=corpo,
+            copy=montar_copy(None, corpo, p.get("cta"), p.get("hashtags")),
             scheduled_at=_quando(base, p.get("dia_offset", 1), slot(p.get("dia_offset", 1))),
             **comum,
         ))

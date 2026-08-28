@@ -721,6 +721,8 @@ def wrap_scriptwriter_manifest(
 html,body{{width:100vw;height:100vh;overflow:hidden;background:#0d0f14;color:#eae4dc;font-family:'Space Grotesk',sans-serif}}
 .slide{{display:none!important;position:absolute;inset:0;flex-direction:column;justify-content:center;align-items:center;padding:60px;background:#0d0f14}}
 .slide.active{{display:flex!important}}
+@keyframes pulsa{{0%{{transform:scale(1)}}45%{{transform:scale(1.045)}}100%{{transform:scale(1)}}}}
+.pulsa{{animation:pulsa .55s ease-out}}
 .slide-id{{font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.28em;color:#e8873a;text-transform:uppercase}}
 .slide-id::before{{content:'// '}}
 #hud{{position:fixed;bottom:14px;right:16px;display:flex;gap:10px;z-index:100;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:#5a5248}}
@@ -778,7 +780,30 @@ function toggleHud(){{
   return hudVisible;
 }}
 function hideHud(){{hudVisible=false;document.documentElement.classList.add('recording');}}
-window.deckAPI={{goTo:goTo,goToSeg:goToSeg,replay:replaySlide,hideHud:hideHud,indexOfSeg:indexOfSeg,count:slides.length}};
+// Revela um elemento que nasce escondido (fd2, fd3, fd4, b1-b4).
+//
+// O manifesto SEMPRE gerou âncoras `reveal` apontando para estes ids, e o
+// gravador nunca as executava — não havia sequer esta função. Os elementos
+// ficavam em `display:none` o clipe inteiro, então o slide mostrava só o
+// primeiro bloco e a ilustração refletia uma fração do que era falado.
+function revelar(id){{
+  var el=slides[current]?slides[current].querySelector('#'+id):null;
+  if(!el)el=document.getElementById(id);
+  if(!el)return false;
+  el.classList.remove('fd-hidden');
+  el.style.removeProperty('display');
+  // Reinicia a animação para o elemento ENTRAR, em vez de simplesmente
+  // aparecer — é isto que dá movimento ao slide.
+  el.classList.remove('fd');void el.offsetWidth;el.classList.add('fd');
+  return true;
+}}
+function destacar(id){{
+  var el=document.getElementById(id);if(!el)return false;
+  el.classList.remove('pulsa');void el.offsetWidth;el.classList.add('pulsa');
+  return true;
+}}
+window.deckAPI={{goTo:goTo,goToSeg:goToSeg,replay:replaySlide,hideHud:hideHud,
+  revelar:revelar,destacar:destacar,indexOfSeg:indexOfSeg,count:slides.length}};
 if(slides.length>0)goTo(0);
 </script>
 </body>
@@ -791,6 +816,21 @@ if(slides.length>0)goTo(0);
 # apresentação sem apresentador, acima vira talking head caro.
 AVATAR_SHARE_MIN = 0.10
 AVATAR_SHARE_MAX = 0.40
+
+# Duração do vídeo do YouTube, em segundos.
+#
+# O prompt do scriptwriter já pedia 5–12 minutos, e o vídeo de 27/08 saiu com
+# 3min29 — porque NADA validava. `validate_manifest` conferia proporção de
+# avatar, contagem de segmentos e fala vazia, e nenhuma duração. O mecanismo
+# de 3 tentativas corretivas já existia; faltava o que checar.
+#
+# A causa concreta: os segmentos de slide saíram com 13,5 a 21,4s contra os
+# 25–45s que o prompt manda. Por isso o piso POR SEGMENTO também está aqui —
+# só o total deixaria passar um vídeo longo feito de slides atropelados.
+DURACAO_MIN_S = 300      # 5 min
+DURACAO_MAX_S = 720      # 12 min
+SLIDE_MIN_S   = 20       # abaixo disto o slide não é lido, só piscado
+AVATAR_MIN_S  = 10
 
 
 def manifest_stats(manifest_dict: dict) -> dict:
@@ -986,6 +1026,53 @@ def validate_manifest(manifest_dict: dict) -> tuple[list[str], dict]:
         problems.append(
             f"avatar ocupa só {stats['avatar_share'] * 100:.0f}% do vídeo "
             f"(piso {AVATAR_SHARE_MIN * 100:.0f}%)"
+        )
+
+    total = float(stats.get("total_duration_s") or 0)
+    if total and total < DURACAO_MIN_S:
+        problems.append(
+            f"vídeo de {total / 60:.1f} min — abaixo do piso de "
+            f"{DURACAO_MIN_S // 60} min. Alongue os segmentos existentes ou "
+            f"acrescente blocos de aplicação; não corte o assunto"
+        )
+    if total > DURACAO_MAX_S:
+        problems.append(
+            f"vídeo de {total / 60:.1f} min — acima do teto de "
+            f"{DURACAO_MAX_S // 60} min"
+        )
+
+    # Um total dentro da faixa pode esconder muitos slides curtos demais.
+    curtos = []
+    for seg in manifest_dict.get("youtube", {}).get("segments", []):
+        d = seg.get("min_duration_s")
+        if not isinstance(d, (int, float)):
+            continue
+        kind = seg.get("kind") or ("slide" if seg.get("slide") else "avatar")
+        piso = SLIDE_MIN_S if kind == "slide" else AVATAR_MIN_S
+        if d < piso:
+            curtos.append(f"{seg.get('id')} ({kind}, {d:.0f}s < {piso}s)")
+    if curtos:
+        problems.append("segmentos curtos demais: " + ", ".join(curtos[:6]))
+
+    # Os dois CTAs. O roteiro fechava no assunto e nunca convidava a nada —
+    # nenhum dos beats disponíveis era CTA, e o roteirista não era instruído a
+    # criar um. Regra em prompt sozinha o modelo ignora; esta recusa força a
+    # regeração.
+    beats = [str(s.get("beat") or "").lower()
+             for s in manifest_dict.get("youtube", {}).get("segments", [])]
+    if "cta_meio" not in beats:
+        problems.append(
+            "sem `cta_meio` — falta o convite no meio do vídeo, amarrado ao "
+            "assunto"
+        )
+    if "cta_artigo" not in beats:
+        problems.append(
+            "sem `cta_artigo` — falta mandar quem quer a versão técnica para "
+            "o artigo"
+        )
+    if beats and beats[-1] in ("cta_meio", "cta_artigo"):
+        problems.append(
+            "o vídeo termina num pedido; o último segmento tem que ser o resumo"
         )
 
     missing_script = [

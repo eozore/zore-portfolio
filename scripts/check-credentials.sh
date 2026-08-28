@@ -24,7 +24,7 @@ sec() { gcloud secrets versions access latest --secret="$1" --project="$PROJECT"
 
 # ── Vertex AI ─────────────────────────────────────────────────────────────────
 info "Geração de conteúdo"
-MODEL="${VERTEX_MODEL:-gemini-3.5-flash-lite}"
+MODEL="${VERTEX_MODEL:-gemini-3.7-flash}"
 code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
   -H "Authorization: Bearer $(gcloud auth print-access-token 2>/dev/null)" \
   -H "Content-Type: application/json" -d '{"contents":[{"role":"user","parts":[{"text":"ok"}]}]}' \

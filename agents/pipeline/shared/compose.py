@@ -19,6 +19,7 @@ hoje teve um único clipe, esse caminho nunca chegou a ser exercitado.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -363,6 +364,86 @@ SLIDE_TAIL_S    = 0.6
 SLIDE_MIN_S     = 3.0
 
 
+def tempo_da_frase(alignment: dict | None, frase: str) -> Optional[float]:
+    """
+    Instante em que `frase` começa a ser falada, em segundos.
+
+    O TTS grava um `.alignment.json` irmão de cada áudio, com tempo por
+    CARACTERE. É o que permite disparar a revelação do slide no momento exato
+    da frase, em vez de espalhar os reveals por estimativa.
+
+    Devolve None quando a frase não é encontrada — o chamador distribui.
+    """
+    if not alignment or not frase:
+        return None
+    chars = alignment.get("characters") or []
+    inicios = alignment.get("character_start_times_seconds") or []
+    if not chars or len(chars) != len(inicios):
+        return None
+
+    def normal(t: str) -> str:
+        return re.sub(r"\s+", " ", t).strip().lower()
+
+    texto = normal("".join(chars))
+    alvo = normal(frase)
+    if not alvo:
+        return None
+    pos = texto.find(alvo)
+    if pos < 0:
+        # Casa pelo começo da frase: o roteirista às vezes cita um trecho com
+        # pontuação diferente da que o TTS recebeu.
+        pos = texto.find(alvo[: max(12, len(alvo) // 2)])
+    if pos < 0:
+        return None
+
+    # `texto` normalizado pode ter menos caracteres que `chars`; reancora
+    # contando caracteres não-espaço, que é o que sobrevive à normalização.
+    vistos = 0
+    for i, c in enumerate(chars):
+        if vistos >= pos:
+            return float(inicios[i])
+        if not c.isspace() or (vistos and not texto[vistos - 1].isspace()):
+            vistos += 1
+    return None
+
+
+def plano_de_reveals(
+    anchors: list[dict] | None,
+    alignment: dict | None,
+    duracao_s: float,
+) -> list[tuple[float, str, str]]:
+    """
+    (segundo, ação, elemento) para cada âncora, na ordem em que devem disparar.
+
+    Âncora sem frase localizável entra por distribuição uniforme: um reveal no
+    tempo errado ainda é melhor que um elemento que nunca aparece — que é o
+    que acontecia antes, com TODOS eles.
+    """
+    plano: list[tuple[float, str, str]] = []
+    pendentes: list[dict] = []
+    for a in anchors or []:
+        acao = str(a.get("action") or "")
+        elem = str(a.get("element") or "")
+        if acao not in ("reveal", "highlight") or not elem:
+            continue
+        t = tempo_da_frase(alignment, str(a.get("on_phrase") or ""))
+        if t is None:
+            pendentes.append({"action": acao, "element": elem})
+        else:
+            plano.append((max(0.0, t), acao, elem))
+
+    if pendentes:
+        # Espalha no miolo do segmento: nem no primeiro instante (o slide
+        # acabou de entrar) nem no fim (ninguém veria).
+        inicio, fim = duracao_s * 0.25, duracao_s * 0.85
+        passo = (fim - inicio) / max(1, len(pendentes))
+        for i, a in enumerate(pendentes):
+            plano.append((inicio + i * passo, a["action"], a["element"]))
+
+    plano.sort(key=lambda x: x[0])
+    return plano
+
+
 def render_slide_clip(
     html_path: str | Path,
     slide_id: str,
@@ -371,6 +452,8 @@ def render_slide_clip(
     height: int,
     duration_s: float,
     audio_path: Optional[str | Path] = None,
+    anchors: Optional[list[dict]] = None,
+    alignment: Optional[dict] = None,
 ) -> Path:
     """
     Grava um slide do deck como vídeo, opcionalmente com o áudio TTS colado.
@@ -445,6 +528,27 @@ def render_slide_clip(
                 )
 
             page.wait_for_timeout(SLIDE_SETUP_MS)
+
+            # Agenda as revelações ANTES de disparar a animação, para que os
+            # timers comecem a contar junto com ela.
+            #
+            # Sem isto os elementos fd2/fd3/fd4 ficam em `display:none` o
+            # clipe inteiro: o manifesto sempre gerou as âncoras e nada as
+            # executava, então a ilustração mostrava só o primeiro bloco
+            # enquanto a locução falava do resto.
+            plano = plano_de_reveals(anchors, alignment, duration_s)
+            if plano:
+                page.evaluate(
+                    """(plano) => {
+                        plano.forEach(([t, acao, el]) => {
+                            setTimeout(() => {
+                                if (acao === 'reveal') window.deckAPI.revelar(el);
+                                else window.deckAPI.destacar(el);
+                            }, Math.round(t * 1000));
+                        });
+                    }""",
+                    [[t, a, e] for t, a, e in plano],
+                )
             page.evaluate("() => window.deckAPI.replay()")
             lead_in_s = time.monotonic() - t0
 

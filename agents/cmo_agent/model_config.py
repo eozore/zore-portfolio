@@ -13,7 +13,7 @@ logger = logging.getLogger("cmo_agent.model_config")
 # research). O conteúdo longo NÃO passa por aqui — ele vai pelo
 # vertex_generate.VERTEX_MODEL, que é outro modelo. Confundir os dois foi o
 # que produziu 7 registros de auditoria com o modelo errado.
-DEFAULT_MODEL_NAME = "gemini-2.5-flash"
+DEFAULT_MODEL_NAME = "gemini-3.7-flash"
 
 # USD por 1 milhão de tokens (tier pago, texto).
 #   https://ai.google.dev/gemini-api/docs/pricing
@@ -23,6 +23,10 @@ DEFAULT_MODEL_NAME = "gemini-2.5-flash"
 # aviso no log — perder o registro seria pior do que perder o valor. Ao trocar
 # de modelo em VERTEX_MODEL, acrescente a linha aqui.
 MODEL_PRICING_USD_PER_1M: dict[str, dict[str, float]] = {
+    # Preço promocional até 31/12/2026; a partir de 01/01/2027 vai para
+    # 1.50 / 7.50. Quando virar o ano, atualize aqui — o gate de custo lê
+    # desta tabela, e subestimar preço é o jeito de desarmá-lo em silêncio.
+    "gemini-3.7-flash":      {"input": 0.75, "output": 3.75},
     "gemini-3.5-flash-lite": {"input": 0.30, "output": 2.50},
     "gemini-3.5-flash":      {"input": 0.30, "output": 2.50},
     "gemini-2.5-flash":      {"input": 0.30, "output": 2.50},
@@ -38,14 +42,13 @@ if not os.environ.get("GEMINI_API_KEY"):
 def get_model_config():
     """
     Config para agentes de chat interativo (interview, critic, research).
-    Usa gemini-2.5-flash via antigravity SDK — output curto, sem risco de loop.
-    Quando o projeto tiver acesso ao Gemini 3.x no Vertex, trocar para gemini-3.5-flash.
+    Usa gemini-3.7-flash via antigravity SDK — output curto, sem risco de loop.
     """
     project_id = os.environ.get("FIREBASE_PROJECT_ID")
     if project_id:
         vertex_ep = VertexEndpoint(project=project_id, location="us-central1")
         return [
-            ModelTarget(name="gemini-2.5-flash", endpoint=vertex_ep),
+            ModelTarget(name="gemini-3.7-flash", endpoint=vertex_ep),
         ]
     logger.info("FIREBASE_PROJECT_ID not set. Defaulting to standard Gemini Developer API endpoint.")
     return None

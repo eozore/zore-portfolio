@@ -1170,7 +1170,11 @@ async def package_endpoint(
 
     log_python_usage(
         "package_pipeline",
-        "gemini-2.5-flash",
+        # O modelo REAL, não um literal. Cravar o nome aqui já produziu
+        # registros de auditoria com o modelo errado, e o custo sai da tabela
+        # de preço indexada por esse nome — errar significa cobrar a tarifa de
+        # outro modelo.
+        VERTEX_MODEL,
         req.pauta.titulo,
         json.dumps({"partial_errors": partial_errors}),
         int(elapsed * 1000),

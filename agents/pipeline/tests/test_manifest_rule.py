@@ -43,27 +43,50 @@ def manifesto(segments, vertical_cut=None):
     }
 
 
-# ── Um vídeo bem formado: ~20% avatar, distribuído do início ao fim ───────────
+# ── Um vídeo bem formado ─────────────────────────────────────────────────────
+#
+# A definição mudou em 28/08 e esta fixture mudou junto. O manifesto anterior
+# somava 3min25 e não tinha CTA nenhum — era exatamente o formato do vídeo que
+# foi para produção e motivou as duas novas regras: duração de 5 a 12 minutos,
+# e os dois CTAs obrigatórios. Manter a fixture antiga seria congelar no teste
+# o defeito que as regras existem para impedir.
+
+def seg_beat(sid, kind, dur, slide=None, beat="teoria"):
+    s = seg(sid, kind, dur, slide)
+    s["beat"] = beat
+    return s
+
 
 BEM_FORMADO = manifesto([
-    seg("yt-01", "avatar", 18.0),
-    seg("yt-02", "slide",  38.0, "yt-02"),
-    seg("yt-03", "slide",  40.0, "yt-03"),
-    seg("yt-04", "avatar", 15.0),
-    seg("yt-05", "slide",  42.0, "yt-05"),
-    seg("yt-06", "slide",  36.0, "yt-06"),
-    seg("yt-07", "avatar", 16.0),
+    seg_beat("yt-01", "avatar", 18.0, beat="hook"),
+    seg_beat("yt-02", "slide",  38.0, "yt-02"),
+    seg_beat("yt-03", "slide",  40.0, "yt-03"),
+    seg_beat("yt-04", "avatar", 15.0),
+    seg_beat("yt-05", "slide",  42.0, "yt-05"),
+    seg_beat("yt-06", "slide",  36.0, "yt-06"),
+    seg_beat("yt-07", "avatar", 12.0, beat="cta_meio"),
+    seg_beat("yt-08", "slide",  40.0, "yt-08"),
+    seg_beat("yt-09", "slide",  38.0, "yt-09"),
+    seg_beat("yt-10", "avatar", 16.0),
+    seg_beat("yt-11", "slide",  36.0, "yt-11"),
+    seg_beat("yt-12", "avatar", 14.0, beat="cta_artigo"),
+    seg_beat("yt-13", "avatar", 16.0, beat="resumo"),
 ])
 
 
 def test_manifesto_bem_formado_passa():
     violacoes, stats = validate_manifest(BEM_FORMADO)
-    assert violacoes == []
-    assert stats["segment_count"] == 7
-    assert stats["avatar_segments"] == 3
-    assert stats["slide_segments"] == 4
-    # 49s de avatar em 205s ≈ 24%, dentro do alvo de 20%.
+    assert violacoes == [], violacoes
+    assert stats["segment_count"] == 13
+    # 6 de avatar: gancho, duas reentradas, os dois CTAs e o fecho. Os CTAs
+    # são avatar de propósito — pedido feito de cara limpa funciona, em cima
+    # de um slide não.
+    assert stats["avatar_segments"] == 6
+    assert stats["slide_segments"] == 7
+    # 91s de avatar em 361s ≈ 25%, dentro do alvo de 20%.
     assert 0.15 <= stats["avatar_share"] <= 0.30
+    # E dentro da faixa de duração, que é o que a fixture antiga violava.
+    assert 300 <= stats["total_duration_s"] <= 720
 
 
 # ── O que quebrou em produção ─────────────────────────────────────────────────
@@ -130,10 +153,10 @@ def test_apenas_segmentos_de_avatar_vao_para_o_heygen():
     heygen = [s.id for s in m.get_heygen_segments("horizontal")]
     slides = [s.id for s in m.get_slide_with_audio_segments("horizontal")]
 
-    assert heygen == ["yt-01", "yt-04", "yt-07"]
-    assert slides == ["yt-02", "yt-03", "yt-05", "yt-06"]
+    assert heygen == ["yt-01", "yt-04", "yt-07", "yt-10", "yt-12", "yt-13"]
+    assert slides == ["yt-02", "yt-03", "yt-05", "yt-06", "yt-08", "yt-09", "yt-11"]
     # Toda fala vira áudio TTS, inclusive a dos segmentos de ilustração.
-    assert len(m.get_tts_segments("horizontal")) == 7
+    assert len(m.get_tts_segments("horizontal")) == 13
 
 
 def test_kind_ausente_e_derivado_do_slide():

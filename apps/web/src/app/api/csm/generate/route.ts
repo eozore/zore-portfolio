@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestoreDb } from '@/lib/firebase';
+import { VERTEX_MODEL } from '@/lib/vertex';
 import type { ArticleCategory } from '@/types/article';
 import { isCsmAuthenticated, csmUnauthorized } from '@/lib/csmAuth';
 import { cmoAgentHeaders } from '@/lib/cmoAgent';
@@ -367,7 +368,10 @@ export async function POST(request: Request): Promise<Response> {
           logUsage(
             tenantId,
             'article_generation',
-            'gemini-1.5-flash',
+            // O modelo REAL, não um literal: o custo é calculado pela tabela
+            // indexada por este nome, e cravá-lo registrava a tarifa de outro
+            // modelo.
+            VERTEX_MODEL,
             promptTokens,
             candidatesTokens,
             duration

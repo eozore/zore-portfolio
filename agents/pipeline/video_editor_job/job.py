@@ -94,6 +94,9 @@ class VideoEditorJob:
                 audio_files  = await self._download_slide_audio(
                     slide_audio_paths.get("horizontal", []), work
                 )
+                alinhamentos = await self._baixar_alinhamentos(
+                    slide_audio_paths.get("horizontal", []), work
+                )
                 manifest_html = await self._download_html_manifest(project_id, work)
 
                 logger.info(
@@ -105,6 +108,7 @@ class VideoEditorJob:
                     manifest      = manifest,
                     avatar_clips  = avatar_clips,
                     audio_files   = audio_files,
+                    alinhamentos  = alinhamentos,
                     manifest_html = manifest_html,
                     work          = work,
                     width         = width,
@@ -195,6 +199,7 @@ class VideoEditorJob:
         manifest: Manifest,
         avatar_clips: dict[str, Path],
         audio_files: dict[str, Path],
+        alinhamentos: dict[str, dict],
         manifest_html: Path,
         work: Path,
         width: int,
@@ -241,6 +246,11 @@ class VideoEditorJob:
                     render_slide_clip,
                     manifest_html, str(seg.slide), dest, width, height,
                     seg.min_duration_s, audio,
+                    # As âncoras vinham do manifesto desde sempre e ninguém as
+                    # executava: fd2/fd3/fd4 nasciam com display:none e ficavam
+                    # escondidos o clipe inteiro.
+                    getattr(seg, "anchors", None),
+                    alinhamentos.get(seg.id),
                 )
 
             duration = probe_duration(dest)
@@ -301,6 +311,33 @@ class VideoEditorJob:
             seg_id = os.path.splitext(os.path.basename(uri))[0]
             audio[seg_id] = await self._download(uri, work / f"audio_{seg_id}.mp3")
         return audio
+
+    async def _baixar_alinhamentos(
+        self, gcs_uris: list[str], work: Path
+    ) -> dict[str, dict]:
+        """
+        `{segment_id: alignment}` — tempo por caractere de cada locução.
+
+        É o que permite revelar cada parte do slide no instante em que a frase
+        correspondente é falada. Sem ele os reveals caem em distribuição
+        uniforme, que ainda é melhor que o comportamento anterior: nenhum
+        reveal disparava, e fd2/fd3/fd4 ficavam escondidos o clipe inteiro.
+
+        Falta de alinhamento não é erro: o TTS já o trata como opcional.
+        """
+        saida: dict[str, dict] = {}
+        for uri in gcs_uris:
+            seg_id = os.path.splitext(os.path.basename(uri))[0]
+            base = uri.rsplit(".", 1)[0]
+            try:
+                caminho = await self._download(
+                    f"{base}.alignment.json", work / f"align_{seg_id}.json"
+                )
+                dados = json.loads(Path(caminho).read_text(encoding="utf-8"))
+                saida[seg_id] = dados.get("alignment") or {}
+            except Exception as exc:                            # noqa: BLE001
+                logger.info("[VideoEditorJob] sem alinhamento para %s (%s)", seg_id, exc)
+        return saida
 
     async def _load_manifest(self, project_id: str) -> Manifest:
         project  = await self.firestore.get_project(project_id)
