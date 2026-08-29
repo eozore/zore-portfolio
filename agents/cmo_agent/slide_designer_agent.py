@@ -102,9 +102,12 @@ def _build_prompt(
     fd_elements     = [e for e in reveal_elements if e and e.startswith("fd")]
     bar_elements    = [e for e in reveal_elements if e and e.startswith("b")]
 
-    # Dimensões e escala de fonte
+    # Dimensão do quadro. Não existe `font_scale` aqui: o design system já
+    # fixa a escala tipográfica em px absoluto (ver docstring do módulo), e um
+    # clamp com piso de 14px contradiz a própria regra de "nunca abaixo de
+    # 28px" — melhor não deixar a variável por perto para alguém reintroduzir
+    # o mínimo errado interpolando-a no prompt mais tarde.
     dim_note = f"1920×1080px (horizontal)" if not is_vert else f"1080×1920px (vertical)"
-    font_scale = "clamp(14px, 1.5vw, 28px)" if not is_vert else "clamp(14px, 2.5vw, 32px)"
 
     # Template base de instrução por beat
     beat_instructions = {

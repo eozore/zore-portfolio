@@ -49,6 +49,19 @@ ACCENT      = "#e8873a"
 CAROUSEL_SIZE = (1080, 1080)
 STORY_SIZE    = (1080, 1920)
 
+# Zona segura de Story, não estética.
+#
+# O Instagram desenha por CIMA de qualquer conteúdo: avatar, nome, timestamp
+# e a própria barra de progresso ocupam o topo; a caixa de resposta ocupa a
+# base. O `padding=100` uniforme que este arquivo usava deixava a NOSSA barra
+# de progresso em y≈100 — exatamente onde o Instagram desenha a dele por
+# cima, escondendo a nossa e sem nenhum erro visível na imagem sozinha, só no
+# app. `captions.py` já resolve o mesmo problema no Reel com margem de 16% da
+# altura; aqui é o valor em pixels equivalente, com a base um pouco menor
+# porque a caixa de resposta é mais rasa que a faixa de avatar+username.
+STORY_SAFE_TOP    = 280
+STORY_SAFE_BOTTOM = 260
+
 _FONT_STACK = "'Space Grotesk','Helvetica Neue',Arial,sans-serif"
 
 # Horários de publicação (hora local BRT), espelhando PUBLISH_SLOTS_BRT em
@@ -64,12 +77,22 @@ MINUTOS_ENTRE_FRAMES = 3
 
 # ── Templates de imagem ───────────────────────────────────────────────────────
 
-def _shell(body: str, width: int, height: int, padding: int = 90) -> str:
-    """Casca comum: sem JS e sem fonte externa — requisito do renderer."""
+def _shell(body: str, width: int, height: int, padding: int = 90,
+          padding_top: Optional[int] = None, padding_bottom: Optional[int] = None) -> str:
+    """
+    Casca comum: sem JS e sem fonte externa — requisito do renderer.
+
+    `padding_top`/`padding_bottom` existem por causa do Story: lá o topo e a
+    base precisam de mais respiro que os lados (ver `story_frame_html`).
+    Quando ausentes, o padding fica uniforme — o comportamento de sempre para
+    carrossel e qualquer chamador que não precise da assimetria.
+    """
+    pt = padding if padding_top is None else padding_top
+    pb = padding if padding_bottom is None else padding_bottom
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{width:{width}px;height:{height}px;background:{BG};color:{TEXT};
-font-family:{_FONT_STACK};padding:{padding}px;display:flex;flex-direction:column;
+font-family:{_FONT_STACK};padding:{pt}px {padding}px {pb}px {padding}px;display:flex;flex-direction:column;
 justify-content:center;overflow:hidden}}
 .accent{{color:{ACCENT}}}
 .soft{{color:{TEXT_SOFT}}}
@@ -156,7 +179,7 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
     {bloco}
   </div>
   <div class="soft"><span style="font-size:28px">eozore.com</span></div>
-</div>""", *STORY_SIZE, padding=100)
+</div>""", *STORY_SIZE, padding=100, padding_top=STORY_SAFE_TOP, padding_bottom=STORY_SAFE_BOTTOM)
 
 
 # ── Agenda ────────────────────────────────────────────────────────────────────
