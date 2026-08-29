@@ -245,6 +245,41 @@ Retorne SOMENTE o HTML. Nenhum texto antes ou depois."""
 
 # ── Validação do HTML gerado ──────────────────────────────────────────────────
 
+# `slide` é a classe que o DECK usa para navegar entre seções. Um container
+# com esse nome DENTRO do slide é apagado junto.
+_CLASSE_RESERVADA = "slide"
+
+
+def _renomear_container_slide(html: str) -> str:
+    """
+    Renomeia qualquer `class="slide"` gerado pelo modelo para `slide-container`.
+
+    Defeito de 29/08: o prompt não reserva nenhum nome de classe, e o modelo
+    escolheu `class="slide"` para o container raiz em 4 dos 9 slides. O deck
+    navega com `.slide{display:none!important}` + `.slide.active`: a <section>
+    ganha `.active` e aparece, o div interno homônimo não ganha nada e some,
+    levando o conteúdo inteiro junto. Saíram 115 segundos de tela preta num
+    vídeo de 344, sem um único erro em lugar nenhum — nem no job, nem no
+    upload, nem no YouTube.
+
+    A regra do deck já foi escopada para `body>.slide`, o que resolve o caso.
+    Isto aqui é a segunda tranca: renomear na origem significa que reintroduzir
+    o seletor solto lá não volta a apagar slide.
+    """
+    def troca(m: re.Match) -> str:
+        classes = m.group(1).split()
+        novas = [
+            f"{_CLASSE_RESERVADA}-container" if c == _CLASSE_RESERVADA else c
+            for c in classes
+        ]
+        return f'class="{" ".join(novas)}"'
+
+    novo = re.sub(r'class="([^"]*)"', troca, html)
+    if novo != html:
+        logger.info("[slide_designer] container `.slide` renomeado para evitar o deck")
+    return novo
+
+
 def _narracao_vazou_para_a_tela(html: str, script: str, minimo: int = 60) -> bool:
     """
     True quando o slide exibe um trecho literal da locução.
@@ -350,6 +385,8 @@ async def run_slide_designer(
         html = re.sub(r"^```(?:html)?\s*", "", html, flags=re.MULTILINE)
         html = re.sub(r"\s*```\s*$", "", html, flags=re.MULTILINE)
         html = html.strip()
+
+        html = _renomear_container_slide(html)
 
         if _is_valid_slide_html(html, width, height) and not _narracao_vazou_para_a_tela(
             html, segment.get("script", "")

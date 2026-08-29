@@ -129,10 +129,18 @@ def _neutralizar_navegacao(css: str) -> str:
     clipe — e uma regra com `!important` venceria qualquer coisa que o
     runtime tentasse fazer com `display`, deixando o clipe inteiro invisível.
     """
-    css = css.replace(".slide{display:none!important;", ".slide{")
-    css = css.replace(".slide.active{display:flex!important}", "")
-    # Variante com espaços, caso o gerador mude de formatação.
-    css = re.sub(r"\.slide\s*\{\s*display\s*:\s*none\s*!important\s*;", ".slide{", css)
+    # Cobre as duas formas que o manifest_builder já emitiu: a antiga
+    # `.slide{...}` e a atual `body>.slide{...}` — esta última existe porque
+    # um `.slide` sem filho direto também apagava o container que o
+    # slide_designer gera dentro da seção.
+    css = re.sub(
+        r"(?:body\s*>\s*)?\.slide\s*\{\s*display\s*:\s*none\s*!important\s*;",
+        ".slide{", css,
+    )
+    css = re.sub(
+        r"(?:body\s*>\s*)?\.slide\.active\s*\{\s*display\s*:\s*flex\s*!important\s*;?\s*\}",
+        "", css,
+    )
     return css
 
 

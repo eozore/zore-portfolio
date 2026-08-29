@@ -719,8 +719,16 @@ def wrap_scriptwriter_manifest(
    slides verticais saíam desenhados em caixa horizontal dentro de um viewport
    9:16 — conteúdo cortado à direita e faixa preta embaixo. */
 html,body{{width:100vw;height:100vh;overflow:hidden;background:#0d0f14;color:#eae4dc;font-family:'Space Grotesk',sans-serif}}
-.slide{{display:none!important;position:absolute;inset:0;flex-direction:column;justify-content:center;align-items:center;padding:60px;background:#0d0f14}}
-.slide.active{{display:flex!important}}
+/* `body>` não é decoração: é o que impede a navegação do deck de apagar o
+   conteúdo do slide.
+   O slide_designer escolhe o nome do container raiz que ele gera, e às vezes
+   escolhe `class="slide"`. Sem o filho direto, `.slide{{display:none!important}}`
+   pega esse div ANINHADO — a <section> ganha `.active` e aparece, o div
+   interno não ganha nada e some, levando o slide inteiro junto. Quatro dos
+   nove slides de 29/08 saíram assim: 115 segundos de tela preta num vídeo de
+   344, sem um único erro em lugar nenhum. */
+body>.slide{{display:none!important;position:absolute;inset:0;flex-direction:column;justify-content:center;align-items:center;padding:60px;background:#0d0f14}}
+body>.slide.active{{display:flex!important}}
 @keyframes pulsa{{0%{{transform:scale(1)}}45%{{transform:scale(1.045)}}100%{{transform:scale(1)}}}}
 .pulsa{{animation:pulsa .55s ease-out}}
 .slide-id{{font-family:'JetBrains Mono',monospace;font-size:.85rem;letter-spacing:.28em;color:#e8873a;text-transform:uppercase}}

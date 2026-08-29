@@ -105,6 +105,15 @@ O atalho `animation` não atende as duas — por isso a regra usa propriedades
 longas. Errar a segunda não quebra nada visível: o slide sai completo e
 bonito, com tudo entrando no segundo zero.
 
+**A classe `slide` é do DECK, não do slide.** O deck navega com
+`body>.slide{display:none!important}` + `.slide.active`. Sem o `body>`, um
+container gerado pelo slide_designer que se chame `slide` é apagado junto: a
+`<section>` ganha `.active` e aparece, o div aninhado homônimo não ganha nada
+e some com o conteúdo inteiro. Foi assim que 4 dos 9 slides de 29/08 saíram em
+branco — 115 segundos de tela preta num vídeo de 344, sem um único erro no
+job, no upload ou no YouTube. Duas trancas hoje: o `body>` na regra e
+`_renomear_container_slide`, que renomeia na origem.
+
 **O slide nunca exibe a própria narração.** Ler e ouvir a mesma frase divide
 a atenção sem ganho. A regra está no prompt, mas quem barra é
 `_narracao_vazou_para_a_tela` — regra em prompt é sugestão.
