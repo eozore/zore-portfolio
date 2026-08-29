@@ -19,6 +19,7 @@ hoje teve um único clipe, esse caminho nunca chegou a ser exercitado.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import time
@@ -444,6 +445,15 @@ def plano_de_reveals(
     return plano
 
 
+# Qual renderizador de slide usar: "playwright" (padrão) ou "hyperframes".
+#
+# O Playwright GRAVA a página em tempo real; o HyperFrames PERCORRE quadro a
+# quadro. O segundo é determinístico, mas troca a etapa mais cara e mais
+# frágil da pipeline — então entra por opção, e o padrão continua sendo o
+# caminho que já produziu vídeo publicado.
+RENDERIZADOR_SLIDE = os.environ.get("RENDERIZADOR_SLIDE", "playwright").strip().lower()
+
+
 def render_slide_clip(
     html_path: str | Path,
     slide_id: str,
@@ -484,6 +494,14 @@ def render_slide_clip(
         measured = probe_duration(audio_path)
         if measured > 0:
             duration_s = measured
+
+    plano_reveals = plano_de_reveals(anchors, alignment, duration_s)
+
+    if RENDERIZADOR_SLIDE == "hyperframes":
+        return _render_slide_hyperframes(
+            html_path, slide_id, dest, width, height, duration_s,
+            audio_path, plano_reveals,
+        )
 
     record_s = max(duration_s + SLIDE_TAIL_S, SLIDE_MIN_S)
     raw_dir  = dest.parent / "_raw_webm"
@@ -536,7 +554,7 @@ def render_slide_clip(
             # clipe inteiro: o manifesto sempre gerou as âncoras e nada as
             # executava, então a ilustração mostrava só o primeiro bloco
             # enquanto a locução falava do resto.
-            plano = plano_de_reveals(anchors, alignment, duration_s)
+            plano = plano_reveals
             if plano:
                 page.evaluate(
                     """(plano) => {
@@ -596,5 +614,63 @@ def render_slide_clip(
     logger.info(
         "[compose] slide %s gravado %dx%d (%.1fs, lead-in %.2fs)",
         slide_id, width, height, duration_s, lead_in_s,
+    )
+    return dest
+
+
+def _render_slide_hyperframes(
+    html_path: Path,
+    slide_id: str,
+    dest: Path,
+    width: int,
+    height: int,
+    duration_s: float,
+    audio_path: Optional[str | Path],
+    plano: list[tuple[float, str, str]],
+) -> Path:
+    """
+    Mesmo contrato de `render_slide_clip`, com o quadro vindo do HyperFrames.
+
+    Não há `-ss lead_in` aqui: o lead-in existe no caminho do Playwright para
+    descartar o tempo entre abrir a página e disparar a animação, e num
+    renderizador que percorre quadros esse intervalo não existe — o quadro 0 é
+    o instante 0 por definição.
+    """
+    from . import hyperframes_slide as hf
+
+    if not hf.disponivel():
+        raise ComposeError(
+            "RENDERIZADOR_SLIDE=hyperframes, mas o CLI não está nesta imagem. "
+            "Instale `hyperframes` no Dockerfile ou volte para playwright."
+        )
+
+    composicao = hf.montar_composicao(
+        Path(html_path).read_text(encoding="utf-8"),
+        slide_id, duration_s, width, height, plano=plano,
+    )
+    mudo = dest.parent / f"_hf_{slide_id}.mp4"
+    hf.renderizar_composicao(composicao, mudo)
+
+    inputs: list[str] = ["-i", str(mudo)]
+    if audio_path:
+        inputs += ["-i", str(audio_path)]
+    else:
+        inputs += ["-f", "lavfi", "-i",
+                   f"anullsrc=channel_layout=stereo:sample_rate={AUDIO_RATE}"]
+
+    outputs: list[str] = [
+        "-vf", _video_chain(width, height),
+        "-c:v", "libx264", "-preset", PRESET, "-crf", str(CRF), "-pix_fmt", PIX_FMT,
+        "-map", "0:v:0", "-map", "1:a:0",
+        "-c:a", "aac", "-b:a", AUDIO_BITRATE, "-ar", str(AUDIO_RATE), "-ac", "2",
+        # Explícito pelo mesmo motivo do outro caminho: `-shortest` não é
+        # determinístico entre builds do FFmpeg.
+        "-t", f"{duration_s:.3f}",
+    ]
+    _run(["ffmpeg", "-y", *inputs, *outputs, str(dest)], f"render_slide_hf({slide_id})")
+    mudo.unlink(missing_ok=True)
+    logger.info(
+        "[compose] slide %s via hyperframes %dx%d (%.1fs, %d reveals)",
+        slide_id, width, height, duration_s, len(plano),
     )
     return dest

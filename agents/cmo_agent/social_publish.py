@@ -106,7 +106,8 @@ def carrossel_slide_html(titulo: str, corpo: str, numero: int, total: int, serie
 </div>""", *CAROUSEL_SIZE)
 
 
-def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] = None) -> str:
+def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] = None,
+                     cta: str = "") -> str:
     """
     Um frame de story (1080x1920).
 
@@ -127,6 +128,18 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
         f"{q}</div>"
     ) if q else ""
 
+    # O CTA entra como BLOCO, não emendado no corpo.
+    #
+    # Concatenar com "\n\n" não separa nada: o texto vira um `<p>` só e o
+    # pedido lê como continuação da frase — "…avaliações semânticas. Veja a
+    # arquitetura completa no link da bio" parece uma oração, não um convite.
+    # Em cor de acento e em linha própria, ele se lê como o que é.
+    c = html_escape.escape((cta or "").strip())
+    bloco_cta = (
+        f'<p style="margin-top:44px;font-size:40px;line-height:1.3;'
+        f'font-weight:700;color:{ACCENT}">{c}</p>'
+    ) if c else ""
+
     # 1920px de altura: sem distribuir os blocos o conteúdo empilha no topo e
     # sobra meia tela vazia.
     return _shell(f"""
@@ -139,6 +152,7 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
   </div>
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 0">
     <p style="font-size:{56 if len(t) < 150 else 46}px;line-height:1.35;font-weight:600">{t}</p>
+    {bloco_cta}
     {bloco}
   </div>
   <div class="soft"><span style="font-size:28px">eozore.com</span></div>
@@ -338,11 +352,12 @@ def montar_itens(
             # O CTA fecha a sequência, no ÚLTIMO frame. Repeti-lo em cada
             # frame gastaria o pedido antes de a pessoa ter recebido algo, e
             # story é sequência: quem chega ao fim é quem está disposto.
-            copy_frame = (
-                f"{texto}\n\n{cta_story}".strip()
+            cta_frame = (
+                cta_story
                 if ultimo and cta_story and cta_story.lower() not in texto.lower()
-                else texto
+                else ""
             )
+            copy_frame = f"{texto}\n\n{cta_frame}".strip() if cta_frame else texto
             itens.append(_doc(
                 platform="instagram", format="story",
                 title=f"{(s.get('gancho') or 'Story')[:100]} · {i + 1}/{len(frames)}",
@@ -353,7 +368,7 @@ def montar_itens(
                 ),
                 _render=[{
                     "html": story_frame_html(
-                        copy_frame, i + 1, len(frames), f.get("enquete"),
+                        texto, i + 1, len(frames), f.get("enquete"), cta_frame,
                     ),
                     "size": STORY_SIZE,
                     "nome": f"story_{s.get('id', 'st')}_{i + 1}",

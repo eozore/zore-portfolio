@@ -93,6 +93,18 @@ o design caiu no padrão do navegador e o vídeo saiu com texto corrido a 18px.
 Re-alveje para `#sid`; não apague. E não processe CSS com regex: ela entra
 dentro do `@keyframes` e escopa o `to {` como seletor.
 
+**Existem dois renderizadores de slide, e o novo troca `setTimeout` por
+relógio.** `RENDERIZADOR_SLIDE=hyperframes` percorre quadro a quadro em vez de
+gravar em tempo real; os reveals viram `animation-delay` porque um
+renderizador que percorre quadros nunca dispara um `setTimeout`. Duas colisões
+de cascata, ambas silenciosas, decidem se funciona: a regra precisa de
+`!important` para vencer o `#yt-10 .fd{animation:…}` que o slide_designer
+emite (1,1,0 contra 0,1,0), e o `animation-delay` precisa ficar SEM
+`!important`, porque é escrevendo nele que o renderizador posiciona o quadro.
+O atalho `animation` não atende as duas — por isso a regra usa propriedades
+longas. Errar a segunda não quebra nada visível: o slide sai completo e
+bonito, com tudo entrando no segundo zero.
+
 **O slide nunca exibe a própria narração.** Ler e ouvir a mesma frase divide
 a atenção sem ganho. A regra está no prompt, mas quem barra é
 `_narracao_vazou_para_a_tela` — regra em prompt é sugestão.
