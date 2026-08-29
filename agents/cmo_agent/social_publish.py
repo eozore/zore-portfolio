@@ -67,6 +67,16 @@ _FONT_STACK = "'Space Grotesk','Helvetica Neue',Arial,sans-serif"
 # Horários de publicação (hora local BRT), espelhando PUBLISH_SLOTS_BRT em
 # apps/web/src/lib/contentPlanner.ts.
 SLOTS_BRT = (9, 12, 18)
+
+# Degraus extras, usados SÓ quando os três preferidos do dia já estão tomados
+# naquela plataforma. Ordenados por qualidade de horário, não por relógio: é
+# melhor cair às 10h do que às 21h.
+SLOTS_OVERFLOW_BRT = (10, 15, 20, 8, 16, 21)
+
+# Até onde empurrar quando um dia inteiro está lotado. Sete dias cobre uma
+# campanha inteira; além disso a peça perde relação com o vídeo que ela
+# promove, e é melhor aceitar a coincidência do que publicar fora de contexto.
+DIAS_MAX_BUSCA = 7
 BRT_OFFSET_HOURS = 3
 
 # Frames de um mesmo story saem em sequência, não no mesmo instante: o
@@ -184,21 +194,67 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
 
 # ── Agenda ────────────────────────────────────────────────────────────────────
 
-def _quando(base: datetime, dia_offset: int, indice_no_dia: int, minutos_extra: int = 0) -> str:
+def _quando(base: datetime, dia: int, hora_brt: int, minutos_extra: int = 0) -> str:
     """
     Instante de publicação em ISO 8601 UTC.
 
-    `dia_offset` vem do modelo, que distribui a semana. O piso é D+1, não D+0:
-    o vídeo é a âncora e sai primeiro, e toda peça social aponta para ele —
+    `dia` vem do modelo, que distribui a semana. O piso é D+1, não D+0: o
+    vídeo é a âncora e sai primeiro, e toda peça social aponta para ele —
     publicar antes do vídeo existir é mandar gente para um link vazio.
     """
-    dia  = max(1, int(dia_offset or 0))
-    hora = SLOTS_BRT[indice_no_dia % len(SLOTS_BRT)]
-    d = base + timedelta(days=dia)
+    d = base + timedelta(days=max(1, int(dia or 0)))
     return (
         d.replace(hour=0, minute=0, second=0, microsecond=0)
-        + timedelta(hours=hora + BRT_OFFSET_HOURS, minutes=minutos_extra)
+        + timedelta(hours=hora_brt + BRT_OFFSET_HOURS, minutes=minutos_extra)
     ).isoformat()
+
+
+def _chave_agenda(platform: str, quando_iso: str) -> tuple[str, str]:
+    """
+    Identidade de um horário ocupado: plataforma + hora cheia.
+
+    A granularidade é a HORA, não o minuto, porque os frames de uma story
+    saem de 3 em 3 minutos (`MINUTOS_ENTRE_FRAMES`) e são uma peça só. Chavear
+    por minuto trataria cada frame como uma peça distinta e espalharia a
+    sequência por horas diferentes, que é o oposto do que uma story é.
+    """
+    return (platform, quando_iso[:13])
+
+
+def _reservar(
+    agenda: set[tuple[str, str]],
+    platform: str,
+    base: datetime,
+    dia_offset: int,
+) -> tuple[int, int]:
+    """
+    Primeiro (dia, hora) livre para esta plataforma, a partir de `dia_offset`.
+
+    Existe porque o agendamento era cego para o que já estava na fila: `base`
+    é sempre "agora", então uma campanha nova começava em D+1 e caía por cima
+    da anterior, que ainda tinha peças pendentes. Nada quebrava — o publisher
+    publica tudo que está no horário — mas dois vídeos diferentes disputavam
+    a mesma janela, com CTAs apontando para links diferentes.
+
+    Reserva ao devolver: o mesmo conjunto acumula o que já estava na fila E o
+    que esta montagem acabou de marcar, então as peças da campanha nova também
+    não colidem entre si.
+    """
+    dia = max(1, int(dia_offset or 0))
+    for d in range(dia, dia + DIAS_MAX_BUSCA):
+        for hora in SLOTS_BRT + SLOTS_OVERFLOW_BRT:
+            chave = _chave_agenda(platform, _quando(base, d, hora))
+            if chave not in agenda:
+                agenda.add(chave)
+                return d, hora
+
+    # Uma semana inteira lotada nesta plataforma. Aceita a coincidência em vez
+    # de empurrar a peça para longe do vídeo que ela promove.
+    logger.warning(
+        "[social_publish] agenda de %s lotada a partir de D+%d; aceitando coincidência",
+        platform, dia,
+    )
+    return dia, SLOTS_BRT[0]
 
 
 # ── Montagem dos itens ────────────────────────────────────────────────────────
@@ -277,6 +333,7 @@ def montar_itens(
     serie: str = "",
     session_id: str = "",
     base: Optional[datetime] = None,
+    agenda_ocupada: Optional[set[tuple[str, str]]] = None,
 ) -> list[dict]:
     """
     `PlanoSocial` (já como dict) → documentos de `social_queue`.
@@ -294,15 +351,15 @@ def montar_itens(
         "session_id":    session_id or None,
     }
     itens: list[dict] = []
-    # Contador por dia, para espalhar as peças do mesmo dia pelos slots de
-    # horário em vez de empilhar todas às 9h.
-    ocupacao: dict[int, int] = {}
+    # Horários já tomados: o que veio da fila (campanhas anteriores ainda
+    # pendentes) mais o que esta montagem for marcando. Um conjunto só para as
+    # duas coisas — a colisão entre campanhas e a colisão interna são o mesmo
+    # problema.
+    agenda: set[tuple[str, str]] = set(agenda_ocupada or ())
 
-    def slot(dia_offset: int) -> int:
-        dia = max(1, int(dia_offset or 0))
-        i = ocupacao.get(dia, 0)
-        ocupacao[dia] = i + 1
-        return i
+    def quando(platform: str, dia_offset: int, minutos_extra: int = 0) -> str:
+        dia, hora = _reservar(agenda, platform, base, dia_offset)
+        return _quando(base, dia, hora, minutos_extra)
 
     # ── LinkedIn ──────────────────────────────────────────────────────────────
     for p in plano.get("linkedin") or []:
@@ -313,7 +370,7 @@ def montar_itens(
             # O link fora do corpo é o que preserva o alcance no LinkedIn; o
             # publisher posta isto como primeiro comentário.
             comentario_fixado=p.get("comentario_fixado") or None,
-            scheduled_at=_quando(base, p.get("dia_offset", 1), slot(p.get("dia_offset", 1))),
+            scheduled_at=quando("linkedin", p.get("dia_offset", 1)),
             **comum,
         ))
 
@@ -334,7 +391,7 @@ def montar_itens(
                     ((t.get("cta") or {}).get("texto") or "").strip() or None,
                 ] if x
             ],
-            scheduled_at=_quando(base, t.get("dia_offset", 1), slot(t.get("dia_offset", 1))),
+            scheduled_at=quando("threads", t.get("dia_offset", 1)),
             **comum,
         ))
 
@@ -347,7 +404,7 @@ def montar_itens(
             platform="instagram", format="carousel",
             title=(c.get("gancho") or "")[:120],
             copy=montar_copy(None, c.get("legenda"), c.get("cta"), c.get("hashtags")),
-            scheduled_at=_quando(base, c.get("dia_offset", 1), slot(c.get("dia_offset", 1))),
+            scheduled_at=quando("instagram", c.get("dia_offset", 1)),
             _render=[
                 {
                     "html":  carrossel_slide_html(
@@ -367,7 +424,10 @@ def montar_itens(
         frames = sorted(s.get("frames") or [], key=lambda f: f.get("ordem", 0))
         if not frames:
             continue
-        indice = slot(s.get("dia_offset", 1))
+        # Reserva UMA vez para a sequência inteira: os frames dividem a mesma
+        # hora, separados por minutos. Reservar por frame espalharia a story
+        # por horas diferentes.
+        dia_story, hora_story = _reservar(agenda, "instagram", base, s.get("dia_offset", 1))
         cta_story = ((s.get("cta") or {}).get("texto") or "").strip()
         for i, f in enumerate(frames):
             ultimo = i == len(frames) - 1
@@ -386,7 +446,7 @@ def montar_itens(
                 title=f"{(s.get('gancho') or 'Story')[:100]} · {i + 1}/{len(frames)}",
                 copy=copy_frame,
                 scheduled_at=_quando(
-                    base, s.get("dia_offset", 1), indice,
+                    base, dia_story, hora_story,
                     minutos_extra=i * MINUTOS_ENTRE_FRAMES,
                 ),
                 _render=[{
@@ -409,7 +469,7 @@ def montar_itens(
             platform="youtube_community", format="text",
             title=(p.get("gancho") or "")[:120],
             copy=montar_copy(None, corpo, p.get("cta"), p.get("hashtags")),
-            scheduled_at=_quando(base, p.get("dia_offset", 1), slot(p.get("dia_offset", 1))),
+            scheduled_at=quando("youtube_community", p.get("dia_offset", 1)),
             **comum,
         ))
 
@@ -417,6 +477,40 @@ def montar_itens(
 
 
 # ── Enfileiramento ────────────────────────────────────────────────────────────
+
+def agenda_ocupada(db) -> set[tuple[str, str]]:
+    """
+    Horários já reservados pelas peças que ainda não publicaram.
+
+    Lê `social_queue` inteira em vez de filtrar por sessão: o conflito que
+    importa é com QUALQUER campanha pendente, não só com a atual. Peça já
+    publicada não ocupa nada — o horário dela passou.
+
+    Falha ABERTO de propósito: sem esta leitura o agendamento volta a ser o
+    de antes (pode coincidir), o que é bem melhor do que recusar a enfileirar
+    uma semana de conteúdo por causa de uma consulta que não respondeu.
+    """
+    import db_paths
+
+    ocupada: set[tuple[str, str]] = set()
+    try:
+        col = db.collection(db_paths.get_social_queue_path())
+        for doc in col.where("status", "==", "planned").stream():
+            d = doc.to_dict() or {}
+            plataforma = d.get("platform") or ""
+            quando_iso = d.get("scheduled_at") or ""
+            if plataforma and quando_iso:
+                ocupada.add(_chave_agenda(plataforma, quando_iso))
+    except Exception:
+        logger.exception(
+            "[social_publish] não consegui ler a agenda atual; "
+            "as peças novas podem coincidir com as pendentes"
+        )
+        return set()
+
+    logger.info("[social_publish] %d horários já ocupados na fila", len(ocupada))
+    return ocupada
+
 
 async def enfileirar(
     db,
@@ -443,6 +537,7 @@ async def enfileirar(
         plano,
         artigo_slug=artigo_slug, artigo_titulo=artigo_titulo, artigo_url=artigo_url,
         idioma=idioma, serie=serie, session_id=session_id,
+        agenda_ocupada=agenda_ocupada(db),
     )
 
     enfileirados = 0

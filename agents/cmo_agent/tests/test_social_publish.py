@@ -223,3 +223,87 @@ def test_url_do_artigo_viaja_com_cada_item():
     # quando a sessão do Studio já pode ter sido descartada.
     for item in montar():
         assert item["article_url"] == "https://eozore.com/pt-BR/blog/meu-post"
+
+
+# ── Agenda que enxerga a fila ─────────────────────────────────────────────────
+
+def _plano_minimo(dia=1):
+    return {
+        "linkedin": [{"id": "li-1", "gancho": "Gancho", "corpo": "Corpo",
+                      "dia_offset": dia, "cta": {"texto": "CTA"}}],
+    }
+
+
+def test_agenda_desvia_do_horario_ja_ocupado():
+    """
+    Defeito real: `base` era sempre "agora", então uma campanha nova começava
+    em D+1 e caía por cima da anterior, que ainda tinha peças pendentes. Nada
+    quebrava — o publisher publica tudo que está no horário — mas dois vídeos
+    diferentes disputavam a mesma janela com CTAs para links diferentes.
+    """
+    from datetime import datetime, timezone
+    from social_publish import montar_itens, _chave_agenda, SLOTS_BRT
+
+    base = datetime(2026, 9, 10, tzinfo=timezone.utc)
+
+    sem_conflito = montar_itens(_plano_minimo(), base=base)
+    primeiro = sem_conflito[0]["scheduled_at"]
+
+    # A mesma montagem, agora com aquele horário já tomado no LinkedIn.
+    com_conflito = montar_itens(
+        _plano_minimo(), base=base,
+        agenda_ocupada={_chave_agenda("linkedin", primeiro)},
+    )
+    assert com_conflito[0]["scheduled_at"] != primeiro
+
+
+def test_agenda_ignora_ocupacao_de_outra_plataforma():
+    """
+    LinkedIn e Instagram no mesmo horário é cross-posting normal, não colisão.
+    Só o mesmo canal disputando a mesma janela é problema.
+    """
+    from datetime import datetime, timezone
+    from social_publish import montar_itens, _chave_agenda
+
+    base = datetime(2026, 9, 10, tzinfo=timezone.utc)
+    livre = montar_itens(_plano_minimo(), base=base)[0]["scheduled_at"]
+
+    itens = montar_itens(
+        _plano_minimo(), base=base,
+        agenda_ocupada={_chave_agenda("instagram", livre)},
+    )
+    assert itens[0]["scheduled_at"] == livre
+
+
+def test_frames_da_story_dividem_a_mesma_hora():
+    """
+    Story é sequência: os frames saem de 3 em 3 minutos, na mesma hora.
+    Reservar por frame espalharia a story por horas diferentes — e a
+    granularidade da chave (hora, não minuto) é o que impede isso.
+    """
+    from datetime import datetime, timezone
+    from social_publish import montar_itens
+
+    plano = {"stories": [{
+        "id": "st-1", "gancho": "Story", "dia_offset": 1,
+        "cta": {"texto": "CTA"},
+        "frames": [{"ordem": i, "texto": f"frame {i}"} for i in range(1, 4)],
+    }]}
+    itens = montar_itens(plano, base=datetime(2026, 9, 10, tzinfo=timezone.utc))
+    horas = {i["scheduled_at"][:13] for i in itens}
+    assert len(itens) == 3
+    assert len(horas) == 1, f"frames espalhados por {horas}"
+
+
+def test_pecas_da_mesma_campanha_nao_colidem_entre_si():
+    """O mesmo conjunto resolve as duas colisões: entre campanhas e interna."""
+    from datetime import datetime, timezone
+    from social_publish import montar_itens
+
+    plano = {"linkedin": [
+        {"id": f"li-{i}", "gancho": f"G{i}", "corpo": "C", "dia_offset": 1}
+        for i in range(4)
+    ]}
+    itens = montar_itens(plano, base=datetime(2026, 9, 10, tzinfo=timezone.utc))
+    horas = [i["scheduled_at"][:13] for i in itens]
+    assert len(set(horas)) == len(horas), f"colisão interna: {horas}"
