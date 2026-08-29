@@ -331,18 +331,29 @@ def montar_itens(
         if not frames:
             continue
         indice = slot(s.get("dia_offset", 1))
+        cta_story = ((s.get("cta") or {}).get("texto") or "").strip()
         for i, f in enumerate(frames):
+            ultimo = i == len(frames) - 1
+            texto = f.get("texto") or ""
+            # O CTA fecha a sequência, no ÚLTIMO frame. Repeti-lo em cada
+            # frame gastaria o pedido antes de a pessoa ter recebido algo, e
+            # story é sequência: quem chega ao fim é quem está disposto.
+            copy_frame = (
+                f"{texto}\n\n{cta_story}".strip()
+                if ultimo and cta_story and cta_story.lower() not in texto.lower()
+                else texto
+            )
             itens.append(_doc(
                 platform="instagram", format="story",
                 title=f"{(s.get('gancho') or 'Story')[:100]} · {i + 1}/{len(frames)}",
-                copy=f.get("texto") or "",
+                copy=copy_frame,
                 scheduled_at=_quando(
                     base, s.get("dia_offset", 1), indice,
                     minutos_extra=i * MINUTOS_ENTRE_FRAMES,
                 ),
                 _render=[{
                     "html": story_frame_html(
-                        f.get("texto", ""), i + 1, len(frames), f.get("enquete"),
+                        copy_frame, i + 1, len(frames), f.get("enquete"),
                     ),
                     "size": STORY_SIZE,
                     "nome": f"story_{s.get('id', 'st')}_{i + 1}",
