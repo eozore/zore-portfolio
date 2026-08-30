@@ -15,9 +15,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type Fase =
+  | 'briefing' | 'aguardando_briefing'
   | 'planejamento' | 'artigo' | 'aguardando_aprovacao_artigo'
   | 'video' | 'aguardando_aprovacao_video'
   | 'social' | 'concluido' | 'erro';
+
+/** Uma fala da conversa de recorte, antes de qualquer coisa ser escrita. */
+export interface FalaBriefing { papel: 'cmo' | 'humano'; texto: string }
+
+/**
+ * O recorte proposto pelo CMO, em negociação.
+ *
+ * `oQueApareceNaTela` e `ferramentas` são o que faltava no fluxo antigo: sem
+ * decidir isso ANTES da pesquisa, o vídeo de SDD saiu explicando a
+ * implementação em Python quando o pedido era mostrar arquivos .md numa IDE.
+ */
+export interface Briefing {
+  angulo: string;
+  publico: string;
+  tom: string;
+  objetivo: string;
+  ferramentas: string[];
+  o_que_aparece_na_tela: string[];
+  artigo_cobre: string[];
+  video_cobre: string[];
+  fora_do_escopo: string[];
+  o_que_precisa_ser_provado: string[];
+  perguntas: string[];
+  resumo_da_proposta: string;
+}
 
 export interface ErroNo { no: string; mensagem: string; fatal: boolean }
 
@@ -45,6 +71,8 @@ export interface EstadoStudio {
   fase: Fase;
   aguardando: string[];
   tema?: string;
+  briefing?: Briefing;
+  conversaBriefing?: FalaBriefing[];
   pauta?: Record<string, unknown>;
   artigo?: { titulo?: string; markdown?: string; slug?: string; resumo?: string; url?: string };
   video?: {
@@ -60,7 +88,7 @@ export interface EstadoStudio {
 }
 
 /** Fases em que o agente está trabalhando — só aí o polling faz sentido. */
-const TRABALHANDO: Fase[] = ['planejamento', 'artigo', 'video', 'social'];
+const TRABALHANDO: Fase[] = ['briefing', 'planejamento', 'artigo', 'video', 'social'];
 
 const POLL_MS = 6000;
 
@@ -202,8 +230,35 @@ export function useStudio(sessionId: string, ativo = true) {
     }
   }, [sessionId, buscar]);
 
+  /**
+   * Manda uma resposta na conversa de recorte e espera a rodada seguinte.
+   *
+   * Separado de `decidir` porque a natureza é outra: aqui a fala ENTRA num
+   * histórico acumulativo, e a rodada seguinte enxerga tudo que foi dito. Um
+   * comentário de gate é uma crítica pontual, aplicada e esquecida — serve
+   * para "está raso demais", não para negociar um recorte em três trocas.
+   */
+  const conversarBriefing = useCallback(async (mensagem: string) => {
+    const texto = mensagem.trim();
+    if (!texto) return;
+    setOcupado(true); setErro('');
+    try {
+      const res = await fetch('/api/csm/studio', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'briefing', sessionId, mensagem: texto }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      await buscar(true);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(false);
+    }
+  }, [sessionId, buscar]);
+
   const decidir = useCallback(async (
-    gate: 'artigo' | 'video',
+    gate: 'briefing' | 'artigo' | 'video',
     decisao: 'aprovado' | 'ajustar' | 'rejeitado',
     comentario = '',
   ) => {
@@ -302,7 +357,7 @@ export function useStudio(sessionId: string, ativo = true) {
   }, [producao, buscar]);
 
   return { estado, producao, agendamento, statusArtigo, erro, ocupado, carregando,
-           iniciar, decidir, agendar, derivarVertical, publicarArtigo,
+           iniciar, decidir, conversarBriefing, agendar, derivarVertical, publicarArtigo,
            recarregar: () => buscar(true) };
 }
 
@@ -339,6 +394,10 @@ export function passosDaJornada(estado: EstadoStudio | null): Passo[] {
     return { id, rotulo, status: 'pendente' };
   };
 
+  const depoisDoRecorte: Fase[] = [
+    'planejamento', 'artigo', 'aguardando_aprovacao_artigo',
+    'video', 'aguardando_aprovacao_video', 'social', 'concluido',
+  ];
   const depoisDoTema: Fase[] = [
     'artigo', 'aguardando_aprovacao_artigo', 'video',
     'aguardando_aprovacao_video', 'social', 'concluido',
@@ -347,7 +406,7 @@ export function passosDaJornada(estado: EstadoStudio | null): Passo[] {
   const depoisDoVideo: Fase[]  = ['social', 'concluido'];
 
   return [
-    passo('tema',   'Tema',   depoisDoTema,   ['planejamento']),
+    passo('tema',   'Recorte', depoisDoRecorte, ['briefing'], 'aguardando_briefing'),
     passo('artigo', 'Artigo', depoisDoArtigo, ['artigo'], 'aguardando_aprovacao_artigo'),
     passo('video',  'Vídeo',  depoisDoVideo,  ['video'],  'aguardando_aprovacao_video'),
     passo('social', 'Social', ['concluido'],  ['social']),
@@ -363,6 +422,13 @@ export function resumoDaFase(estado: EstadoStudio | null): { titulo: string; sub
     };
   }
   switch (estado.fase) {
+    case 'briefing':
+      return { titulo: 'Pensando no recorte', sub: 'O CMO está montando a proposta.' };
+    case 'aguardando_briefing':
+      return {
+        titulo: 'Sua vez: fechem o recorte juntos',
+        sub: 'Nada é pesquisado nem escrito até vocês concordarem no ângulo.',
+      };
     case 'planejamento':
       return { titulo: 'Fechando a pauta', sub: 'Definindo título, tese e o ângulo do vídeo.' };
     case 'artigo':

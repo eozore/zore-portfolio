@@ -40,6 +40,165 @@ def _db():
     return db
 
 
+# ── 0. Briefing: a conversa que acontece antes de escrever ────────────────────
+
+async def no_briefing(estado: EstadoMarketing) -> dict:
+    """
+    Propõe o recorte e pergunta o que ainda falta saber, em rodadas.
+
+    Este nó existe porque o primeiro contato humano era o gate do artigo —
+    quando o ângulo já estava escolhido, pesquisado e redigido. Se o recorte
+    saísse errado não havia onde corrigir sem refazer tudo.
+
+    O caso que motivou: o vídeo de SDD de 29/08 ensinou a montar os arquivos
+    Python por baixo do capô, quando o pedido era mostrar como usar arquivos
+    .md para configurar agentes na IDE. Os dois são "SDD"; um é implementação,
+    o outro é uso. Nada no fluxo tinha perguntado qual.
+
+    Por isso `o_que_aparece_na_tela` e `ferramentas` são obrigatórios e vêm
+    ANTES da pesquisa: são eles que decidem se o vídeo mostra um editor de
+    verdade com um arquivo real ou um diagrama de arquitetura. E são eles que
+    a pesquisa usa para procurar a fonte certa — para "configurar agente com
+    .md" o arXiv não tem nada, e a documentação da ferramenta tem tudo.
+    """
+    with span("no.briefing", tenant=estado.get("tenant_id"), tema=estado.get("tema")):
+        try:
+            from pydantic import BaseModel, Field
+            from structured import generate_structured
+
+            class Briefing(BaseModel):
+                angulo: str = Field(
+                    min_length=40, max_length=400,
+                    description="O recorte ESPECÍFICO. Não o tema — o corte dentro dele.",
+                )
+                publico: str = Field(description="Quem assiste, e o que já sabe.")
+                tom: str = Field(description="Como falar com esse público.")
+                objetivo: str = Field(
+                    description="O que a pessoa sai sabendo FAZER, não sabendo sobre.",
+                )
+                ferramentas: list[str] = Field(
+                    min_length=1, max_length=8,
+                    description=(
+                        "As ferramentas, arquivos ou telas CONCRETAS que o conteúdo usa "
+                        "(ex: 'Cursor', 'arquivo AGENTS.md', 'terminal do Claude Code'). "
+                        "Se a resposta for genérica como 'Python', o recorte ainda está "
+                        "abstrato demais — pergunte antes de assumir."
+                    ),
+                )
+                o_que_aparece_na_tela: list[str] = Field(
+                    min_length=2, max_length=8,
+                    description=(
+                        "O que o espectador VÊ, em ordem. Cada item é uma cena concreta "
+                        "('o AGENTS.md aberto ao lado do chat', 'o agente lendo o arquivo "
+                        "e mudando de comportamento'), nunca um conceito ('a arquitetura')."
+                    ),
+                )
+                artigo_cobre: list[str] = Field(min_length=2, max_length=8)
+                video_cobre:  list[str] = Field(min_length=2, max_length=8)
+                fora_do_escopo: list[str] = Field(
+                    max_length=6,
+                    description="O que este conteúdo deliberadamente NÃO cobre.",
+                )
+                o_que_precisa_ser_provado: list[str] = Field(
+                    min_length=1, max_length=6,
+                    description=(
+                        "As afirmações que o conteúdo faz e que a pesquisa terá de "
+                        "sustentar com fonte — número, limite documentado, "
+                        "comportamento especificado. Aplicável não pode custar a "
+                        "validação técnica: é o que separa o canal de um tutorial "
+                        "qualquer, e é o que o público confere."
+                    ),
+                )
+                perguntas: list[str] = Field(
+                    max_length=4,
+                    description=(
+                        "O que você ainda precisa saber para fechar o recorte. Vazio "
+                        "quando a proposta já está completa. Pergunte sobre o que muda "
+                        "o conteúdo, não sobre preferências cosméticas."
+                    ),
+                )
+                resumo_da_proposta: str = Field(
+                    min_length=60, max_length=600,
+                    description="A proposta em linguagem direta, para o humano ler e reagir.",
+                )
+
+            conversa = estado.get("conversa_briefing") or []
+            historico = "\n\n".join(
+                f"[{m.get('papel', '?')}] {m.get('texto', '')}" for m in conversa
+            ) or "(primeira rodada — ainda não houve conversa)"
+
+            anterior = estado.get("briefing") or {}
+            contexto_kb = montar_contexto(_db(), estado.get("tenant_id"))
+
+            briefing = await generate_structured(
+                Briefing,
+                prompt=(
+                    f"Tema que o Victor trouxe: {estado['tema']}\n"
+                    f"Contexto inicial: {estado.get('contexto') or '(nenhum)'}\n\n"
+                    f"Proposta anterior: {anterior.get('resumo_da_proposta') or '(nenhuma)'}\n\n"
+                    f"CONVERSA ATÉ AQUI:\n{historico}\n\n"
+                    f"Proponha (ou revise) o recorte. Se a última mensagem do Victor "
+                    f"pediu uma mudança, ela manda — incorpore em vez de repetir a "
+                    f"proposta anterior."
+                ),
+                system_instruction=(
+                    "Você é o CMO do canal éozoré, fechando o recorte de uma pauta COM "
+                    "o Victor, antes de qualquer coisa ser escrita.\n\n"
+                    "Um tema quase sempre tem duas leituras: como a coisa funciona por "
+                    "dentro, e como se usa na prática. São vídeos diferentes, para "
+                    "públicos diferentes. Não escolha sozinho — se o tema admite as "
+                    "duas, pergunte qual é.\n\n"
+                    "O canal fala com quem constrói. 'Aprender a fazer' vence "
+                    "'entender o conceito' toda vez que os dois competem — mas "
+                    "aplicável NÃO é sinônimo de raso. Toda recomendação prática "
+                    "vai precisar de fundamento verificável, e é em "
+                    "`o_que_precisa_ser_provado` que você declara o que a pesquisa "
+                    "terá de sustentar. Um passo a passo que ninguém consegue "
+                    "checar não serve a este público.\n\n"
+                    f"{contexto_kb}"
+                ),
+            )
+            d = briefing.model_dump()
+            set_attributes(briefing_angulo=d["angulo"][:80])
+            return {
+                "briefing": d,
+                "conversa_briefing": [{"papel": "cmo", "texto": d["resumo_da_proposta"]}],
+                "fase": "aguardando_briefing",
+                "trilha": [f"briefing: {d['angulo'][:60]}"],
+            }
+        except Exception as exc:
+            return {**_erro("briefing", exc, fatal=True), "fase": "erro"}
+
+
+async def no_gate_briefing(estado: EstadoMarketing) -> dict:
+    """
+    Para aqui até o Victor aprovar o recorte ou pedir outra rodada.
+
+    Mesmo mecanismo dos outros gates: o LangGraph persiste o checkpoint e a
+    execução termina. `ajustar` volta para `briefing` com a resposta dele já
+    na conversa; `aprovado` libera a pesquisa e a escrita.
+    """
+    aprov = estado.get("aprovacao_briefing") or {}
+    decisao = aprov.get("decisao")
+    if decisao:
+        registrar_decisao(
+            _db(), estado.get("tenant_id"),
+            gate="briefing", decisao=decisao,
+            comentario=aprov.get("comentario", ""),
+            tema=estado.get("tema", ""),
+        )
+    return {"trilha": [f"gate_briefing: {decisao or 'aguardando'}"]}
+
+
+def rota_gate_briefing(estado: EstadoMarketing) -> str:
+    decisao = (estado.get("aprovacao_briefing") or {}).get("decisao")
+    if decisao == "aprovado":
+        return "planejamento"
+    if decisao == "ajustar":
+        return "briefing"
+    return "fim"
+
+
 # ── 1. Planejamento ───────────────────────────────────────────────────────────
 
 async def no_planejamento(estado: EstadoMarketing) -> dict:
@@ -77,16 +236,42 @@ async def no_planejamento(estado: EstadoMarketing) -> dict:
                 )
 
             contexto_kb = montar_contexto(_db(), estado.get("tenant_id"))
+
+            # A pauta DERIVA do briefing aprovado; não o reinterpreta.
+            #
+            # Antes este nó recebia só o tema e escolhia o ângulo sozinho, numa
+            # chamada. Era ali que "SDD" virava implementação em vez de uso, sem
+            # ninguém ter sido consultado.
+            b = estado.get("briefing") or {}
+            if b:
+                brief = (
+                    f"ÂNGULO JÁ APROVADO (não reinterprete): {b.get('angulo')}\n"
+                    f"Público: {b.get('publico')}\n"
+                    f"Tom: {b.get('tom')}\n"
+                    f"Objetivo (o que a pessoa sai sabendo FAZER): {b.get('objetivo')}\n"
+                    f"Ferramentas concretas: {', '.join(b.get('ferramentas') or [])}\n"
+                    f"O que aparece na tela: {'; '.join(b.get('o_que_aparece_na_tela') or [])}\n"
+                    f"O artigo cobre: {'; '.join(b.get('artigo_cobre') or [])}\n"
+                    f"O vídeo cobre: {'; '.join(b.get('video_cobre') or [])}\n"
+                    f"FORA do escopo: {'; '.join(b.get('fora_do_escopo') or [])}\n"
+                )
+            else:
+                # Sessão antiga, criada antes do briefing existir.
+                brief = "(sem briefing — sessão anterior à conversa de recorte)\n"
+
             pauta = await generate_structured(
                 Pauta,
                 prompt=(
                     f"Tema: {estado['tema']}\n"
                     f"Contexto do usuário: {estado.get('contexto', '(nenhum)')}\n\n"
-                    f"Feche a pauta. O 'angulo_video' é o que só o vídeo entrega — "
-                    f"todo o conteúdo social vai apontar para ele."
+                    f"{brief}\n"
+                    f"Feche a pauta DENTRO deste recorte. O 'angulo_video' é o que só "
+                    f"o vídeo entrega — todo o conteúdo social vai apontar para ele."
                 ),
                 system_instruction=(
                     f"Você é o CMO do canal éozoré, fechando a pauta da semana.\n\n"
+                    f"O recorte já foi negociado com o Victor e está fechado. Seu "
+                    f"trabalho é traduzi-lo em pauta, não revisitá-lo.\n\n"
                     f"{contexto_kb}"
                 ),
             )
@@ -98,6 +283,15 @@ async def no_planejamento(estado: EstadoMarketing) -> dict:
             }
         except Exception as exc:
             return {**_erro("planejamento", exc, fatal=True), "fase": "erro"}
+
+
+def contexto_pauta_simples(pauta: dict) -> str:
+    """Contexto de pesquisa para sessões anteriores ao briefing."""
+    return (
+        f"Tese: {pauta.get('tese', '')}\n"
+        f"Público: {pauta.get('publico', '')}\n"
+        f"Objetivo: {pauta.get('objetivo_aprendizado', '')}"
+    )
 
 
 # ── 2. Artigo ─────────────────────────────────────────────────────────────────
@@ -113,9 +307,41 @@ async def no_artigo(estado: EstadoMarketing) -> dict:
             pauta = estado.get("pauta") or {}
             titulo = pauta.get("titulo", estado["tema"])
 
+            # A pesquisa é GUIADA pelo briefing, não pelo título solto.
+            #
+            # `run_research` sempre aceitou `context` e `critic_notes`, e a
+            # chamada descartava os dois: pesquisava "SDD" no vazio, sem saber
+            # o público, o objetivo, nem que o vídeo precisava mostrar um
+            # arquivo .md numa IDE. Sem esse recorte ela cai no que o modelo
+            # já sabe — que é o material acadêmico.
+            b = estado.get("briefing") or {}
+            ctx_pesquisa = (
+                f"Ângulo: {b.get('angulo', '')}\n"
+                f"Público: {b.get('publico', '')}\n"
+                f"Objetivo prático: {b.get('objetivo', '')}\n"
+                f"Ferramentas concretas: {', '.join(b.get('ferramentas') or [])}\n"
+                f"O que precisa aparecer na tela: {'; '.join(b.get('o_que_aparece_na_tela') or [])}\n"
+                f"AFIRMAÇÕES QUE PRECISAM DE FONTE: {'; '.join(b.get('o_que_precisa_ser_provado') or [])}\n"
+                f"Fora do escopo: {'; '.join(b.get('fora_do_escopo') or [])}"
+            ) if b else contexto_pauta_simples(pauta)
+
+            # O steering AMPLIA o alcance; não troca uma camada pela outra.
+            #
+            # O conteúdo precisa ser aplicável E verificável: uma recomendação
+            # prática sem fundamento é opinião com cara de método, e um
+            # fundamento sem o passo concreto é aula que ninguém aplica.
+            steering = (
+                "Vá à FONTE PRIMÁRIA das ferramentas citadas — documentação oficial, "
+                "repositório, changelog, exemplos reais — e traga o material "
+                "mostrável: trechos de arquivo, nomes exatos de opção, versões.\n"
+                "E sustente cada recomendação: o comportamento documentado, o número "
+                "ou o limite que a justifica, e quando ela NÃO se aplica. O público "
+                "constrói em produção e cobra os dois lados."
+            ) if (b.get("ferramentas") if b else None) else ""
+
             pesquisa = ""
             try:
-                pesquisa = await run_research(titulo)
+                pesquisa = await run_research(titulo, context=ctx_pesquisa, critic_notes=steering)
             except Exception as exc:
                 # Pesquisa é enriquecimento, não pré-requisito: sem ela o
                 # artigo sai baseado só no conhecimento do modelo.

@@ -2388,6 +2388,11 @@ async def graph_state(sessionId: str, request: Request):
         # `getAllArticles` filtra. Sai daqui para a publicação não ter que
         # adivinhar.
         "idioma":     v.get("idioma") or "pt-BR",
+        # O recorte e a conversa que o produziu. A tela do briefing é a
+        # primeira coisa que o humano vê, e ela precisa das duas: a proposta
+        # atual para reagir, e o histórico para saber o que já foi combinado.
+        "briefing":         v.get("briefing"),
+        "conversaBriefing": v.get("conversa_briefing", []),
         "pauta":      v.get("pauta"),
         "artigo": {
             "titulo":   v.get("artigo_titulo"),
@@ -2434,8 +2439,10 @@ async def graph_approve(req: GraphApproveRequest, request: Request):
     from datetime import datetime as _dt, timezone as _tz
     from graph.build import config_thread
 
-    if req.gate not in ("artigo", "video"):
-        raise HTTPException(status_code=400, detail="gate deve ser 'artigo' ou 'video'")
+    if req.gate not in ("briefing", "artigo", "video"):
+        raise HTTPException(
+            status_code=400, detail="gate deve ser 'briefing', 'artigo' ou 'video'"
+        )
     if req.decisao not in ("aprovado", "ajustar", "rejeitado"):
         raise HTTPException(status_code=400, detail="decisão inválida")
 
@@ -2486,6 +2493,72 @@ async def graph_approve(req: GraphApproveRequest, request: Request):
         "aguardando": list(novo.next),
         "trilha":     novo.values.get("trilha", []),
         "erros":      novo.values.get("erros", []),
+    }
+
+
+class GraphBriefingRequest(BaseModel):
+    sessionId: str
+    mensagem:  str
+
+
+@app.post("/graph/briefing/mensagem")
+async def graph_briefing_mensagem(req: GraphBriefingRequest, request: Request):
+    """
+    Uma rodada de conversa sobre o recorte, antes de escrever qualquer coisa.
+
+    Difere de `/graph/approve` com `ajustar` num ponto que importa: aqui a
+    mensagem entra na CONVERSA, que é acumulativa, então a rodada seguinte vê
+    tudo que foi dito. Um `comentario` de gate é uma crítica pontual e some
+    depois de aplicada — serve para "está raso demais", não para negociar um
+    recorte em três trocas.
+
+    É a diferença entre pedir alteração num texto pronto e combinar o que vai
+    ser escrito.
+    """
+    from graph.build import config_thread
+
+    texto = (req.mensagem or "").strip()
+    if not texto:
+        raise HTTPException(status_code=400, detail="mensagem vazia")
+
+    tenant_id = _graph_tenant(request)
+    app_graph = _build_graph(tenant_id)
+    cfg       = config_thread(tenant_id or "default", req.sessionId)
+
+    snap = await app_graph.aget_state(cfg)
+    if not snap.values:
+        raise HTTPException(status_code=404, detail="Nenhum fluxo para esta sessão")
+    if snap.values.get("fase") not in ("briefing", "aguardando_briefing"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "O recorte já foi aprovado — esta conversa acontece antes da "
+                "escrita. Use /graph/approve para pedir ajuste no artigo."
+            ),
+        )
+
+    # A resposta entra na conversa E o gate volta para `ajustar`: é o que faz
+    # o grafo rodar `no_briefing` de novo, agora com a fala nova no histórico.
+    from datetime import datetime as _dt2, timezone as _tz2
+    await app_graph.aupdate_state(cfg, {
+        "conversa_briefing": [{"papel": "humano", "texto": texto}],
+        "aprovacao_briefing": {
+            "decisao": "ajustar", "comentario": texto,
+            "em": _dt2.now(_tz2.utc).isoformat(),
+        },
+    })
+    try:
+        await app_graph.ainvoke(None, cfg)
+    except Exception as exc:
+        logger.exception("[graph/briefing] rodada falhou")
+        raise HTTPException(status_code=500, detail=str(exc)[:300])
+
+    novo = await app_graph.aget_state(cfg)
+    return {
+        "briefing": novo.values.get("briefing"),
+        "conversa": novo.values.get("conversa_briefing", []),
+        "fase":     novo.values.get("fase"),
+        "erros":    novo.values.get("erros", []),
     }
 
 

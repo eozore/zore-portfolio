@@ -18,7 +18,8 @@ import AuthGate from '../csm/AuthGate';
 import Biblioteca from './Biblioteca';
 import { Badge, Button, Card, Notice, cx } from './ui/primitives';
 import {
-  CartaoArtigo, PainelProducao, PassoArtigo, PassoSocial, PassoTema, PassoTrabalhando, PassoVideo,
+  CartaoArtigo, PainelProducao, PassoArtigo, PassoBriefing, PassoSocial, PassoTema,
+  PassoTrabalhando, PassoVideo,
 } from './steps/Steps';
 import {
   type Passo, type StatusPasso, passosDaJornada, resumoDaFase, useStudio,
@@ -102,7 +103,7 @@ export default function Studio() {
 
   const {
     estado, producao, agendamento, statusArtigo, erro, ocupado, carregando,
-    iniciar, decidir, agendar, derivarVertical, publicarArtigo, recarregar,
+    iniciar, decidir, conversarBriefing, agendar, derivarVertical, publicarArtigo, recarregar,
   } = useStudio(sessionId, !naBiblioteca);
   const passos = passosDaJornada(estado);
   const resumo = resumoDaFase(estado);
@@ -138,6 +139,10 @@ export default function Studio() {
     if (!estado) return <PassoTema onIniciar={iniciar} ocupado={ocupado} />;
 
     switch (estado.fase) {
+      case 'aguardando_briefing':
+        return <PassoBriefing estado={estado} ocupado={ocupado}
+          onResponder={conversarBriefing}
+          onDecidir={(d, c) => decidir('briefing', d, c)} />;
       case 'aguardando_aprovacao_artigo':
         return <PassoArtigo estado={estado} ocupado={ocupado}
           onDecidir={(d, c) => decidir('artigo', d, c)} />;

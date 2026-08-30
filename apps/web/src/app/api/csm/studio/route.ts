@@ -317,6 +317,15 @@ export async function POST(request: Request): Promise<Response> {
     }
     return res;
   }
+  if (action === 'briefing') {
+    // Uma rodada da conversa de recorte. Fica antes do `approve` no fluxo e
+    // não publica nada: até aqui, nenhum artigo foi escrito.
+    return proxy(
+      '/graph/briefing/mensagem',
+      { method: 'POST', body: JSON.stringify({ sessionId: rest.sessionId, mensagem: rest.mensagem }) },
+      tenant.tenantId,
+    );
+  }
   if (action === 'agendar') {
     // Renderiza as imagens de carrossel e stories antes de gravar, então
     // demora mais que uma chamada de leitura — daí o proxy com o timeout

@@ -20,6 +20,8 @@ from typing import Annotated, Any, Literal, Optional, TypedDict
 
 # Fases do funil. A ordem é a do produto: artigo → vídeo → social.
 Fase = Literal[
+    "briefing",
+    "aguardando_briefing",
     "planejamento",
     "artigo",
     "aguardando_aprovacao_artigo",
@@ -66,6 +68,18 @@ class EstadoMarketing(TypedDict, total=False):
     # ── Fase corrente ─────────────────────────────────────────────────────────
     fase: Fase
 
+    # ── Briefing ──────────────────────────────────────────────────────────────
+    # A conversa que acontece ANTES de qualquer coisa ser escrita.
+    #
+    # Existe porque o primeiro ponto de contato humano era o gate do artigo —
+    # depois de o ângulo já estar escolhido, pesquisado e redigido. Quando o
+    # recorte saía errado, não havia onde corrigir sem refazer tudo: o vídeo
+    # de SDD de 29/08 explicou como montar os arquivos Python por baixo do
+    # capô, quando o pedido era mostrar como usar arquivos .md para configurar
+    # agentes na IDE. Nada no fluxo tinha perguntado qual dos dois era.
+    briefing:          dict[str, Any]
+    conversa_briefing: Annotated[list[dict[str, str]], operator.add]
+
     # ── Planejamento ──────────────────────────────────────────────────────────
     pauta: dict[str, Any]
 
@@ -87,7 +101,8 @@ class EstadoMarketing(TypedDict, total=False):
     plano_social: dict[str, Any]
 
     # ── Gates ─────────────────────────────────────────────────────────────────
-    aprovacao_artigo: Aprovacao
+    aprovacao_briefing: Aprovacao
+    aprovacao_artigo:   Aprovacao
     aprovacao_video:  Aprovacao
 
     # ── Diagnóstico ───────────────────────────────────────────────────────────
@@ -113,7 +128,8 @@ def novo_estado(
         tema=tema,
         contexto=contexto,
         idioma=idioma,
-        fase="planejamento",
+        fase="briefing",
+        conversa_briefing=[],
         erros=[],
         trilha=[],
         custo_usd=0.0,

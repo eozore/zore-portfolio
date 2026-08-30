@@ -25,12 +25,15 @@ from langgraph.graph import END, StateGraph
 from graph.checkpointer import FirestoreCheckpointSaver
 from graph.nodes import (
     no_artigo,
+    no_briefing,
     no_gate_artigo,
+    no_gate_briefing,
     no_gate_video,
     no_planejamento,
     no_social,
     no_video,
     rota_gate_artigo,
+    rota_gate_briefing,
     rota_gate_video,
 )
 from graph.state import EstadoMarketing
@@ -42,6 +45,8 @@ def construir_grafo(db, tenant_id: Optional[str] = None):
     """Compila o grafo com checkpoint durável em Firestore."""
     g = StateGraph(EstadoMarketing)
 
+    g.add_node("briefing",      no_briefing)
+    g.add_node("gate_briefing", no_gate_briefing)
     g.add_node("planejamento", no_planejamento)
     g.add_node("artigo",       no_artigo)
     g.add_node("gate_artigo",  no_gate_artigo)
@@ -49,7 +54,14 @@ def construir_grafo(db, tenant_id: Optional[str] = None):
     g.add_node("gate_video",   no_gate_video)
     g.add_node("social",       no_social)
 
-    g.set_entry_point("planejamento")
+    # A entrada é o BRIEFING, não o planejamento: o recorte é negociado antes
+    # de qualquer coisa ser pesquisada ou escrita.
+    g.set_entry_point("briefing")
+    g.add_edge("briefing", "gate_briefing")
+    g.add_conditional_edges(
+        "gate_briefing", rota_gate_briefing,
+        {"planejamento": "planejamento", "briefing": "briefing", "fim": END},
+    )
     g.add_edge("planejamento", "artigo")
     g.add_edge("artigo", "gate_artigo")
 
@@ -68,7 +80,7 @@ def construir_grafo(db, tenant_id: Optional[str] = None):
         checkpointer=FirestoreCheckpointSaver(db, tenant_id),
         # Interrompe ANTES do nó de gate. O estado com o artigo/vídeo pronto
         # já está persistido, e o humano revisa a partir dele.
-        interrupt_before=["gate_artigo", "gate_video"],
+        interrupt_before=["gate_briefing", "gate_artigo", "gate_video"],
     )
 
 

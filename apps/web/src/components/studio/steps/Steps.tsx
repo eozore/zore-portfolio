@@ -142,6 +142,158 @@ function Gate({
 
 // ── 2. Artigo ────────────────────────────────────────────────────────────────
 
+/**
+ * A conversa de recorte, antes de qualquer coisa ser escrita.
+ *
+ * Este passo existe porque o primeiro contato humano era o artigo pronto —
+ * quando o ângulo já tinha sido escolhido, pesquisado e redigido. O vídeo de
+ * SDD de 29/08 explicou a implementação em Python quando o pedido era mostrar
+ * arquivos .md numa IDE: dois vídeos legítimos para o mesmo tema, e nada no
+ * fluxo tinha perguntado qual.
+ *
+ * Por isso a proposta destaca `o que aparece na tela` e `o que precisa ser
+ * provado`: são os dois campos que decidem se o conteúdo sai aplicável e
+ * verificável, e é aqui que dá para corrigir o rumo de graça.
+ */
+export function PassoBriefing({
+  estado, onResponder, onDecidir, ocupado,
+}: {
+  estado: EstadoStudio;
+  onResponder: (mensagem: string) => void;
+  onDecidir: (d: 'aprovado' | 'ajustar' | 'rejeitado', c: string) => void;
+  ocupado: boolean;
+}) {
+  const [texto, setTexto] = useState('');
+  const b = estado.briefing;
+  const conversa = estado.conversaBriefing || [];
+
+  function enviar() {
+    const t = texto.trim();
+    if (!t || ocupado) return;
+    setTexto('');
+    onResponder(t);
+  }
+
+  const listas: [string, string[] | undefined][] = [
+    ['O que aparece na tela', b?.o_que_aparece_na_tela],
+    ['Ferramentas', b?.ferramentas],
+    ['O vídeo cobre', b?.video_cobre],
+    ['O artigo cobre', b?.artigo_cobre],
+    ['Precisa de fonte', b?.o_que_precisa_ser_provado],
+    ['Fora do escopo', b?.fora_do_escopo],
+  ];
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <Eyebrow>passo 1 de 4 · recorte</Eyebrow>
+        <h2 className="text-xl font-bold leading-tight tracking-tight text-text-main">
+          {b?.angulo || 'Montando a proposta…'}
+        </h2>
+        {!!b?.resumo_da_proposta && (
+          <p className="mt-2 max-w-[68ch] text-[13.5px] leading-relaxed text-text-body">
+            {b.resumo_da_proposta}
+          </p>
+        )}
+
+        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-black/[0.06] pt-4">
+          {[['Público', b?.publico], ['Tom', b?.tom], ['Objetivo', b?.objetivo]].map(
+            ([rotulo, valor]) => !!valor && (
+              <div key={String(rotulo)} className="max-w-[30ch]">
+                <dt className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-faint">
+                  {rotulo}
+                </dt>
+                <dd className="mt-0.5 text-[13px] font-medium text-text-main">{valor}</dd>
+              </div>
+            ),
+          )}
+        </dl>
+
+        <div className="mt-4 grid gap-4 border-t border-black/[0.06] pt-4 sm:grid-cols-2">
+          {listas.map(([rotulo, itens]) => !!itens?.length && (
+            <div key={rotulo}>
+              <div className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-faint">
+                {rotulo}
+              </div>
+              <ul className="mt-1.5 space-y-1">
+                {itens.map((i) => (
+                  <li key={i} className="text-[13px] leading-snug text-text-body">— {i}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* As perguntas do CMO ficam em destaque: são o que ele precisa saber
+          para fechar o recorte, e responder é mais barato agora do que
+          descobrir o desencontro num vídeo pronto. */}
+      {!!b?.perguntas?.length && (
+        <Notice title="O CMO quer saber">
+          <ul className="space-y-1.5">
+            {b.perguntas.map((q) => (
+              <li key={q} className="text-[13.5px] leading-relaxed">{q}</li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+
+      {conversa.length > 1 && (
+        <Card>
+          <SectionTitle>A conversa até aqui</SectionTitle>
+          <div className="mt-3 space-y-3">
+            {conversa.map((f, i) => (
+              <div key={i} className={cx('max-w-[62ch]', f.papel === 'humano' && 'ml-auto text-right')}>
+                <div className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-faint">
+                  {f.papel === 'humano' ? 'você' : 'cmo'}
+                </div>
+                <p className="mt-0.5 text-[13.5px] leading-relaxed text-text-body">{f.texto}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <SectionTitle>Ajuste o recorte</SectionTitle>
+        <p className="mt-1 text-[13px] text-text-body">
+          Diga o que mudar — ângulo, público, o que precisa aparecer na tela. Nada
+          é pesquisado nem escrito até você aprovar.
+        </p>
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter envia, Shift+Enter quebra linha: é uma conversa, não um formulário.
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+          }}
+          rows={3}
+          disabled={ocupado}
+          placeholder="Ex: quero mostrar o uso dentro da IDE, com um AGENTS.md real, não a implementação por baixo."
+          className="mt-3 w-full resize-y rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[13.5px] leading-relaxed text-text-main outline-none focus:border-black/20 disabled:opacity-50"
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={enviar} disabled={ocupado || !texto.trim()}>
+            Mandar e ver a nova proposta
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => onDecidir('aprovado', '')}
+            disabled={ocupado || !b}
+          >
+            Está certo — pode pesquisar e escrever
+          </Button>
+          <Button variant="ghost" onClick={() => onDecidir('rejeitado', '')} disabled={ocupado}>
+            Descartar
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── 2. Artigo ────────────────────────────────────────────────────────────────
+
 export function PassoArtigo({
   estado, onDecidir, ocupado,
 }: {

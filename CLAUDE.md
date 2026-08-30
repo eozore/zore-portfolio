@@ -114,6 +114,25 @@ branco — 115 segundos de tela preta num vídeo de 344, sem um único erro no
 job, no upload ou no YouTube. Duas trancas hoje: o `body>` na regra e
 `_renomear_container_slide`, que renomeia na origem.
 
+**O recorte é negociado ANTES de pesquisar ou escrever.** A entrada do grafo
+é `briefing`, não `planejamento`: o CMO propõe ângulo, público, ferramentas
+concretas, o que aparece na tela e o que precisa de fonte, e o humano responde
+em rodadas por `/graph/briefing/mensagem`. Existe porque o primeiro contato
+humano era o gate do artigo — quando o ângulo já estava escolhido, pesquisado
+e redigido. O vídeo de SDD de 29/08 ensinou a implementação em Python quando o
+pedido era mostrar arquivos `.md` numa IDE: dois vídeos legítimos para o mesmo
+tema, e nada tinha perguntado qual. A conversa é ACUMULATIVA (`conversa_briefing`),
+diferente do `comentario` de gate, que é pontual e some depois de aplicado.
+
+**A pesquisa cobre duas camadas, nunca uma.** Prática (documentação, repo,
+changelog — o material mostrável) e fundamento (o que sustenta a recomendação).
+Uma recomendação sem fundamento é opinião com cara de método; um fundamento
+sem o passo concreto é aula que ninguém aplica. `run_research` sempre aceitou
+`context` e `critic_notes`, e a chamada do grafo descartava os dois: pesquisava
+o título no vazio. Pior, a instrução do pesquisador dizia "evite conceitos
+básicos de tutorial" — proibindo exatamente a fonte certa para tema de uso de
+ferramenta, onde o arXiv não tem nada.
+
 **O slide nunca exibe a própria narração.** Ler e ouvir a mesma frase divide
 a atenção sem ganho. A regra está no prompt, mas quem barra é
 `_narracao_vazou_para_a_tela` — regra em prompt é sugestão.
