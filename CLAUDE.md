@@ -158,6 +158,15 @@ criado, e no Firestore documento que só tem subcoleção não aparece em
 listagem. Quem precisa listar sessões usa `studio_sessions`, não
 `graph_threads`.
 
+**A fila agendada é varrida INTEIRA, nunca com um limite solto.** O
+`publisher_job` buscava `where(status==planned).limit(50)` sem ordenação: com
+71 pendentes, o Firestore devolvia 50 quaisquer e as outras 21 não existiam
+para o job — nem naquela rodada nem nas seguintes, porque a janela não anda.
+Oito peças venceram sem sair, uma delas um Threads parado havia mais de um
+dia, e nada acusou erro. Hoje `_pendentes_por_vencimento` pagina a fila toda e
+ordena por vencimento; o teto (`MAX_PUBLICACOES_POR_RODADA`) age na
+PUBLICAÇÃO, não na busca — limitar a busca é o defeito, não a proteção.
+
 **Um formato só entra na `social_queue` se o publisher souber publicá-lo.**
 Story do Instagram é uma imagem por documento: quatro frames num documento só
 publicam o primeiro e descartam três sem erro.

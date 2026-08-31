@@ -85,6 +85,13 @@ if YOUTUBE_UPLOAD_PRIVACY not in ("public", "unlisted", "private"):
     )
     YOUTUBE_UPLOAD_PRIVACY = "public"
 MAX_RETRIES      = 3
+
+# Vazão por rodada. O agendador roda de hora em hora, então este é o teto de
+# quantas peças saem de uma vez — não de quantas o job ENXERGA, que era o
+# defeito anterior.
+MAX_PUBLICACOES_POR_RODADA = 25
+PAGINA_FILA       = 100
+MAX_FILA_VARRIDA  = 1000
 ERROR_CODE_MAP   = {
     "token":       "TOKEN_EXPIRED",
     "401":         "UNAUTHORIZED",
@@ -593,6 +600,52 @@ class PublisherJob:
 
     # ── Processamento da fila ──────────────────────────────────────────────────
 
+    def _pendentes_por_vencimento(self) -> list:
+        """
+        TODAS as peças `planned`, da mais vencida para a mais recente.
+
+        A versão anterior era `.where(status==planned).limit(50)`, sem
+        ordenação. Com mais de 50 pendentes o Firestore devolve 50 QUAISQUER,
+        e as que ficam de fora não são vistas — nem nesta rodada nem nas
+        seguintes, porque a janela não anda. Em 31/08 havia 71 pendentes: 21
+        eram invisíveis, e entre elas um post do Threads vencido havia mais de
+        um dia. Nada acusava erro, porque do ponto de vista do job aqueles
+        documentos não existiam.
+
+        Pagina em vez de subir o limite: assim a correção não depende de
+        alguém adivinhar um teto novo quando a fila crescer. A ordenação é
+        feita aqui, em Python, porque `where` + `order_by` em campos
+        diferentes exigiria um índice composto — e um índice ausente falha em
+        produção, não no teste.
+        """
+        col = self._db.collection(COLLECTION_QUEUE).where("status", "==", "planned")
+        todos: list = []
+        ultimo = None
+        while len(todos) < MAX_FILA_VARRIDA:
+            q = col.limit(PAGINA_FILA)
+            if ultimo is not None:
+                q = q.start_after(ultimo)
+            pagina = list(q.get())
+            if not pagina:
+                break
+            todos.extend(pagina)
+            ultimo = pagina[-1]
+            if len(pagina) < PAGINA_FILA:
+                break
+
+        if len(todos) >= MAX_FILA_VARRIDA:
+            logger.warning(
+                "[publisher] fila com %d+ pendentes; varrendo só os primeiros. "
+                "Algo está enfileirando mais do que publicando.", MAX_FILA_VARRIDA,
+            )
+
+        def quando(doc) -> str:
+            d = doc.to_dict() or {}
+            return str(d.get("scheduledAt") or d.get("scheduled_at") or "")
+
+        todos.sort(key=quando)
+        return todos
+
     def run(self) -> dict[str, int]:
         """
         Processa todos os itens pending com scheduled_at <= agora.
@@ -603,13 +656,9 @@ class PublisherJob:
         now = datetime.now(timezone.utc)
         results = {"published": 0, "failed": 0, "skipped": 0}
 
-        docs = list(
-            self._db.collection(COLLECTION_QUEUE)
-            .where("status", "==", "planned")   # pipeline-submit salva com status=planned
-            .limit(50)
-            .get()
-        )
+        docs = self._pendentes_por_vencimento()
 
+        publicados_nesta_rodada = 0
         for doc in docs:
             data = doc.to_dict()
             scheduled_at = data.get("scheduledAt") or data.get("scheduled_at")
@@ -647,6 +696,16 @@ class PublisherJob:
                 results["failed"] += 1
                 continue
 
+            if publicados_nesta_rodada >= MAX_PUBLICACOES_POR_RODADA:
+                # Teto de vazão, não de visibilidade: o que sobra é o mais
+                # recente, e a próxima rodada (de hora em hora) o pega — agora
+                # em ordem, porque a lista vem ordenada por vencimento.
+                logger.info(
+                    "[publisher] teto de %d publicações nesta rodada; o resto sai na próxima.",
+                    MAX_PUBLICACOES_POR_RODADA,
+                )
+                break
+
             logger.info(f"Publishing [{data.get('platform')}] {data.get('title', '')[:50]}")
             try:
                 post_id = self.publish_single(data)
@@ -660,6 +719,7 @@ class PublisherJob:
                 })
                 logger.info(f"  ✅ {data.get('platform')}: {post_id}")
                 results["published"] += 1
+                publicados_nesta_rodada += 1
 
             except Exception as exc:
                 err_msg  = str(exc)[:500]
