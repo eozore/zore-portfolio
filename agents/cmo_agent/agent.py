@@ -2191,6 +2191,10 @@ async def build_manifest_endpoint(
             # título, que é o comportamento anterior.
             "thumb_frase": (capa or {}).get("frase"),
             "thumb_apoio": (capa or {}).get("apoio"),
+            # O gancho PRÓPRIO do curto. O roteirista já o escrevia em
+            # `vertical_cut.title` e nada o consumia: o Short saía com o
+            # título do vídeo longo e três hashtags fixas.
+            "vertical_cut_title": ((manifest or {}).get("vertical_cut") or {}).get("title"),
             "youtube_copy": copy_yt,
         }
 

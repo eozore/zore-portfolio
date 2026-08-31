@@ -183,6 +183,17 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
     # O grid de fundo é o mesmo dos slides do vídeo (slide_designer_agent).
     # Antes a story era um preto chapado, visualmente à parte do resto da
     # marca; com a textura ela pertence ao mesmo sistema.
+    # O destino vai na IMAGEM, não só na legenda.
+    #
+    # O Instagram não transforma URL em link, então uma story sem destino
+    # escrito não aponta para lugar nenhum. As de 31/08 mostravam
+    # "eozore.com" no rodapé — o site, não o vídeo —, e ninguém ficou sabendo
+    # que havia vídeo no canal. No último frame o selo ganha a cor de acento,
+    # porque é ali que o pedido acontece.
+    from destino import marca_de_destino
+    ultimo = ordem >= total
+    selo = html_escape.escape(marca_de_destino("instagram") if ultimo else "eozore.com")
+
     grid = (
         f"background-image:"
         f"linear-gradient(rgba(232,135,58,.045) 1px, transparent 1px),"
@@ -206,7 +217,7 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
     {bloco}
   </div>
   <div style="display:flex;justify-content:space-between;align-items:baseline">
-    <span class="soft" style="font-size:26px;letter-spacing:.04em">eozore.com</span>
+    <span style="font-size:27px;font-weight:600;letter-spacing:.02em;color:{ACCENT if ultimo else TEXT_SOFT}">{selo}</span>
     <span style="font-family:monospace;font-size:24px;color:{TEXT_SOFT}">{ordem}/{total}</span>
   </div>
 </div>""", *STORY_SIZE, padding=100, padding_top=STORY_SAFE_TOP, padding_bottom=STORY_SAFE_BOTTOM)

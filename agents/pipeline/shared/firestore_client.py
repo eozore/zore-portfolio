@@ -69,6 +69,37 @@ class FirestoreClient:
             list(updates.keys()),
         )
 
+    async def enfileirar_curto(
+        self, doc: dict, colecao: str = "social_queue",
+    ) -> None:
+        """Grava uma peça na fila agendada."""
+        await self._db.collection(colecao).add(doc)
+
+    async def horarios_ocupados(
+        self, colecao: str = "social_queue",
+    ) -> set[tuple[str, str]]:
+        """
+        (plataforma, hora cheia) das peças ainda não publicadas.
+
+        Mesmo critério do agendador do cmo_agent: o conflito que importa é
+        duas peças do MESMO canal na mesma hora. A granularidade é a hora
+        porque frames de story saem de minuto em minuto e são uma peça só.
+        """
+        ocupados: set[tuple[str, str]] = set()
+        try:
+            q = self._db.collection(colecao).where("status", "==", "planned")
+            async for d in q.stream():
+                data = d.to_dict() or {}
+                p = data.get("platform") or ""
+                w = data.get("scheduled_at") or data.get("scheduledAt") or ""
+                if p and isinstance(w, str) and w:
+                    ocupados.add((p, w[:13]))
+        except Exception:
+            # Falha aberto: sem a leitura o curto pode coincidir com outra
+            # peça, o que é bem melhor do que não ser agendado.
+            logger.exception("[firestore] não consegui ler a agenda atual")
+        return ocupados
+
     async def update_stage(
         self,
         project_id: str,

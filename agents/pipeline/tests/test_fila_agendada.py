@@ -145,3 +145,52 @@ def test_busca_nao_usa_limite_fixo_sem_ordem():
     corpo = inspect.getsource(PublisherJob.run)
     assert ".limit(50)" not in corpo
     assert "_pendentes_por_vencimento" in corpo
+
+
+# ── Curtos entram na fila, não saem na hora ───────────────────────────────────
+
+def test_curto_vai_para_a_fila_e_nao_publica_na_hora():
+    """
+    O Reel e o Short eram os únicos formatos que nunca apareciam na lista de
+    conteúdos: o corte vertical disparava `trigger="immediate"` e eles iam ao
+    ar em minutos. Sem revisão, sem distribuição no tempo, e concorrendo com o
+    vídeo longo que tinha acabado de sair.
+    """
+    import inspect
+    from vertical_cut_job.job import VerticalCutJob
+
+    corpo = inspect.getsource(VerticalCutJob.run)
+    # Tira comentários antes de checar: o que documenta o defeito cita o
+    # `trigger="immediate"` que ele explica.
+    codigo = "\n".join(
+        l for l in corpo.splitlines() if not l.lstrip().startswith("#")
+    )
+    assert "VIDEO_READY_TOPIC" not in codigo, "o curto não publica na hora"
+    assert 'trigger="immediate"' not in codigo
+    assert "_enfileirar_curto" in codigo
+
+
+def test_curto_e_agendado_depois_do_video_longo():
+    """
+    O curto existe para levar tráfego a um vídeo que JÁ está no ar. Agendá-lo
+    para hoje o põe competindo com o próprio longo.
+    """
+    import inspect
+    from vertical_cut_job.job import VerticalCutJob
+
+    corpo = inspect.getsource(VerticalCutJob._enfileirar_curto)
+    assert "range(1, 8)" in corpo, "o piso do agendamento tem que ser D+1"
+
+
+def test_cada_canal_do_curto_vira_um_documento():
+    """
+    Short e Reel são peças independentes na fila. É isso que permite soltar um
+    sem o outro — o Reel do Instagram precisou esperar o longo virar público,
+    e o Short não.
+    """
+    import inspect
+    from vertical_cut_job.job import VerticalCutJob
+
+    corpo = inspect.getsource(VerticalCutJob._enfileirar_curto)
+    assert "for canal in channels" in corpo
+    assert "youtube_shorts" in corpo and "instagram" in corpo

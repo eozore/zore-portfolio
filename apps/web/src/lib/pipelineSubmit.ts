@@ -80,7 +80,7 @@ export interface SubmitRequest {
 /** Manifesto v2 aprovado — o contrato que vira vídeo, sem reinterpretação. */
 export interface ManifestV2 {
   youtube?: { segments?: { id: string; kind?: string; slide?: string | null }[] };
-  vertical_cut?: { segments?: { id: string; source: string }[] };
+  vertical_cut?: { title?: string; segments?: { id: string; source: string }[] };
   [key: string]: unknown;
 }
 
@@ -96,6 +96,8 @@ interface ManifestBuildResult {
   avatar_share?:       number;
   total_duration_s?:   number;
   vertical_cut_count?: number;
+  /** Gancho próprio do curto — o `vertical_cut.title` do manifesto. */
+  vertical_cut_title?: string | null;
   estimated_cost_usd?: number;
   violations?:         string[];
 }
@@ -170,6 +172,10 @@ interface ProjectMeta {
    *  gerador cai no título, comportamento anterior. */
   thumbFrase?:  string;
   thumbApoio?:  string;
+  /** Gancho PRÓPRIO do Short/Reel, do `vertical_cut.title` do manifesto. */
+  shortFrase?:  string;
+  /** Slug da série. Decide as hashtags fixas do curto no publisher. */
+  serie?:       string;
 }
 
 /**
@@ -342,6 +348,10 @@ async function createProjectDoc(
     tags:         meta.tags ?? [],
     thumb_frase:  meta.thumbFrase ?? '',
     thumb_apoio:  meta.thumbApoio ?? '',
+    // Sem estes dois o Short cai no título do vídeo LONGO e em três hashtags
+    // genéricas — que foi como saíram os de 31/08.
+    short_frase:  meta.shortFrase ?? '',
+    serie:        meta.serie ?? '',
     article_url:  meta.articleUrl ?? '',
     subtitle:     meta.subtitle ?? '',
     category:     meta.category ?? 'ia',
@@ -522,6 +532,9 @@ export async function executarSubmit(
                                channelsApproved: mainChannels,
                                // Só chega aqui: a frase nasce no /build-manifest,
                                // depois de projectMeta já ter sido montado.
+                               shortFrase: manifestData.vertical_cut_title ?? undefined,
+                               serie: typeof pautaEfetiva?.serie === 'string'
+                                 ? pautaEfetiva.serie : undefined,
                                thumbFrase: manifestData.thumb_frase ?? undefined,
                                thumbApoio: manifestData.thumb_apoio ?? undefined,
                                description: buildDescription(

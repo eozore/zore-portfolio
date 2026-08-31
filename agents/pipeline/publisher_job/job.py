@@ -84,6 +84,23 @@ if YOUTUBE_UPLOAD_PRIVACY not in ("public", "unlisted", "private"):
         "YOUTUBE_UPLOAD_PRIVACY=%r inválido, usando 'public'.", YOUTUBE_UPLOAD_PRIVACY
     )
     YOUTUBE_UPLOAD_PRIVACY = "public"
+# Hashtags por série, espelhando `agents/cmo_agent/destino.py`. Duplicado de
+# propósito: a pipeline não importa do cmo_agent (imagens separadas), e uma
+# tag errada num post é menos grave do que um import que quebra o publisher.
+HASHTAGS_POR_SERIE: dict[str, str] = {
+    "engenharia-de-ia":              "#engenhariadeia #llm #mlops #devbr",
+    "engenharia-de-software-com-ia": "#engenhariadeia #vibecoding #devbr #ia",
+    "ia-para-lideres":               "#iaparalideres #lideranca #tecnologia",
+    "estatistica":                   "#estatistica #datascience #analisededados",
+    "ml":                            "#machinelearning #mlops #datascience",
+}
+HASHTAGS_PADRAO = "#engenhariadeia #ia #devbr"
+
+
+def _hashtags_da_serie(serie: object) -> str:
+    return HASHTAGS_POR_SERIE.get(str(serie or "").strip().lower(), HASHTAGS_PADRAO)
+
+
 MAX_RETRIES      = 3
 
 # Vazão por rodada. O agendador roda de hora em hora, então este é o teto de
@@ -840,10 +857,29 @@ class PublisherJob:
             f"{corpo}\n\n"
             f"📖 Artigo completo: {article_url}"
         ).strip()
-        # Sem "#" colado no título: `f"#{title} (Short)"` transformava o título
-        # inteiro numa hashtag quebrada ('#matemática por trás do teste a/b').
-        short_title = f"{title} #Shorts"
-        copy_short  = f"{title}\n\n#Shorts #IA #MachineLearning"
+        # ── Copy do curto: própria, não herdada do vídeo longo ───────────────
+        #
+        # Antes era `f"{title} #Shorts"` e `f"{title}\n\n#Shorts #IA
+        # #MachineLearning"` — o título de um vídeo de seis minutos colado num
+        # curto de cinquenta segundos, com três hashtags fixas iguais para
+        # todo tema. Um Short vive da retenção nos dois primeiros segundos; a
+        # legenda dele precisa do próprio gancho, do trecho que ele mostra.
+        #
+        # O roteirista JÁ escreve esse gancho em `vertical_cut.title` e nada o
+        # lia. As hashtags passam a ser as da série: quem chega por uma peça
+        # solta encontra o catálogo pela mesma tag, o que não acontece quando
+        # cada post inventa as suas.
+        short_frase = (meta.get("short_frase") or "").strip()
+        tags_serie  = _hashtags_da_serie(meta.get("serie"))
+        gancho_curto = short_frase or title
+
+        # "#Shorts" no título é o que o YouTube usa como dica de formato.
+        short_title = f"{gancho_curto[:90]} #Shorts"
+        copy_short  = (
+            f"{gancho_curto}\n\n"
+            f"▶️ Versão completa: {youtube_url}\n\n"
+            f"#Shorts {tags_serie}"
+        ).strip()
         copy_social = (
             f"{_summarize(description, 400)}\n\n"
             f"▶️ Vídeo completo: {youtube_url}\n"

@@ -219,15 +219,17 @@ class VerticalCutJob:
             })
 
             if channels:
-                # Publicação da peça curta: um projeto, dois canais. Reel e
-                # Short são o MESMO arquivo distribuído em duas plataformas.
-                self.pubsub.publish(VIDEO_READY_TOPIC, VideoReadyMsg(
-                    project_id=project_id,
-                    horizontal_final="",
-                    vertical_final=final_uri,
-                    duration_seconds=round(duration, 2),
-                    trigger="immediate",
-                ))
+                # A peça curta vai para a FILA, não para publicação imediata.
+                #
+                # Antes disparava `trigger="immediate"` e ia ao ar em minutos:
+                # o Reel e o Short eram os únicos formatos que nunca apareciam
+                # na lista de conteúdos, então não dava para revisar, nem para
+                # distribuir no tempo junto com o resto da semana. E um Reel
+                # publicado na hora concorre com o próprio vídeo longo, que
+                # acabou de sair.
+                await self._enfileirar_curto(
+                    project_id, final_uri, channels, project, round(duration, 2),
+                )
 
             return final_uri
 
@@ -241,6 +243,83 @@ class VerticalCutJob:
             raise
 
     # ──────────────────────────────────────────────────────────────────────────
+
+    async def _enfileirar_curto(
+        self, project_id: str, video_uri: str, channels: list[str],
+        project: dict, duracao_s: float,
+    ) -> None:
+        """
+        Põe o Short/Reel na `social_queue`, num horário que não colida.
+
+        Um documento por canal: o publisher da fila trata Short e Reel como
+        peças independentes, e é isso que permite soltar um sem o outro — que
+        é exatamente o que faltou quando o Reel do Instagram precisou esperar
+        o vídeo longo virar público.
+        """
+        from datetime import datetime, timedelta, timezone
+
+        ocupados = await self.firestore.horarios_ocupados()
+        base     = datetime.now(timezone.utc)
+
+        # O curto sai DEPOIS do vídeo longo, nunca junto: ele existe para
+        # levar tráfego a um vídeo que já está no ar.
+        destino_por_canal = {
+            "youtube_short":  ("youtube_shorts", "shorts"),
+            "instagram_reel": ("instagram",      "reel"),
+        }
+        titulo = str(project.get("short_frase") or project.get("title") or "")[:120]
+
+        for canal in channels:
+            par = destino_por_canal.get(canal)
+            if not par:
+                continue
+            plataforma, formato = par
+
+            quando = None
+            for dia in range(1, 8):
+                for hora_brt in (9, 12, 18, 15, 20):
+                    alvo = (base + timedelta(days=dia)).replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    ) + timedelta(hours=hora_brt + 3)
+                    chave = (plataforma, alvo.isoformat()[:13])
+                    if chave not in ocupados:
+                        ocupados.add(chave)
+                        quando = alvo.isoformat()
+                        break
+                if quando:
+                    break
+            if not quando:
+                quando = (base + timedelta(days=1)).isoformat()
+
+            await self.firestore.enfileirar_curto({
+                "status":            "planned",
+                "platform":          plataforma,
+                "format":            formato,
+                "title":             titulo,
+                "copy":              "",       # o publisher monta com gancho e hashtags
+                "asset_urls":        [video_uri],
+                "video_url":         video_uri,
+                "image_url":         None,
+                "comentario_fixado": None,
+                "thread_posts":      None,
+                "scheduled_at":      quando,
+                "session_id":        project.get("session_id"),
+                "article_slug":      project.get("article_slug"),
+                "article_url":       project.get("article_url"),
+                "project_id":        project_id,
+                "language":          project.get("language") or "pt-BR",
+                "duration_s":        duracao_s,
+                "retry_count":       0,
+                "error_message":     None,
+                "published_at":      None,
+                "platform_post_id":  None,
+                "created_at":        base.isoformat(),
+                "updated_at":        base.isoformat(),
+            })
+            logger.info(
+                "[VerticalCutJob] %s enfileirado para %s em %s",
+                plataforma, project_id, quando[:16],
+            )
 
     async def _build_clips(
         self,
