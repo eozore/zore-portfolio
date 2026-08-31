@@ -40,6 +40,63 @@ from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
 
+# ── Grafia falada → grafia escrita ────────────────────────────────────────────
+#
+# O roteirista escreve o script em português fonético para o ElevenLabs
+# pronunciar termos em inglês corretamente (REGRA 2 do scriptwriter_agent). É
+# certo para o ÁUDIO e errado para a TELA: a legenda vem do mesmo texto, então
+# o vídeo saía com "no primeiro prómpti", "quantidade de tóquens" e "enviado
+# para a ê-pê-í" queimados na imagem. Num canal técnico isso lê como erro de
+# português, e apareceu nos dois Shorts de 31/08.
+#
+# A tabela é o inverso EXATO da do scriptwriter, que é declarada lá como
+# exaustiva — por isso a reversão é segura. Se um termo entrar lá, entra aqui.
+PRONUNCIA_PARA_ESCRITA: dict[str, str] = {
+    "lóra": "LoRA", "qiu-lóra": "QLoRA", "tiny-lóra": "TinyLoRA",
+    "fain-tiúning": "fine-tuning", "tóquens": "tokens", "tóquen": "token",
+    "freim-uórc": "framework", "éli-éli-êmi": "LLM", "ê-pê-í": "API",
+    "êmbeding": "embedding", "bátch": "batch", "rênqui": "rank",
+    "prómpti": "prompt", "prómptis": "prompts", "ínsait": "insight",
+    "deplói": "deploy", "déshbord": "dashboard", "deitasséti": "dataset",
+    "paip-lain": "pipeline", "mochin lérning": "machine learning",
+    "cláud": "cloud", "tésti": "test", "cômit": "commit",
+    "rilís": "release", "rôl-béqui": "rollback", "quéxi": "cache",
+    "endi-point": "endpoint", "fítcher": "feature", "lógui": "log",
+    "esse-qiu-éle": "SQL", "guê-cê-pê": "GCP", "á-dábliu-ésse": "AWS",
+    "eme-éle-ops": "MLOps", "guê-pê-u": "GPU", "pê-valor": "p-valor",
+    # Termos de duas palavras entram também partidos: a reversão acontece
+    # palavra a palavra (é assim que o alinhamento do ElevenLabs chega), e
+    # "mochin lérning" nunca casaria inteiro.
+    "mochin": "machine", "lérning": "learning",
+    "fain": "fine", "tiúning": "tuning",
+}
+
+# Ordenado por tamanho decrescente: "prómptis" tem que casar antes de
+# "prómpti", senão sobra um "s" solto na tela.
+_PRONUNCIA_RE = re.compile(
+    r"(?<!\w)(" + "|".join(
+        re.escape(k) for k in sorted(PRONUNCIA_PARA_ESCRITA, key=len, reverse=True)
+    ) + r")(?!\w)",
+    re.IGNORECASE,
+)
+
+
+def desfonetizar(texto: str) -> str:
+    """
+    Devolve a grafia REAL dos termos que o script escreveu por pronúncia.
+
+    Só a legenda passa por aqui. O áudio continua sendo gerado a partir do
+    texto fonético — trocar lá quebraria a pronúncia, que é o motivo de a
+    grafia existir.
+    """
+    def troca(m: re.Match) -> str:
+        certo = PRONUNCIA_PARA_ESCRITA[m.group(1).lower()]
+        # "Prómpti" no começo da frase vira "Prompt", não "prompt".
+        return certo.capitalize() if m.group(1)[:1].isupper() and certo.islower() else certo
+
+    return _PRONUNCIA_RE.sub(troca, texto)
+
+
 # ── Legibilidade das cues ─────────────────────────────────────────────────────
 # Números pensados para 9:16 em tela de celular: uma cue curta o suficiente
 # para ser lida de relance, longa o suficiente para não piscar.
@@ -138,10 +195,42 @@ def words_from_alignment(alignment: dict) -> list[WordTiming]:
     if buf:
         words.append(WordTiming("".join(buf), buf_start or 0.0, buf_end))
 
-    return words
+    # A grafia fonética morre AQUI, na fronteira entre áudio e tela. O
+    # alinhamento vem do texto que foi falado, então carrega "prómpti" e
+    # "ê-pê-í"; a partir deste ponto tudo que existe é legenda.
+    return [
+        WordTiming(desfonetizar(w.text), w.start_s, w.end_s) for w in words
+    ]
 
 
 # ── Palavras → cues ───────────────────────────────────────────────────────────
+
+# Palavras que não podem FECHAR uma cue: preposições, artigos, conjunções e
+# pronomes relativos. Terminar nelas deixa a frase pendurada — o leitor
+# entende que vem um complemento e a legenda troca antes de ele aparecer.
+FUNCIONAIS = frozenset("""
+a o as os um uma uns umas de do da dos das em no na nos nas por pelo pela
+para pra com sem sob sobre entre até desde após ante e ou mas que se como
+quando onde qual quais cujo cuja ao aos à às num numa dum duma
+""".split())
+
+# Quanto a cue pode passar do limite para não fechar numa palavra funcional.
+# Pequeno de propósito: é um ajuste de leitura, não uma licença para cue longa.
+FOLGA_CHARS    = 8
+FOLGA_SEGUNDOS = 0.4
+
+
+def _limpa(palavra: str) -> str:
+    return "".join(c for c in palavra.lower() if c.isalnum() or c == "-")
+
+
+def _funcional(palavra: str) -> bool:
+    return _limpa(palavra) in FUNCIONAIS
+
+
+def _termina_frase(palavra: str) -> bool:
+    return palavra.rstrip().endswith((".", "?", "!", ":", ";"))
+
 
 
 def group_into_cues(
@@ -159,18 +248,42 @@ def group_into_cues(
     """
     cues: list[Cue] = []
     current = Cue()
+    lista = list(words)
 
-    for word in words:
+    for i, word in enumerate(lista):
         if current.words:
-            gap        = word.start_s - current.words[-1].end_s
+            anterior   = current.words[-1]
+            gap        = word.start_s - anterior.end_s
             would_be   = len(current.text) + 1 + len(word.text)
             duration   = word.end_s - current.start_s
-            if (
+            estourou   = (
                 gap >= CUE_BREAK_GAP_S
                 or would_be > max_chars
                 or duration > max_seconds
                 or len(current.words) >= max_words
-            ):
+            )
+
+            # Fim de frase quebra SEMPRE, mesmo sem estourar limite.
+            #
+            # Sem isto, a cue juntava o fim de uma frase com o começo da
+            # seguinte — "atrás? O vibe coding parece" — e o leitor recebia
+            # duas ideias no mesmo piscar.
+            if _termina_frase(anterior.text):
+                estourou = True
+
+            # E nunca termina numa palavra funcional. O olho para em "no",
+            # "a", "que", fica esperando o complemento, e a cue troca antes
+            # de ele chegar. Adiar uma palavra é mais barato que quebrar a
+            # leitura — desde que ainda caiba.
+            elif estourou and _funcional(anterior.text) and len(current.words) > 1:
+                if (
+                    would_be <= max_chars + FOLGA_CHARS
+                    and duration <= max_seconds + FOLGA_SEGUNDOS
+                    and gap < CUE_BREAK_GAP_S
+                ):
+                    estourou = False
+
+            if estourou:
                 cues.append(current)
                 current = Cue()
         current.words.append(word)
@@ -314,6 +427,8 @@ def words_from_text_estimated(text: str, duration_s: float) -> list[WordTiming]:
     cursor = 0.0
     for token in tokens:
         share = (len(token) / total_chars) * duration_s
-        words.append(WordTiming(token, cursor, cursor + share))
+        # Mesma fronteira do caminho com alinhamento: daqui para frente é
+        # legenda, e legenda não mostra grafia de pronúncia.
+        words.append(WordTiming(desfonetizar(token), cursor, cursor + share))
         cursor += share
     return words

@@ -140,7 +140,7 @@ def carrossel_slide_html(titulo: str, corpo: str, numero: int, total: int, serie
 
 
 def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] = None,
-                     cta: str = "") -> str:
+                     cta: str = "", serie: str = "") -> str:
     """
     Um frame de story (1080x1920).
 
@@ -173,22 +173,42 @@ def story_frame_html(texto: str, ordem: int, total: int, enquete: Optional[str] 
         f'font-weight:700;color:{ACCENT}">{c}</p>'
     ) if c else ""
 
-    # 1920px de altura: sem distribuir os blocos o conteúdo empilha no topo e
-    # sobra meia tela vazia.
+    # SEM barra de progresso própria.
+    #
+    # O Instagram desenha a dele no topo de toda sequência de story. A nossa
+    # ficava logo abaixo, duplicando a informação e ocupando a área mais
+    # nobre do quadro — duas barras dizendo a mesma coisa. Quem indica
+    # posição na sequência é o app; a imagem cuida do conteúdo.
+    #
+    # O grid de fundo é o mesmo dos slides do vídeo (slide_designer_agent).
+    # Antes a story era um preto chapado, visualmente à parte do resto da
+    # marca; com a textura ela pertence ao mesmo sistema.
+    grid = (
+        f"background-image:"
+        f"linear-gradient(rgba(232,135,58,.045) 1px, transparent 1px),"
+        f"linear-gradient(90deg, rgba(232,135,58,.045) 1px, transparent 1px);"
+        f"background-size:44px 44px;"
+    )
+    serie_tag = html_escape.escape((serie or "").replace("-", " ").upper()) if serie else ""
+
     return _shell(f"""
-<div style="display:flex;flex-direction:column;height:100%;justify-content:space-between">
-  <div style="display:flex;gap:8px">
-    {"".join(
-        f'<div style="flex:1;height:6px;border-radius:3px;background:{ACCENT if i < ordem else BG_ALT}"></div>'
-        for i in range(total)
-    )}
-  </div>
-  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 0">
-    <p style="font-size:{56 if len(t) < 150 else 46}px;line-height:1.35;font-weight:600">{t}</p>
+<div style="{grid}position:absolute;inset:0"></div>
+<div style="position:relative;display:flex;flex-direction:column;height:100%">
+  <!-- Topo deliberadamente vazio: é onde o Instagram desenha avatar, nome,
+       timestamp e a barra de progresso dele. Competir por esse espaço é
+       colocar conteúdo debaixo da interface do app. -->
+  <div style="flex:1"></div>
+  <div style="padding-bottom:110px">
+    {f'<div style="font-family:monospace;font-size:25px;letter-spacing:.2em;color:{TEXT_SOFT}">{serie_tag}</div>' if serie_tag else ''}
+    <div style="width:88px;height:5px;background:{ACCENT};margin:20px 0 34px"></div>
+    <p style="font-size:{68 if len(t) < 120 else (58 if len(t) < 200 else 48)}px;line-height:1.24;font-weight:700;letter-spacing:-.015em">{t}</p>
     {bloco_cta}
     {bloco}
   </div>
-  <div class="soft"><span style="font-size:28px">eozore.com</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline">
+    <span class="soft" style="font-size:26px;letter-spacing:.04em">eozore.com</span>
+    <span style="font-family:monospace;font-size:24px;color:{TEXT_SOFT}">{ordem}/{total}</span>
+  </div>
 </div>""", *STORY_SIZE, padding=100, padding_top=STORY_SAFE_TOP, padding_bottom=STORY_SAFE_BOTTOM)
 
 
@@ -452,6 +472,7 @@ def montar_itens(
                 _render=[{
                     "html": story_frame_html(
                         texto, i + 1, len(frames), f.get("enquete"), cta_frame,
+                        serie=serie,
                     ),
                     "size": STORY_SIZE,
                     "nome": f"story_{s.get('id', 'st')}_{i + 1}",
