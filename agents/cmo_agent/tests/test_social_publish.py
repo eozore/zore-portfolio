@@ -307,3 +307,71 @@ def test_pecas_da_mesma_campanha_nao_colidem_entre_si():
     itens = montar_itens(plano, base=datetime(2026, 9, 10, tzinfo=timezone.utc))
     horas = [i["scheduled_at"][:13] for i in itens]
     assert len(set(horas)) == len(horas), f"colisão interna: {horas}"
+
+
+# ── Peça não pode mentir sobre o vídeo ────────────────────────────────────────
+
+class _PlanoFake:
+    """
+    Só o que `checar_promessas_do_video` consome.
+
+    Um PlanoSocial válido exige 10 stories, carrossel e threads — peso que não
+    diz nada sobre a checagem em si, que age sobre as frases.
+    """
+    def __init__(self, *frases):
+        self._frases = [("li-1", f) for f in frases]
+
+    def afirmacoes_sobre_o_video(self):
+        from social_schemas import MARCADORES_VIDEO, VERBOS_DE_DEMONSTRACAO
+        return [
+            (i, f) for i, f in self._frases
+            if any(m in f.lower() for m in MARCADORES_VIDEO)
+            and any(v in f.lower() for v in VERBOS_DE_DEMONSTRACAO)
+        ]
+
+
+def test_promessa_que_o_roteiro_nao_sustenta_vira_aviso():
+    """
+    Defeito de 01/09: uma peça afirmou que "no vídeo fizemos código mostrando e
+    medindo a diferença". O vídeo não media nada — o código estava no ARTIGO.
+    O agente recebe as duas peças e conflacionava as duas; quem clicou
+    descobriu em quinze segundos.
+    """
+    from social_schemas import checar_promessas_do_video
+
+    roteiro = "Falamos sobre especificação executável e contratos formais."
+    plano = _PlanoFake("No vídeo eu mostro o código medindo a latência da requisição.")
+    avisos = checar_promessas_do_video(plano, roteiro)
+    assert avisos, "a promessa falsa tinha que virar aviso"
+    assert "li-1" in avisos[0]
+
+
+def test_promessa_sustentada_pelo_roteiro_nao_avisa():
+    """Falso positivo aqui é ruído na revisão — a checagem tem que discriminar."""
+    from social_schemas import checar_promessas_do_video
+
+    roteiro = (
+        "No vídeo eu mostro o código medindo a latência da requisição entre "
+        "as duas abordagens, com o resultado na tela."
+    )
+    plano = _PlanoFake("No vídeo eu mostro o código medindo a latência da requisição.")
+    assert checar_promessas_do_video(plano, roteiro) == []
+
+
+def test_falar_sobre_o_tema_nao_e_promessa_de_conteudo():
+    """
+    "Falo sobre isso no vídeo" é promessa de TEMA e é honesta. Só promessa de
+    CONTEÚDO — mostrar, medir, rodar — precisa existir em cena.
+    """
+    from social_schemas import checar_promessas_do_video
+
+    plano = _PlanoFake("Falo sobre esse problema no vídeo desta semana.")
+    assert checar_promessas_do_video(plano, "roteiro qualquer sem relação") == []
+
+
+def test_sem_roteiro_nao_inventa_aviso():
+    """Sessão antiga sem manifesto não pode encher a revisão de falso positivo."""
+    from social_schemas import checar_promessas_do_video
+
+    plano = _PlanoFake("No vídeo eu mostro o código medindo tudo.")
+    assert checar_promessas_do_video(plano, "") == []

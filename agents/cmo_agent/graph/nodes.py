@@ -588,11 +588,32 @@ async def no_social(estado: EstadoMarketing) -> dict:
             _db(), estado.get("tenant_id"), "distribuidor",
             contexto_extra=montar_contexto(_db(), estado.get("tenant_id")),
         )
+        # Inventário do que o vídeo REALMENTE mostra, beat a beat.
+        #
+        # Sem isto o agente lia o roteiro e o artigo como se fossem a mesma
+        # peça e atribuía ao vídeo o que só existe no texto: uma publicação de
+        # 01/09 afirmou que "no vídeo fizemos código mostrando e medindo a
+        # diferença", e o vídeo não mede nada — o código está no ARTIGO. Quem
+        # clica descobre a mentira em quinze segundos, e é a peça que trouxe a
+        # pessoa que queima a confiança.
+        inventario = []
+        for seg in segmentos:
+            beat = str(seg.get("beat") or "").strip()
+            tipo = "apresentador falando" if seg.get("kind") == "avatar" else "ilustração na tela"
+            trecho = str(seg.get("script") or "")[:110].replace("\n", " ")
+            if trecho:
+                inventario.append(f"  - [{beat or 'segmento'} · {tipo}] {trecho}…")
+        inventario_txt = "\n".join(inventario) or "  (sem segmentos declarados)"
+
         base = (
             f"Vídeo: {titulo}\n"
             f"Promessa do vídeo: {promessa}\n\n"
-            f"=== ROTEIRO ===\n{roteiro}\n\n"
-            f"=== ARTIGO ===\n{(estado.get('artigo_markdown') or '')[:4000]}\n\n"
+            f"=== O QUE O VÍDEO REALMENTE MOSTRA (inventário completo) ===\n"
+            f"{inventario_txt}\n\n"
+            f"Este inventário é EXAUSTIVO. O vídeo não contém nada além disto.\n\n"
+            f"=== ROTEIRO FALADO ===\n{roteiro}\n\n"
+            f"=== ARTIGO (peça SEPARADA — não é o vídeo) ===\n"
+            f"{(estado.get('artigo_markdown') or '')[:4000]}\n\n"
         )
 
         # Mecânica de cada plataforma — o que muda o formato, não o conteúdo.
@@ -713,6 +734,13 @@ async def no_social(estado: EstadoMarketing) -> dict:
         )
 
         avisos  = plano.diagnostico()
+
+        # Promessa que o roteiro não sustenta é o defeito mais caro deste nó:
+        # não estraga a peça, estraga a confiança de quem clicou nela. Entra
+        # na trilha para aparecer na revisão, junto com os outros avisos.
+        from social_schemas import checar_promessas_do_video
+        avisos += checar_promessas_do_video(plano, roteiro)
+
         metodos = {p.copy_skill_id for p in plano.todas_as_pecas()}
         set_attributes(pecas=plano.total_pecas(), metodos_distintos=len(metodos),
                        canais_com_falha=len(falhas))

@@ -2608,6 +2608,9 @@ async def graph_social_enqueue(req: GraphEnqueueRequest, request: Request):
         idioma=v.get("idioma") or "pt-BR",
         serie=(v.get("pauta") or {}).get("serie") or "",
         session_id=req.sessionId,
+        # As ilustrações do vídeo viram a imagem dos posts de LinkedIn. Já
+        # estavam prontas e eram descartadas.
+        slides_video=v.get("slide_htmls") or {},
     )
     logger.info(
         "[graph/social/enqueue] %s/%s peças enfileiradas (%d falha(s))",

@@ -22,6 +22,8 @@ não "tenta" respeitar, ele é rejeitado se não respeitar.
 
 from __future__ import annotations
 
+import re
+
 from enum import Enum
 from typing import List, Optional
 
@@ -357,6 +359,63 @@ class PostYouTubeCommunity(PecaBase):
     )
 
 
+# Uma afirmação sobre o vídeo é a interseção de duas coisas: falar DO vídeo e
+# dizer que ele DEMONSTRA algo. "Falo sobre isso no vídeo" é promessa de tema e
+# é honesta; "no vídeo eu mostro o código medindo" é promessa de conteúdo, e
+# essa precisa existir em cena.
+MARCADORES_VIDEO = (
+    "no vídeo", "no video", "nesse vídeo", "neste vídeo", "no episódio",
+    "assista", "no youtube",
+)
+VERBOS_DE_DEMONSTRACAO = (
+    "mostro", "mostramos", "mostra", "demonstro", "demonstramos", "demonstra",
+    "meço", "medimos", "mede", "medindo", "implemento", "implementamos",
+    "implementa", "rodo", "rodamos", "roda ", "executo", "executamos",
+    "comparo", "comparamos", "código", "codigo", "ao vivo", "na tela",
+)
+
+
+def checar_promessas_do_video(plano: "PlanoSocial", roteiro: str) -> List[str]:
+    """
+    Avisa quando uma peça promete algo que o roteiro do vídeo não sustenta.
+
+    Nasceu de uma publicação de 01/09 que afirmou que "no vídeo fizemos código
+    mostrando e medindo a diferença" — o vídeo não media nada, o código estava
+    no ARTIGO. O agente recebe as duas peças e conflacionava as duas.
+
+    A checagem é de PALAVRA, não semântica: procura os termos concretos da
+    afirmação dentro do roteiro. Erra para o lado de avisar demais, e um aviso
+    a mais na revisão custa um segundo — a promessa falsa custa a confiança de
+    quem clicou.
+    """
+    if not roteiro:
+        return []
+    base = roteiro.lower()
+    avisos: List[str] = []
+    for peca_id, frase in plano.afirmacoes_sobre_o_video():
+        # Palavras "de conteúdo" da frase: as que carregam a promessa.
+        termos = [
+            t for t in re.findall(r"[a-zà-ú]{5,}", frase.lower())
+            if t not in _IGNORADAS
+        ]
+        if not termos:
+            continue
+        ausentes = [t for t in termos if t not in base]
+        # Metade dos termos fora do roteiro é sinal forte de invenção.
+        if len(ausentes) > len(termos) / 2:
+            avisos.append(
+                f"[{peca_id}] afirma sobre o vídeo algo que o roteiro não "
+                f"sustenta: \"{frase[:110]}\" (fora do roteiro: {', '.join(ausentes[:5])})"
+            )
+    return avisos
+
+
+_IGNORADAS = frozenset("""
+video vídeo episódio youtube assista assistir sobre quando porque assim
+completo inteiro mesmo também ainda depois antes muito pouco nesse neste
+""".split())
+
+
 class PlanoSocial(BaseModel):
     """
     O plano completo da semana, todo apontando para o mesmo vídeo.
@@ -391,6 +450,28 @@ class PlanoSocial(BaseModel):
     def todas_as_pecas(self) -> List[PecaBase]:
         return [*self.linkedin, *self.threads, *self.carrossel,
                 *self.stories, *self.youtube_community]
+
+    def afirmacoes_sobre_o_video(self) -> List[tuple[str, str]]:
+        """
+        Trechos que afirmam algo sobre o VÍDEO, para conferir contra o roteiro.
+
+        Só detecta a afirmação; quem julga se ela procede é
+        `checar_promessas_do_video`, que tem o inventário em mãos. Separar as
+        duas coisas é o que permite testar a detecção sem um manifesto.
+        """
+        achados: List[tuple[str, str]] = []
+        for p in self.todas_as_pecas():
+            for campo in ("gancho", "corpo", "legenda"):
+                texto = getattr(p, campo, None)
+                if not isinstance(texto, str):
+                    continue
+                for frase in re.split(r"(?<=[.!?])\s+", texto):
+                    baixo = frase.lower()
+                    if any(m in baixo for m in MARCADORES_VIDEO) and any(
+                        v in baixo for v in VERBOS_DE_DEMONSTRACAO
+                    ):
+                        achados.append((getattr(p, "id", "?"), frase.strip()))
+        return achados
 
     def diagnostico(self) -> List[str]:
         """

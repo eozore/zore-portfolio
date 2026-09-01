@@ -47,6 +47,9 @@ TEXT_SOFT   = "#8a8378"
 ACCENT      = "#e8873a"
 
 CAROUSEL_SIZE = (1080, 1080)
+# Nativo do slide do vídeo. O LinkedIn aceita 16:9 sem recorte, e re-renderizar
+# num formato diferente quebraria o layout, que foi desenhado para 1920x1080.
+SLIDE_SIZE    = (1920, 1080)
 STORY_SIZE    = (1080, 1920)
 
 # Zona segura de Story, não estética.
@@ -365,6 +368,7 @@ def montar_itens(
     session_id: str = "",
     base: Optional[datetime] = None,
     agenda_ocupada: Optional[set[tuple[str, str]]] = None,
+    slides_video: Optional[dict[str, str]] = None,
 ) -> list[dict]:
     """
     `PlanoSocial` (já como dict) → documentos de `social_queue`.
@@ -382,6 +386,10 @@ def montar_itens(
         "session_id":    session_id or None,
     }
     itens: list[dict] = []
+    # As ilustrações do vídeo, na ordem. Um post por slide, ciclando quando há
+    # mais posts que slides.
+    slides = [h for h in (slides_video or {}).values() if h and len(h) > 200]
+
     # Horários já tomados: o que veio da fila (campanhas anteriores ainda
     # pendentes) mais o que esta montagem for marcando. Um conjunto só para as
     # duas coisas — a colisão entre campanhas e a colisão interna são o mesmo
@@ -393,7 +401,7 @@ def montar_itens(
         return _quando(base, dia, hora, minutos_extra)
 
     # ── LinkedIn ──────────────────────────────────────────────────────────────
-    for p in plano.get("linkedin") or []:
+    for i, p in enumerate(plano.get("linkedin") or []):
         itens.append(_doc(
             platform="linkedin", format="text",
             title=(p.get("gancho") or "")[:120],
@@ -402,6 +410,18 @@ def montar_itens(
             # publisher posta isto como primeiro comentário.
             comentario_fixado=p.get("comentario_fixado") or None,
             scheduled_at=quando("linkedin", p.get("dia_offset", 1)),
+            # A ILUSTRAÇÃO DO VÍDEO vira a imagem do post.
+            #
+            # LinkedIn, Threads e comunidade saíam como texto puro — e no
+            # LinkedIn post com imagem alcança substancialmente mais. O ativo
+            # já existia: o slide_designer desenha 9 ilustrações por vídeo, no
+            # sistema visual da marca, e nenhuma virava peça social. Era
+            # trabalho pronto sendo descartado.
+            **({"_render": [{
+                "html": slides[i % len(slides)],
+                "size": SLIDE_SIZE,
+                "nome": f"li_{p.get('id', i)}",
+            }]} if slides else {}),
             **comum,
         ))
 
@@ -554,6 +574,7 @@ async def enfileirar(
     idioma: str = "pt-BR",
     serie: str = "",
     session_id: str = "",
+    slides_video: Optional[dict[str, str]] = None,
 ) -> dict:
     """
     Renderiza as imagens que faltam e grava tudo em `social_queue`.
@@ -570,6 +591,7 @@ async def enfileirar(
         artigo_slug=artigo_slug, artigo_titulo=artigo_titulo, artigo_url=artigo_url,
         idioma=idioma, serie=serie, session_id=session_id,
         agenda_ocupada=agenda_ocupada(db),
+        slides_video=slides_video,
     )
 
     enfileirados = 0

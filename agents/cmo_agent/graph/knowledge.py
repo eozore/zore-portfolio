@@ -65,7 +65,43 @@ def carregar_marca(db, tenant_id: Optional[str]) -> dict[str, Any]:
     return dict(DEFAULT_BRAND)
 
 
+# ── 1b. Trajetória: quem é o Victor ───────────────────────────────────────────
+
+# Documento editável em `agent_configurations/trajetoria`. Fica em Firestore e
+# não no código porque muda com a carreira, não com o deploy.
+#
+# A REGRA DE USO importa mais que o conteúdo: isto existe para o agente saber
+# COM QUEM está falando e de onde vem a autoridade — não para virar material
+# de publicação. Um post que cita o cargo do autor para se legitimar é
+# exatamente o que o canal não faz; a autoridade aparece na precisão técnica,
+# não na credencial.
+DEFAULT_TRAJETORIA: dict[str, Any] = {
+    "quem": "",             # cargo, empresa, tempo de estrada
+    "formacao": "",
+    "dominios": [],         # onde tem experiência REAL de produção
+    "nao_dominios": [],     # onde não tem — para não afirmar o que não sabe
+    "como_aprendeu": "",    # a trajetória em uma frase
+}
+
+
+def carregar_trajetoria(db, tenant_id: Optional[str]) -> dict[str, Any]:
+    try:
+        snap = _col(db, tenant_id, "agent_configurations").document("trajetoria").get()
+        if snap.exists:
+            return {**DEFAULT_TRAJETORIA, **(snap.to_dict() or {})}
+    except Exception as exc:
+        logger.warning("[kb] Falha ao ler trajetória: %s", exc)
+    return dict(DEFAULT_TRAJETORIA)
+
+
 # ── 2. Base de conhecimento: o que já foi publicado ───────────────────────────
+
+def _subtitulos(markdown: str, limite: int = 6) -> list[str]:
+    """Os H2 do artigo — o índice do que ele efetivamente cobriu."""
+    import re
+    achados = re.findall(r"^##\s+(.+?)\s*$", markdown, flags=re.M)
+    return [t.strip() for t in achados[:limite]]
+
 
 def recall_artigos(db, tenant_id: Optional[str], limite: int = MAX_ARTIGOS_CONTEXTO) -> list[dict]:
     """Artigos já publicados, do mais recente para o mais antigo."""
@@ -83,9 +119,14 @@ def recall_artigos(db, tenant_id: Optional[str], limite: int = MAX_ARTIGOS_CONTE
                 "titulo": data.get("title", ""),
                 "slug":   data.get("slug", ""),
                 "categoria": data.get("category", ""),
-                # Só o resumo: o corpo inteiro estouraria a janela de contexto
-                # sem acrescentar nada à decisão de "isto já foi coberto?".
-                "resumo": (data.get("content") or "")[:280],
+                # Os SUBTÍTULOS, não os primeiros 280 caracteres.
+                #
+                # O começo do artigo é a introdução — diz o tema e mais nada,
+                # então a memória do agente era "escrevi sobre harness" sem
+                # saber o que tinha dito. Os H2 são o índice do que foi
+                # coberto: é isso que uma pessoa lembra do que escreveu, e é
+                # com isso que ela decide o que ainda falta dizer.
+                "cobriu": _subtitulos(data.get("content") or ""),
             })
         return saida
     except Exception as exc:
@@ -164,10 +205,50 @@ def montar_contexto(db, tenant_id: Optional[str]) -> str:
         f"Funil: {marca['objetivo_funil']}",
     ]
 
+    traj = carregar_trajetoria(db, tenant_id)
+    if any(traj.get(k) for k in ("quem", "dominios", "como_aprendeu")):
+        partes.append("\n━━━ QUEM ESCREVE ━━━")
+        if traj.get("quem"):
+            partes.append(f"Victor Zoré: {traj['quem']}")
+        if traj.get("formacao"):
+            partes.append(f"Formação: {traj['formacao']}")
+        if traj.get("dominios"):
+            partes.append(f"Experiência real em: {', '.join(traj['dominios'])}")
+        if traj.get("nao_dominios"):
+            partes.append(
+                f"NÃO tem vivência em: {', '.join(traj['nao_dominios'])} — "
+                f"não afirme experiência que não existe."
+            )
+        if traj.get("como_aprendeu"):
+            partes.append(f"Trajetória: {traj['como_aprendeu']}")
+        # A regra de uso vai JUNTO do dado, não num prompt distante: sem ela o
+        # modelo trata a biografia como material de copy e escreve post que
+        # se apoia na credencial em vez do argumento.
+        partes.append(
+            "USO: isto é para você saber com quem está falando e o que ele pode "
+            "afirmar com propriedade. NÃO é material de publicação. Nunca cite "
+            "cargo, empresa ou tempo de carreira para legitimar um argumento — "
+            "neste canal a autoridade vem da precisão técnica, não do currículo. "
+            "Escreva como quem sabe, não como quem se apresenta."
+        )
+
     if artigos:
-        partes.append("\n━━━ JÁ PUBLICADO (não repita, mas pode referenciar) ━━━")
+        # O que você já escreveu, com o que cada peça cobriu.
+        #
+        # Não é "isto é uma série" — um vídeo não precisa continuar o
+        # anterior. É a memória que uma pessoa tem do próprio trabalho: saber
+        # o que já disse muda o que ela escolhe dizer agora, seja para não
+        # repetir, seja para referenciar de propósito.
+        partes.append("\n━━━ O QUE VOCÊ JÁ ESCREVEU ━━━")
         for a in artigos:
             partes.append(f"- {a['titulo']} (/{a['slug']})")
+            for sub in (a.get("cobriu") or []):
+                partes.append(f"    · {sub}")
+        partes.append(
+            "Não repita o que já está coberto. Referenciar é bom-vindo — "
+            "'como mostrei em X' constrói catálogo. Fingir que é a primeira "
+            "vez que você toca no assunto, não."
+        )
 
     if decisoes:
         partes.append("\n━━━ APRENDIZADO DE REVISÕES ANTERIORES ━━━")
