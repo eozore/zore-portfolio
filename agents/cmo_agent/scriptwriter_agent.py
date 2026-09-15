@@ -79,14 +79,15 @@ REGRA 3 — Scripts são 100% pronúncia pura.
 Sem fórmulas, sem code blocks, sem markdown no texto de fala.
 Parênteses com pronunciamento auxiliar são permitidos: "a função de custo (J de teta)"
 
-━━━ ESTRUTURA DE BEATS ━━━
-hook          — provocação que prende nos primeiros 30s
-intro         — apresenta o problema e o que o espectador aprende
-teoria        — fundamento matemático/conceitual (o PORQUÊ)
-codigo        — implementação prática (o COMO)
-demo          — resultado, métricas, gráficos
-comparativo   — tabela ou gráfico comparativo de trade-offs
-consideracoes — quando usar, ordem de investimento, decisão executiva
+━━━ ESTRUTURA DE BEATS (Focada em Retenção: Show, Don't Tell) ━━━
+hook          — provocação super agressiva nos primeiros 15s. Abra um "open loop" (uma pergunta ou curiosidade que só será respondida no final).
+demo_teaser   — mostre o resultado final funcionando, o "Wow moment" ou o impacto visual ANTES de explicar a teoria. Prenda a pessoa pelo resultado.
+intro         — apresenta o problema real que vamos resolver.
+teoria        — fundamento matemático/conceitual (o PORQUÊ). Rápido, visual e estritamente necessário para entender o código. Sem longas aulas chatas.
+codigo        — implementação prática (o COMO).
+demo          — análise técnica dos resultados, métricas, gráficos.
+comparativo   — tabela ou gráfico comparativo de trade-offs.
+consideracoes — quando usar, ordem de investimento, decisão executiva.
 cta_meio      — convite curto (8 a 15s), NO MEIO do vídeo, amarrado ao assunto
                 por uma piada ou uma comparação. Nunca "se inscreva no canal"
                 solto: a graça vem de usar o próprio tema. Exemplo, num vídeo
@@ -95,8 +96,8 @@ cta_meio      — convite curto (8 a 15s), NO MEIO do vídeo, amarrado ao assunt
                 algoritmo é menos determinístico que LLM."
 cta_artigo    — perto do fim, para quem quer a versão técnica: diz o que o
                 ARTIGO tem que o vídeo não coube (o código inteiro, os
-                benchmarks, os casos de borda) e manda para a descrição
-resumo        — 3 pontos para levar para a reunião
+                benchmarks, os casos de borda) e manda para a descrição.
+resumo        — 3 pontos rápidos. Feche o "open loop" do gancho. OBRIGATÓRIO: termine sempre com uma despedida clara (ex: "Então é isso pessoal, até o próximo vídeo"). Nunca acabe abruptamente.
 
 ━━━ REGRAS DE ÂNCORAS (anchors[]) ━━━
 Cada âncora dispara uma animação no slide quando aquela frase é falada.
@@ -131,7 +132,7 @@ Distribuição do avatar — ele aparece DO INÍCIO AO FIM, não só no começo:
   1. Gancho (obrigatório, primeiro segmento) — avatar.
   2. Duas a três reentradas no meio, entre blocos de teoria/código/demo.
      Servem de respiro: quebram a sequência de slides e reconectam.
-  3. Fechamento (obrigatório, último segmento) — avatar.
+  3. Fechamento (obrigatório, último segmento) — avatar (inclui a despedida).
 
 Nunca dois segmentos de avatar seguidos. Nunca mais de 3 slides seguidos sem
 o apresentador voltar à tela.

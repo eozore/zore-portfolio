@@ -1,1 +1,0 @@
-[Answer]: Performance validada pelos spikes reais da sessão de desenvolvimento.

@@ -13,56 +13,35 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Pre-defined demo users verification
-    setTimeout(() => {
-      let sessionData = null;
-
-      if (email === 'acesso@cromex.com.br' && password === 'cromexacesso') {
-        sessionData = {
-          email: 'acesso@cromex.com.br',
-          companyId: 'cromex',
-          name: 'Cromex Team',
-          role: 'client',
-        };
-      } else if (email === 'visitante@eozore.com' && password === 'visitante123') {
-        sessionData = {
-          email: 'visitante@eozore.com',
-          name: 'Visitante Comum',
-          role: 'user',
-        };
-      } else if (email === 'victorzore94@gmail.com' && password === 'adminzore94') {
-        sessionData = {
-          email: 'victorzore94@gmail.com',
-          name: 'Victor Zoré',
-          role: 'admin',
-        };
-      }
-
-      if (sessionData) {
-        // Save encoded JSON string session to cookie
-        document.cookie = `eozore_session=${encodeURIComponent(JSON.stringify(sessionData))}; path=/; max-age=86400; SameSite=Lax`;
-        
+    try {
+      const { loginAction } = await import('./actions');
+      const result = await loginAction(email, password);
+      
+      if (result.success) {
         // Use full page reload to force middleware cookie parsing
         window.location.href = `/${redirect}`;
       } else {
-        setError('E-mail ou senha incorretos.');
+        setError(result.error || 'E-mail ou senha incorretos.');
         setIsLoading(false);
       }
-    }, 600);
+    } catch (err) {
+      setError('Erro ao realizar login.');
+      setIsLoading(false);
+    }
   };
 
   const fillDemo = (demoType: 'cromex' | 'public') => {
     if (demoType === 'cromex') {
       setEmail('acesso@cromex.com.br');
-      setPassword('cromexacesso');
+      setPassword('');
     } else {
       setEmail('visitante@eozore.com');
-      setPassword('visitante123');
+      setPassword('');
     }
   };
 

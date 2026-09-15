@@ -185,6 +185,52 @@ def pubsub_video_ready(envelope: dict):
         job = PublisherJob(gcp_project_id=GCP_PROJECT_ID)
         results = job.publish_video_ready(msg)
         logger.info(f"[/pubsub/video-ready] ✅ {project_id}: {results}")
+
+        # ── Disparo automático do corte vertical ──────────────────────────
+        # Antes era manual (o dono clicava "Gerar Vertical" na UI). Agora
+        # roda automaticamente, mas COM guarda de idempotência: se o corte
+        # já rodou ou está rodando, não dispara de novo. Também não dispara
+        # para projetos antigos sem clips_prefix — o vertical_cut_job vai
+        # recusar e o redelivery do Pub/Sub ficaria em loop.
+        try:
+            from google.cloud import firestore as _fs
+            _db = _fs.Client(project=GCP_PROJECT_ID)
+            proj_doc = _db.collection("content_projects").document(project_id).get()
+            proj_data = proj_doc.to_dict() if proj_doc.exists else {}
+            stages = proj_data.get("stages") or {}
+            vc_status = (stages.get("vertical_cut") or {}).get("status")
+            has_clips = bool((stages.get("editor") or {}).get("clips_prefix"))
+
+            if vc_status in ("completed", "running", "queued"):
+                logger.info(
+                    f"[/pubsub/video-ready] vertical-cut já {vc_status} para {project_id} — pulando"
+                )
+            elif not has_clips:
+                logger.info(
+                    f"[/pubsub/video-ready] {project_id} sem clips_prefix — vertical-cut incompatível"
+                )
+            else:
+                from shared.pubsub_client import PubSubClient
+                from dataclasses import dataclass
+                import datetime
+
+                @dataclass
+                class VerticalCutMsg:
+                    project_id: str
+                    channels: list[str]
+                    requested_at: str
+
+                pubsub = PubSubClient(GCP_PROJECT_ID)
+                pubsub.publish("content-pipeline.vertical-cut", VerticalCutMsg(
+                    project_id=project_id,
+                    channels=["instagram_reel", "youtube_short"],
+                    requested_at=datetime.datetime.now(datetime.timezone.utc).isoformat()
+                ))
+                logger.info(f"[/pubsub/video-ready] Disparado vertical-cut para {project_id}")
+        except Exception as ve:
+            # Falha ABERTA: não disparar o vertical é aceitável; derrubar o
+            # ack do video-ready não é.
+            logger.error(f"[/pubsub/video-ready] Falha ao disparar vertical-cut: {ve}")
         return {"status": "ok", "project_id": project_id, "results": results}
     except Exception as e:
         logger.exception("[/pubsub/video-ready] Erro — Pub/Sub fará redelivery")
