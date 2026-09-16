@@ -161,6 +161,128 @@ def calcular_quartis_por_grupo(dataframe, coluna_valor, coluna_grupo):
 
 # --- PIPELINE TASKS ---
 
+def _calculate_cm1(vendas_file: str, aderencia_mi_file: str):
+    """Core CM1 calculation. Returns (df_input, final_cm1) DataFrames."""
+    df_vendas = pd.read_excel(vendas_file)
+    carteira_mi_raw = pd.read_excel(aderencia_mi_file, sheet_name='Base Clientes')
+
+    df_cm1 = pd.merge(df_vendas, carteira_mi_raw, left_on=['cd_cliente'], right_on=['Cliente'], how='left')
+    df_filtrado = df_cm1[(df_cm1['dt_ano_civil'] >= '2022-01-01') & (df_cm1['vl_CM1'] >= 0)].copy()
+
+    def get_quartil_series(series):
+        try:
+            return pd.qcut(series, q=4, labels=['Q_1', 'Q_2', 'Q_3', 'Q_4'], duplicates='drop')
+        except ValueError:
+            return pd.cut(series, bins=4, labels=['Q_1', 'Q_2', 'Q_3', 'Q_4'], duplicates='drop')
+
+    df_filtrado['quartil'] = df_filtrado.groupby('cd_material')['qt_volume_faturado'].transform(get_quartil_series).astype(str)
+
+    df_sorted = df_filtrado.sort_values('dt_ano_civil', ascending=False)
+    ultpreco = df_sorted.groupby(['cd_cliente', 'cd_material', 'quartil']).first().reset_index()
+    ultpreco = ultpreco[['cd_cliente', 'cd_material', 'quartil', 'vl_CM1', 'dt_ano_civil']]
+    ultpreco = ultpreco.rename(columns={'vl_CM1': 'ultimo_preco'})
+    ultpreco['ultimo_preco'] = ultpreco['ultimo_preco'] * 1.05
+
+    dados_agg = df_filtrado.groupby(['cd_material', 'quartil'])['vl_CM1'].agg(['min', 'max']).reset_index()
+    dados_pivot = pd.pivot_table(dados_agg, values=['min', 'max'], index='cd_material', columns='quartil')
+    dados_pivot.columns = ["_CM1_vol_".join(col).strip() for col in dados_pivot.columns.values]
+
+    final_cm1 = df_filtrado.groupby(['cd_cliente', 'cd_material', 'quartil'])['vl_CM1'].agg(['min', 'max']).reset_index()
+    final_cm1 = pd.merge(final_cm1, ultpreco, on=['cd_cliente', 'cd_material', 'quartil'], how='left')
+    final_cm1 = pd.merge(final_cm1, dados_pivot, on='cd_material', how='left')
+
+    def atribuir_valor(row):
+        q = row['quartil']
+        if q == 'Q_1': return row.get('max_CM1_vol_Q_1')
+        elif q == 'Q_2': return row.get('max_CM1_vol_Q_2')
+        elif q == 'Q_3': return row.get('max_CM1_vol_Q_3')
+        else: return row.get('max_CM1_vol_Q_4')
+
+    final_cm1['CM1_referencia'] = final_cm1.apply(atribuir_valor, axis=1)
+
+    def CM1final(row):
+        ref = row['CM1_referencia']
+        if ref is None or ref == 0:
+            return row['ultimo_preco']
+        ratio = row['ultimo_preco'] / ref
+        if ratio > 1 or ratio < 0.9:
+            return row['ultimo_preco']
+        return ref
+
+    final_cm1['CM1_indicado'] = final_cm1.apply(CM1final, axis=1)
+    df_input = final_cm1.groupby(['cd_cliente', 'cd_material'])['CM1_indicado'].max().reset_index()
+    return df_input
+
+
+def run_cm1_only_task(params: PricingParams, task_id: str):
+    """Pipeline que calcula apenas o CM1 de forma independente.
+    Usa vendas.xlsx (obrigatório) e aderencia_mi.xlsx como fallback do armazenamento existente.
+    """
+    try:
+        update_firestore_status(task_id, "processing", 10, "Iniciando cálculo de CM1 independente...")
+
+        # 1. Arquivo de vendas - obrigatório
+        vendas_file = get_file_content("vendas.xlsx")
+        update_firestore_status(task_id, "processing", 20, "Base de vendas carregada.")
+
+        # 2. Arquivo de aderência MI - fallback: usa o que já estiver salvo
+        try:
+            aderencia_mi_file = get_file_content("aderencia_mi.xlsx")
+            update_firestore_status(task_id, "processing", 30, "Aderência MI carregada (fallback do armazenamento).")
+        except FileNotFoundError:
+            update_firestore_status(task_id, "error", 30,
+                "Arquivo de aderência MI não encontrado. Por favor, faça um upload completo primeiro.")
+            return
+
+        # 3. Calcular CM1
+        update_firestore_status(task_id, "processing", 50, "Calculando CM1...")
+        df_input = _calculate_cm1(vendas_file, aderencia_mi_file)
+
+        # 4. Salvar planilha de saída
+        temp_cm1_out = "/tmp/input_julho_2026.xlsx"
+        df_input.to_excel(temp_cm1_out, index=False)
+        save_output_file(temp_cm1_out, "input_julho_2026.xlsx")
+        update_firestore_status(task_id, "processing", 75, "Planilha CM1 gerada com sucesso.")
+
+        # 5. Atualizar apenas a chave CM1 no dashboard JSON existente
+        now_str = pd.Timestamp.now().strftime("%Y-%m-%dT%H:%M:%S")
+        cm1_list = [
+            {"client_id": int(row["cd_cliente"]), "material_id": int(row["cd_material"]), "cm1_indicado": float(row["CM1_indicado"])}
+            for _, row in df_input.iterrows()
+        ]
+
+        existing_dashboard = {}
+        try:
+            if IS_LOCAL:
+                import os as _os
+                dash_path = _os.path.join(LOCAL_DATAOUTPUT, "cromex_dashboard.json")
+                if _os.path.exists(dash_path):
+                    with open(dash_path, "r", encoding="utf-8") as f:
+                        existing_dashboard = json.load(f)
+            else:
+                client_gcs = storage.Client()
+                bucket = client_gcs.bucket(BUCKET_NAME)
+                blob = bucket.blob("processed/cromex_dashboard.json")
+                if blob.exists():
+                    existing_dashboard = json.loads(blob.download_as_text())
+        except Exception as e:
+            logger.warning(f"Não foi possível ler dashboard existente, criando novo: {e}")
+
+        existing_dashboard["CM1"] = cm1_list
+        existing_dashboard["last_cm1_run"] = now_str
+
+        temp_json_out = "/tmp/cromex_dashboard.json"
+        with open(temp_json_out, "w", encoding="utf-8") as f:
+            json.dump(existing_dashboard, f, ensure_ascii=False, indent=2)
+        save_output_file(temp_json_out, "cromex_dashboard.json")
+
+        update_firestore_status(task_id, "completed", 100, "Cálculo de CM1 finalizado com sucesso!")
+
+    except Exception as e:
+        update_firestore_status(task_id, "error", 100, f"Falha no cálculo de CM1: {e}")
+        logger.error(f"Erro no pipeline de CM1: {e}", exc_info=True)
+
+
 def run_full_pipeline_task(params: PricingParams, task_id: str):
     try:
         update_firestore_status(task_id, "processing", 5, "Iniciando pipeline de precificação Cromex...")
@@ -172,57 +294,14 @@ def run_full_pipeline_task(params: PricingParams, task_id: str):
         aderencia_me_file = get_file_content("aderencia_me.xlsx")
         pe_pp_file = get_file_content("PE_PP.xlsx")
         
-        # 2. RUN CM1 CALCULATION
+        # 2. RUN CM1 CALCULATION (reuses extracted logic)
         update_firestore_status(task_id, "processing", 20, "Iniciando cálculo de CM1...")
-        df_vendas = pd.read_excel(vendas_file)
-        carteira_mi_raw = pd.read_excel(aderencia_mi_file, sheet_name='Base Clientes')
-        
-        df_cm1 = pd.merge(df_vendas, carteira_mi_raw, left_on=['cd_cliente'], right_on=['Cliente'], how='left')
-        df_filtrado = df_cm1[(df_cm1['dt_ano_civil'] >= '2022-01-01') & (df_cm1['vl_CM1'] >= 0)].copy()
-        
-        def get_quartil_series(series):
-            try:
-                return pd.qcut(series, q=4, labels=['Q_1', 'Q_2', 'Q_3', 'Q_4'], duplicates='drop')
-            except ValueError:
-                return pd.cut(series, bins=4, labels=['Q_1', 'Q_2', 'Q_3', 'Q_4'], duplicates='drop')
+        df_input = _calculate_cm1(vendas_file, aderencia_mi_file)
 
-        df_filtrado['quartil'] = df_filtrado.groupby('cd_material')['qt_volume_faturado'].transform(get_quartil_series).astype(str)
-        
-        df_sorted = df_filtrado.sort_values('dt_ano_civil', ascending=False)
-        ultpreco = df_sorted.groupby(['cd_cliente', 'cd_material', 'quartil']).first().reset_index()
-        ultpreco = ultpreco[['cd_cliente', 'cd_material', 'quartil', 'vl_CM1', 'dt_ano_civil']]
-        ultpreco = ultpreco.rename(columns={'vl_CM1': 'ultimo_preco'})
-        ultpreco['ultimo_preco'] = ultpreco['ultimo_preco'] * 1.05
-        
-        dados_agg = df_filtrado.groupby(['cd_material', 'quartil'])['vl_CM1'].agg(['min', 'max']).reset_index()
-        dados_pivot = pd.pivot_table(dados_agg, values=['min', 'max'], index='cd_material', columns='quartil')
-        dados_pivot.columns = ["_CM1_vol_".join(col).strip() for col in dados_pivot.columns.values]
-        
-        final_cm1 = df_filtrado.groupby(['cd_cliente', 'cd_material', 'quartil'])['vl_CM1'].agg(['min', 'max']).reset_index()
-        final_cm1 = pd.merge(final_cm1, ultpreco, on=['cd_cliente', 'cd_material', 'quartil'], how='left')
-        final_cm1 = pd.merge(final_cm1, dados_pivot, on='cd_material', how='left')
-        
-        def atribuir_valor(row):
-            q = row['quartil']
-            if q == 'Q_1': return row['max_CM1_vol_Q_1']
-            elif q == 'Q_2': return row['max_CM1_vol_Q_2']
-            elif q == 'Q_3': return row['max_CM1_vol_Q_3']
-            else: return row['max_CM1_vol_Q_4']
-
-        final_cm1['CM1_referencia'] = final_cm1.apply(atribuir_valor, axis=1)
-        
-        def CM1final(row):
-            if row['ultimo_preco'] / row['CM1_referencia'] > 1 or row['ultimo_preco'] / row['CM1_referencia'] < 0.9:
-                return row['ultimo_preco']
-            return row['CM1_referencia']
-            
-        final_cm1['CM1_indicado'] = final_cm1.apply(CM1final, axis=1)
-        df_input = final_cm1.groupby(['cd_cliente', 'cd_material'])['CM1_indicado'].max().reset_index()
-        
-        temp_cm1_out = f"/tmp/input_julho_2026.xlsx"
+        temp_cm1_out = "/tmp/input_julho_2026.xlsx"
         df_input.to_excel(temp_cm1_out, index=False)
         save_output_file(temp_cm1_out, "input_julho_2026.xlsx")
-        
+
         update_firestore_status(task_id, "processing", 35, "Cálculo de CM1 concluído com sucesso!")
 
         # 3. PREPARE PE_PP TABLE WITH DYNAMIC PARAMS
@@ -408,6 +487,7 @@ def run_full_pipeline_task(params: PricingParams, task_id: str):
         # 6. GENERATE DYNAMIC DASHBOARD JSON
         update_firestore_status(task_id, "processing", 90, "Consolidando métricas e gerando painel dinâmico do dashboard...")
         dashboard_data = generate_dashboard_data(df_mi_tot, df_me_tot, df_input)
+        dashboard_data["last_cm1_run"] = pd.Timestamp.now().strftime("%Y-%m-%dT%H:%M:%S")
         
         temp_json_out = f"/tmp/cromex_dashboard.json"
         with open(temp_json_out, "w", encoding="utf-8") as f_json:
@@ -583,7 +663,7 @@ def health():
 @app.post("/run-cm1")
 def run_cm1(params: PricingParams, background_tasks: BackgroundTasks):
     task_id = f"cm1_{int(pd.Timestamp.now().timestamp())}"
-    background_tasks.add_task(run_full_pipeline_task, params, task_id)
+    background_tasks.add_task(run_cm1_only_task, params, task_id)
     return {"status": "queued", "task_id": task_id}
 
 @app.post("/run-all")

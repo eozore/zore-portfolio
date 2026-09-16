@@ -14,7 +14,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AuthGate from '../csm/AuthGate';
+import AuthGate from './AuthGate';
 import Biblioteca from './Biblioteca';
 import { Badge, Button, Card, Notice, cx } from './ui/primitives';
 import {

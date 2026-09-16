@@ -24,12 +24,14 @@ export default function CromexPage({ params }: CromexPageProps) {
   
   // States for Processes
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCm1Processing, setIsCm1Processing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [peLinear, setPeLinear] = useState('');
   const [peBaixa, setPeBaixa] = useState('');
   const [pp, setPp] = useState('');
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showDownloadBtn, setShowDownloadBtn] = useState(false);
+  const [showCm1DownloadBtn, setShowCm1DownloadBtn] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [filesUploaded, setFilesUploaded] = useState({ vendas: false, aderencia_mi: false, aderencia_me: false });
   const [uploadingState, setUploadingState] = useState({ vendas: false, aderencia_mi: false, aderencia_me: false });
@@ -257,6 +259,62 @@ export default function CromexPage({ params }: CromexPageProps) {
       setShowWarningModal(true);
     } else {
       startCalculation(peLinear, peBaixa, pp);
+    }
+  };
+
+  const triggerCm1Run = async () => {
+    if (!filesUploaded.vendas) {
+      alert("Por favor, faça upload da Base de Vendas antes de rodar o CM1.");
+      return;
+    }
+
+    setIsCm1Processing(true);
+    setShowCm1DownloadBtn(false);
+    setLogs([]);
+
+    try {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Iniciando cálculo de CM1 independente...`]);
+
+      const response = await fetch('/api/tools/cromex/process-cm1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          peLinear: peLinear || '202',
+          peBaixa: peBaixa || '217',
+          pp: pp || '184',
+          monthRef: selectedMonth || '2026-07',
+        }),
+      });
+
+      if (!response.ok) throw new Error('Falha ao iniciar cálculo de CM1.');
+
+      const { task_id } = await response.json();
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Tarefa CM1 criada: ${task_id}. Monitorando...`]);
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/tools/cromex/status?taskId=${task_id}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.logs?.length > 0) {
+              setLogs(statusData.logs.map((log: string) => `[${new Date().toLocaleTimeString()}] ${log}`));
+            }
+            if (statusData.status === 'completed') {
+              clearInterval(pollInterval);
+              setIsCm1Processing(false);
+              setShowCm1DownloadBtn(true);
+              fetchDashboardData();
+            } else if (statusData.status === 'error') {
+              clearInterval(pollInterval);
+              setIsCm1Processing(false);
+              alert(`Erro no CM1: ${statusData.last_log || 'Ocorreu um erro.'}`);
+            }
+          }
+        } catch (e) { console.error('Erro ao consultar status CM1:', e); }
+      }, 2000);
+    } catch (error: any) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ERRO: ${error.message}`]);
+      setIsCm1Processing(false);
     }
   };
 
@@ -705,8 +763,29 @@ export default function CromexPage({ params }: CromexPageProps) {
             <div className={styles.panelTitle}>
               <i className="fa-solid fa-list-check" />
               Lista de Referência CM1 sugerido (Top 100)
+              {dashboardData.last_cm1_run && (
+                <span style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 500,
+                  color: 'var(--text-muted)',
+                  background: 'var(--surface-2, rgba(0,0,0,0.06))',
+                  borderRadius: '6px',
+                  padding: '2px 8px',
+                  marginLeft: '0.75rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}>
+                  <i className="fa-regular fa-clock" style={{ fontSize: '0.68rem' }} />
+                  Última execução:{' '}
+                  {new Date(dashboardData.last_cm1_run).toLocaleString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
+              )}
             </div>
-            
+
             {/* Search filter & Download Button */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <a
@@ -886,25 +965,50 @@ export default function CromexPage({ params }: CromexPageProps) {
               </div>
             </div>
 
-            {/* Disparador de Execução */}
-            <button
-              id="btn-run-process"
-              className={styles.runButton}
-              onClick={triggerProcessRun}
-              disabled={isProcessing || !filesUploaded.vendas || !filesUploaded.aderencia_mi || !filesUploaded.aderencia_me}
-            >
-              {isProcessing ? (
-                <>
-                  <i className="fa-solid fa-spinner fa-spin" />
-                  Processando...
-                </>
-              ) : (
-                <>
-                  <i className="fa-solid fa-play" />
-                  Rodar Processamento Mensal
-                </>
-              )}
-            </button>
+            {/* Disparadores de Execução */}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {/* Botão CM1 independente */}
+              <button
+                id="btn-run-cm1-only"
+                className={styles.runButton}
+                onClick={triggerCm1Run}
+                disabled={isCm1Processing || isProcessing || !filesUploaded.vendas}
+                style={{ flex: 1, background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)' }}
+              >
+                {isCm1Processing ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin" />
+                    Calculando CM1...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-calculator" />
+                    Rodar apenas CM1
+                  </>
+                )}
+              </button>
+
+              {/* Botão pipeline completo */}
+              <button
+                id="btn-run-process"
+                className={styles.runButton}
+                onClick={triggerProcessRun}
+                disabled={isProcessing || isCm1Processing || !filesUploaded.vendas || !filesUploaded.aderencia_mi || !filesUploaded.aderencia_me}
+                style={{ flex: 1 }}
+              >
+                {isProcessing ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-play" />
+                    Rodar Processamento Mensal
+                  </>
+                )}
+              </button>
+            </div>
 
             {/* Progress bar */}
             {isProcessing && (
@@ -913,7 +1017,30 @@ export default function CromexPage({ params }: CromexPageProps) {
               </div>
             )}
 
-            {/* Download Grid */}
+            {/* Progress bar - CM1 only */}
+            {isCm1Processing && (
+              <div className={styles.progressBarContainer}>
+                <div className={styles.progressBar} style={{ width: '60%', background: 'linear-gradient(90deg, #7c3aed, #5b21b6)' }} />
+              </div>
+            )}
+
+            {/* Download CM1 only */}
+            {showCm1DownloadBtn && !isCm1Processing && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', width: '100%' }}>
+                <h4 style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>Download — Cálculo CM1:</h4>
+                <a
+                  id="btn-download-cm1-only"
+                  href="/api/tools/cromex/download?file=input_julho_2026.xlsx"
+                  download="input_julho_2026.xlsx"
+                  className={styles.downloadButton}
+                  style={{ margin: 0, background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)' }}
+                >
+                  <i className="fa-solid fa-file-arrow-down" /> CM1 Indicado (Excel)
+                </a>
+              </div>
+            )}
+
+            {/* Download Grid - Pipeline completo */}
             {showDownloadBtn && !isProcessing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem', width: '100%' }}>
                 <h4 style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>Download das Planilhas Processadas:</h4>
